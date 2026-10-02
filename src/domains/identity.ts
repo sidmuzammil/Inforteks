@@ -81,7 +81,7 @@ export const roles: Record<string, readonly Permission[]> = {
 export const staffRoleLabels: Record<string, string> = {
   MANAGER: "Store manager — daily operations",
   CATALOG: "Product manager — listings, prices & publishing",
-  CONTENT: "Content editor — banners & store pages",
+  CONTENT: "Content editor — banners, pages & reviews",
   EDITOR: "Editor — product drafts & content",
   INVENTORY: "Inventory — stock levels",
   SUPPORT: "Support — orders, fulfilment & returns",

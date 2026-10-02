@@ -39,7 +39,7 @@ The Jobs screen shows queued, running, completed, failed and blocked work. Missi
 | Owner           | All scopes; staff, keys and integration settings                                               |
 | Manager         | Day-to-day catalogue, inventory, orders, content and reports; restricted access administration |
 | Product manager | Product listings, prices and publication; no staff, order or stock management                  |
-| Content editor  | Homepage banners and store pages only                                                          |
+| Content editor  | Homepage banners, store pages and review moderation                                            |
 | Editor          | Product drafts and content; no pricing or stock authority                                      |
 | Inventory       | Catalogue visibility and stock adjustments                                                     |
 | Support         | Orders, fulfilment, customer support, returns and refund requests                              |

@@ -614,7 +614,7 @@ export default async function Page({
           <p className="notice">
             Manage your orders, delivery addresses and account details here.
           </p>
-          {actor.role !== "CUSTOMER" && (
+          {actor.scopes.length > 0 && (
             <Link className="button primary" href="/admin">
               Open staff workspace <ArrowRight size={15} />
             </Link>
