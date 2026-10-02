@@ -2,6 +2,7 @@
 import { useState, useEffect, type FormEvent } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { MAX_IMAGE_BYTES } from "@/lib/uploads";
 import {
   Package,
   LayoutDashboard,
@@ -583,6 +584,10 @@ export function MediaUpload({ productId }: { productId: string }) {
         const fd = new FormData(e.currentTarget);
         fd.set("productId", productId);
         try {
+          const file = fd.get("file");
+          if (file instanceof File && file.size > MAX_IMAGE_BYTES) {
+            throw new Error("Images must be 4 MB or smaller.");
+          }
           await api("admin/media", fd);
           router.refresh();
         } catch (e) {
@@ -602,7 +607,7 @@ export function MediaUpload({ productId }: { productId: string }) {
             required
           />
           <small className="form-help">
-            Up to 8 MB. Minimum 100 × 100 pixels.
+            Up to 4 MB. Minimum 100 × 100 pixels.
           </small>
         </label>
         <label>

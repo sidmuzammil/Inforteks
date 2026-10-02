@@ -71,7 +71,7 @@ pnpm format:check
 
 Integration tests use the separate `inforteks_test` database. Browser tests use the development catalogue and create temporary records: never point them at production. Playwright uses `/usr/bin/chromium` when available; otherwise install its browser with `pnpm exec playwright install --with-deps chromium`. `PLAYWRIGHT_CHROMIUM_EXECUTABLE` can select an installed browser explicitly. Browser reports, local screenshots and traces are ignored by Git and can contain session or customer information.
 
-The production build does not require a reachable database. Production readiness does require HTTPS authentication, a strong secret, private S3 storage and a database. Never turn on `DEV_PAYMENT_SIMULATOR` in production. See the [Railway deployment guide](docs/DEPLOYMENT_RAILWAY.md).
+The production build does not require a reachable database. Production readiness does require HTTPS authentication, a strong secret, private S3 or Vercel Blob storage and a database. Never turn on `DEV_PAYMENT_SIMULATOR` in production. See the [Railway deployment guide](docs/DEPLOYMENT_RAILWAY.md) or [Vercel deployment guide](docs/DEPLOYMENT_VERCEL.md).
 
 ## Documentation
 

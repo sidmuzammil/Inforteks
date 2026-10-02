@@ -10,9 +10,9 @@ This file distinguishes the supplied brief's broad target from the working imple
 - Permission-filtered administration for catalogue, inventory, orders, returns, content, promotions, imports, keys, jobs, audit and assistant conversations.
 - Shared operation scopes, one-time hashed integration keys, rate limits, version-bound approvals and transactional audit/stock ledgers.
 - Quantity-aware fulfilment, cancellation restrictions, received-return disposition/restocking and expired reservation release.
-- Validated image re-encoding, private draft media and S3-compatible storage adapter.
+- Validated image re-encoding, private draft media and adapters for S3-compatible storage and private Vercel Blob.
 - Durable import/email/AI worker, two official AI provider adapters and a bounded tool allowlist.
-- PostgreSQL migrations, repeatable development setup, tests, generated API registry and Railway deployment files.
+- PostgreSQL migrations, repeatable development setup, tests, generated API registry and Railway/Vercel deployment files.
 
 ## Remaining product scope
 

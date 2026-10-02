@@ -616,7 +616,7 @@ export default async function AdminPage({
               {
                 name: "Storage",
                 status: process.env.STORAGE_DRIVER ?? "local",
-                note: "Persistent local uploads in development. S3-compatible storage required in production.",
+                note: "Private S3 or Vercel Blob storage for production uploads.",
               },
               {
                 name: "Transactional email",

@@ -6051,7 +6051,7 @@
     "/admin/media": {
       "post": {
         "operationId": "uploadImage",
-        "summary": "Multipart file, productId, alt. Content-checked and reencoded; maximum 8 MB.",
+        "summary": "Multipart file, productId, alt. Content-checked and reencoded; maximum 4 MB.",
         "x-required-scope": "catalog:write",
         "parameters": [],
         "security": [

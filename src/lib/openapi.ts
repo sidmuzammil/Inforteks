@@ -221,7 +221,7 @@ export const apiOperations: OperationDoc[] = [
     id: "uploadImage",
     scope: "catalog:write",
     summary:
-      "Multipart file, productId, alt. Content-checked and reencoded; maximum 8 MB.",
+      "Multipart file, productId, alt. Content-checked and reencoded; maximum 4 MB.",
   },
   {
     method: "post",

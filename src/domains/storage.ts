@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
+import { get as getBlob, put as putBlob } from "@vercel/blob";
 import {
   S3Client,
   PutObjectCommand,
@@ -10,6 +11,7 @@ import {
 import { db } from "@/lib/db";
 import { invariant } from "@/lib/errors";
 import { audit, requireScope, type Actor } from "./identity";
+import { MAX_IMAGE_BYTES } from "@/lib/uploads";
 const root = () =>
   path.resolve(
     /* turbopackIgnore: true */ process.env.UPLOAD_DIR ?? ".data/uploads",
@@ -33,9 +35,9 @@ export async function storeImage(
 ) {
   requireScope(actor, "catalog:write");
   invariant(
-    file.size > 0 && file.size <= 8 * 1024 * 1024,
+    file.size > 0 && file.size <= MAX_IMAGE_BYTES,
     422,
-    "Images must be smaller than 8 MB.",
+    "Images must be 4 MB or smaller.",
   );
   invariant(
     alt.trim().length > 0 && alt.length <= 250,
@@ -72,11 +74,18 @@ export async function storeImage(
         ContentType: "image/webp",
       }),
     );
-  else {
+  else if (process.env.STORAGE_DRIVER === "blob") {
+    await putBlob(key, data, {
+      access: "private",
+      addRandomSuffix: false,
+      contentType: "image/webp",
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    });
+  } else {
     invariant(
       process.env.NODE_ENV !== "production",
       503,
-      "Production requires S3-compatible storage.",
+      "Production requires private object storage.",
     );
     await mkdir(root(), { recursive: true });
     await writeFile(path.join(root(), key), data);
@@ -107,19 +116,28 @@ export async function readImage(id: string, actor?: Actor) {
     requireScope(actor, "catalog:read");
   }
   invariant(/^[a-f0-9-]+\.webp$/.test(m.key), 404, "Image not found.");
-  const body =
-    process.env.STORAGE_DRIVER === "s3"
-      ? Buffer.from(
-          await (
-            await s3().send(
-              new GetObjectCommand({
-                Bucket: process.env.S3_BUCKET,
-                Key: m.key,
-              }),
-            )
-          ).Body!.transformToByteArray(),
+  let body: Buffer;
+  if (process.env.STORAGE_DRIVER === "blob") {
+    const result = await getBlob(m.key, {
+      access: "private",
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+    });
+    invariant(result?.statusCode === 200, 404, "Image not found.");
+    body = Buffer.from(await new Response(result.stream).arrayBuffer());
+  } else if (process.env.STORAGE_DRIVER === "s3") {
+    body = Buffer.from(
+      await (
+        await s3().send(
+          new GetObjectCommand({
+            Bucket: process.env.S3_BUCKET,
+            Key: m.key,
+          }),
         )
-      : await readFile(path.join(root(), m.key));
+      ).Body!.transformToByteArray(),
+    );
+  } else {
+    body = await readFile(path.join(root(), m.key));
+  }
   return {
     body,
     mime: m.mime,
