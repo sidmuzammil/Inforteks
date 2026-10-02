@@ -17,7 +17,22 @@ jobs:
       - name: Install package manager
         run: npm install --global pnpm@11.19.0
       - name: Set up isolated development database
-        run: bash scripts/setup.sh
+        run: |
+          mkdir -p .data
+          set +e
+          bash scripts/setup.sh > .data/ci-setup.log 2>&1
+          task_setup_status=$?
+          set -e
+          cat .data/ci-setup.log
+          if [ "$task_setup_status" -ne 0 ]; then
+            python3 - <<'PY'
+          from pathlib import Path
+          lines = Path('.data/ci-setup.log').read_text().splitlines()[-20:]
+          message = '\n'.join(lines).replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          print(f'::error title=Development setup failed::{message}')
+          PY
+            exit "$task_setup_status"
+          fi
       - name: Static and database checks
         run: |
           pnpm typecheck
@@ -29,7 +44,20 @@ jobs:
       - name: Install browser
         run: pnpm exec playwright install --with-deps chromium
       - name: Browser journeys
-        run: pnpm test:e2e
+        env:
+          # Local fixture identity only; browser tests intercept Google consent.
+          GOOGLE_CLIENT_ID: 1234567890-inforteks-test.apps.googleusercontent.com
+          GOOGLE_CLIENT_SECRET: test-only-client-secret
+        run: |
+          node --import tsx scripts/worker.ts > .data/ci-worker.log 2>&1 &
+          worker_ci_pid=$!
+          trap 'kill -TERM "$worker_ci_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:8081/health > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://localhost:8081/health > /dev/null
+          pnpm test:e2e
       - name: Production build without a live database
         env:
           DATABASE_URL: postgresql://build:build@127.0.0.1:1/no_database
