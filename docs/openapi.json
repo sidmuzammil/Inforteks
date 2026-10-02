@@ -1579,6 +1579,11 @@
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 99
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": ["set", "add"],
+                    "default": "set"
                   }
                 }
               }
@@ -1720,6 +1725,11 @@
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 99
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": ["set", "add"],
+                    "default": "set"
                   }
                 }
               }

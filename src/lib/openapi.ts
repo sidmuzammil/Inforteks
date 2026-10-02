@@ -423,6 +423,7 @@ const requestSchemas: Record<string, unknown> = {
     properties: {
       skuId: { type: "string" },
       quantity: { type: "integer", minimum: 0, maximum: 99 },
+      mode: { type: "string", enum: ["set", "add"], default: "set" },
     },
   },
   quoteCart: {
