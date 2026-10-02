@@ -55,6 +55,14 @@ export const roles: Record<string, readonly Permission[]> = {
     "content:write",
     "ai:use",
   ],
+  CATALOG: [
+    "catalog:read",
+    "catalog:write",
+    "catalog:publish",
+    "pricing:read",
+    "pricing:write",
+  ],
+  CONTENT: ["content:read", "content:write"],
   INVENTORY: ["catalog:read", "inventory:read", "inventory:adjust", "ai:use"],
   SUPPORT: [
     "orders:read",
@@ -68,6 +76,17 @@ export const roles: Record<string, readonly Permission[]> = {
   ],
   ANALYST: ["reports:read"],
   CUSTOMER: [],
+  STAFF_DISABLED: [],
+};
+export const staffRoleLabels: Record<string, string> = {
+  MANAGER: "Store manager — daily operations",
+  CATALOG: "Product manager — listings, prices & publishing",
+  CONTENT: "Content editor — banners & store pages",
+  EDITOR: "Editor — product drafts & content",
+  INVENTORY: "Inventory — stock levels",
+  SUPPORT: "Support — orders, fulfilment & returns",
+  ANALYST: "Analyst — reports only",
+  STAFF_DISABLED: "No staff access — revoke access",
 };
 export type Actor = {
   id: string;

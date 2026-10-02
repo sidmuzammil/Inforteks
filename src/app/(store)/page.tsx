@@ -7,6 +7,7 @@ export default async function Home() {
   const now = new Date();
   const [sections, categories, featured, newest, brands] = await Promise.all([
     db.homeSection.findMany({
+      include: { bannerMedia: { select: { id: true, alt: true } } },
       where: {
         visible: true,
         AND: [
@@ -33,8 +34,15 @@ export default async function Home() {
               <div className="hero-main">
                 <img
                   className="hero-image"
-                  src="/brand/hero.png"
-                  alt="Unbranded concept gaming laptop with an illuminated blue display"
+                  src={
+                    s.bannerMedia
+                      ? `/media/${s.bannerMedia.id}`
+                      : "/brand/hero.png"
+                  }
+                  alt={
+                    s.bannerMedia?.alt ??
+                    "Unbranded concept gaming laptop with an illuminated blue display"
+                  }
                   fetchPriority="high"
                 />
                 <div className="hero-overlay" />
@@ -45,7 +53,7 @@ export default async function Home() {
                   <h1>{s.title}</h1>
                   <p>{s.subtitle}</p>
                   <Link href={s.href} className="button white">
-                    Explore laptops
+                    {s.buttonLabel}
                     <ArrowUpRight size={17} />
                   </Link>
                   <div className="hero-foot">

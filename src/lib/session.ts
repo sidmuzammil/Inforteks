@@ -2,8 +2,11 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { actorForUser, authenticateKey, type Actor } from "@/domains/identity";
 import { invariant } from "@/lib/errors";
-export const getSession = async () =>
-  auth.api.getSession({ headers: await headers() });
+import { cache } from "react";
+// Deduplicate within one server render; never share sessions across requests.
+export const getSession = cache(async () =>
+  auth.api.getSession({ headers: await headers() }),
+);
 export async function requestActor(request?: Request): Promise<Actor> {
   const h = request?.headers ?? (await headers());
   const bearer = h.get("authorization");

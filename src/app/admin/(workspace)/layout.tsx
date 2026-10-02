@@ -5,6 +5,7 @@ import { getSession } from "@/lib/session";
 import { actorForUser } from "@/domains/identity";
 import { modules } from "@/domains/administration";
 import { AdminNav } from "@/components/admin-client";
+import { SignOut } from "@/components/forms";
 export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Staff workspace",
@@ -16,7 +17,7 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const session = await getSession();
-  if (!session) redirect("/login?next=/admin");
+  if (!session) redirect("/admin/login");
   const actor = await actorForUser(session.user.id);
   if (!actor.scopes.length)
     return (
@@ -24,8 +25,8 @@ export default async function AdminLayout({
         <div className="empty-state">
           <h1>Staff access required.</h1>
           <p>
-            This account has customer access. An Owner can grant a named staff
-            role.
+            This is a customer account. Only staff accounts created by the store
+            Owner can manage Inforteks.
           </p>
           <Link href="/account" className="button primary">
             My account
@@ -64,6 +65,7 @@ export default async function AdminLayout({
             </span>
             {session.user.name}
             <span className="badge">{actor.role}</span>
+            <SignOut staff />
           </div>
         </header>
         <main id="main-content" className="admin-content">

@@ -10,6 +10,7 @@ import type { Prisma } from "../src/generated/prisma/client";
 import { z } from "zod";
 import { runWorker } from "../src/lib/worker-runtime";
 import { validateRuntime } from "../src/lib/runtime";
+import { authEmail } from "../src/lib/auth-email";
 export async function runOneJob() {
   const job = await db.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<
@@ -52,9 +53,27 @@ export async function runOneJob() {
         },
       });
     } else if (job.type === "EMAIL") {
+      const expiresAt = payload.expiresAt
+        ? Date.parse(payload.expiresAt)
+        : job.createdAt.getTime() + 3600_000;
+      if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+        await db.job.update({
+          where: { id: job.id },
+          data: {
+            status: "CANCELLED",
+            payload: { kind: payload.kind ?? "PASSWORD_RESET" },
+            lastError: "Authentication link expired before delivery.",
+          },
+        });
+        return true;
+      }
+      const message = authEmail(
+        payload,
+        process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+      );
       if (
         process.env.NODE_ENV !== "production" &&
-        process.env.EMAIL_PROVIDER !== "resend"
+        process.env.EMAIL_PROVIDER === "development"
       ) {
         await mkdir(".data/mailbox", { recursive: true, mode: 0o700 });
         await writeFile(
@@ -62,7 +81,7 @@ export async function runOneJob() {
           JSON.stringify(
             {
               to: payload.to,
-              subject: "Reset your Inforteks password",
+              subject: message.subject,
               url: payload.url,
             },
             null,
@@ -74,10 +93,15 @@ export async function runOneJob() {
           where: { id: job.id },
           data: {
             status: "COMPLETED",
+            payload: { kind: payload.kind ?? "PASSWORD_RESET" },
             result: { delivery: "development mailbox; not emailed" },
           },
         });
-      } else if (process.env.RESEND_API_KEY && process.env.EMAIL_FROM) {
+      } else if (
+        process.env.EMAIL_PROVIDER === "resend" &&
+        process.env.RESEND_API_KEY &&
+        process.env.EMAIL_FROM
+      ) {
         const response = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -87,9 +111,7 @@ export async function runOneJob() {
           },
           body: JSON.stringify({
             from: process.env.EMAIL_FROM,
-            to: payload.to,
-            subject: "Reset your Inforteks password",
-            text: `Use this secure link to reset your password: ${payload.url}`,
+            ...message,
           }),
           signal: AbortSignal.timeout(15000),
         });
@@ -100,6 +122,7 @@ export async function runOneJob() {
           where: { id: job.id },
           data: {
             status: "COMPLETED",
+            payload: { kind: payload.kind ?? "PASSWORD_RESET" },
             result: { providerId: result.id, delivery: "accepted by provider" },
           },
         });

@@ -8,14 +8,20 @@ import type { Prisma } from "@/generated/prisma/client";
 
 export const addressInput = z
   .object({
-    name: z.string().min(2).max(100),
+    name: z.string().trim().min(2).max(100),
     phone: z
       .string()
-      .regex(/^\+971[0-9]{8,9}$/, "Use a UAE number starting +971."),
+      .trim()
+      .transform((phone) => phone.replace(/[ ()-]/g, ""))
+      .pipe(
+        z
+          .string()
+          .regex(/^\+971[0-9]{8,9}$/, "Use a UAE number starting +971."),
+      ),
     emirate: z.enum(emirates as [string, ...string[]]),
-    city: z.string().min(2).max(100),
-    line1: z.string().min(5).max(250),
-    landmark: z.string().max(200).optional(),
+    city: z.string().trim().min(2).max(100),
+    line1: z.string().trim().min(5).max(250),
+    landmark: z.string().trim().max(200).optional(),
   })
   .strict();
 export const checkoutInput = z

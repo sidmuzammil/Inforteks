@@ -1,3 +1,4 @@
+import { emailDeliveryEnabled } from "@/lib/email-policy";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
@@ -37,6 +38,7 @@ import {
   dashboard,
   issueKey,
   createStaff,
+  updateStaffAccess,
   importPreview,
   commitImport,
   csvCell,
@@ -44,6 +46,7 @@ import {
 import { storeImage } from "@/domains/storage";
 import { startAiRun, providerStatus } from "@/domains/ai";
 import { reviewReturn } from "@/domains/returns";
+import { profileInput } from "@/lib/account-input";
 
 export const dynamic = "force-dynamic";
 const ok = (data: unknown, status = 200) =>
@@ -219,10 +222,8 @@ async function dispatch(
             select: { id: true, name: true, email: true, createdAt: true },
           }),
         );
-      const d = z
-        .object({ name: z.string().min(2).max(100) })
-        .strict()
-        .parse(await body());
+      invariant(method === "PATCH", 405, "Method not allowed.");
+      const d = profileInput.parse(await body());
       return ok(
         await db.user.update({
           where: { id: userId },
@@ -254,9 +255,11 @@ async function dispatch(
       if (method === "GET")
         return ok(await db.address.findMany({ where: { userId } }));
       if (method === "DELETE") {
+        invariant(id, 400, "Choose an address to delete.");
         await db.address.deleteMany({ where: { id, userId } });
         return ok({ deleted: true });
       }
+      invariant(method === "POST", 405, "Method not allowed.");
       const d = addressInput.parse(await body());
       return ok(await db.address.create({ data: { ...d, userId } }), 201);
     }
@@ -365,7 +368,7 @@ async function dispatch(
       return ok({
         ai: providerStatus(),
         storage: process.env.STORAGE_DRIVER ?? "local",
-        email: process.env.RESEND_API_KEY ? "configured" : "not connected",
+        email: emailDeliveryEnabled() ? "configured" : "not connected",
         payments: paymentMethods(),
       });
     }
@@ -453,7 +456,11 @@ async function dispatch(
         .parse(await body());
       return ok(await propose(actor, d.operation, d.targetId, d.payload), 201);
     }
-    if (resource === "media" && method === "POST") {
+    if (["media", "banner-media"].includes(resource) && method === "POST") {
+      requireScope(
+        actor,
+        resource === "banner-media" ? "content:write" : "catalog:write",
+      );
       const form = await req.formData();
       const file = form.get("file");
       invariant(file instanceof File, 422, "An image file is required.");
@@ -463,6 +470,7 @@ async function dispatch(
           file,
           String(form.get("productId") ?? ""),
           String(form.get("alt") ?? ""),
+          resource === "banner-media",
         ),
         201,
       );
@@ -486,6 +494,8 @@ async function dispatch(
       }
       return ok(await issueKey(actor, await body()), 201);
     }
+    if (resource === "staff" && method === "PATCH" && id)
+      return ok(await updateStaffAccess(actor, id, await body()));
     if (resource === "staff" && method === "POST") {
       if (id && action === "revoke-sessions") {
         requireScope(actor, "staff:manage");

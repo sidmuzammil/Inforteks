@@ -138,10 +138,12 @@ test("selected SKU, guest cart, server quote and protected order confirmation", 
 test("owner creates two-SKU product, uploads image, adjusts stock and publishes", async ({
   page,
 }) => {
-  await page.goto("/login?next=/admin");
+  await page.goto("/admin/login");
   await page.getByLabel("Email address").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Sign in to workspace", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Your store, at a glance." }),
   ).toBeVisible();

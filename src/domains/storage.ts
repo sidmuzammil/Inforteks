@@ -32,8 +32,9 @@ export async function storeImage(
   file: File,
   productId: string,
   alt: string,
+  banner = false,
 ) {
-  requireScope(actor, "catalog:write");
+  requireScope(actor, banner ? "content:write" : "catalog:write");
   invariant(
     file.size > 0 && file.size <= MAX_IMAGE_BYTES,
     422,
@@ -44,10 +45,12 @@ export async function storeImage(
     422,
     "Add meaningful alternative text.",
   );
-  const product = await db.product.findUnique({ where: { id: productId } });
-  invariant(product, 404, "Product not found.");
+  const product = banner
+    ? null
+    : await db.product.findUnique({ where: { id: productId } });
+  if (!banner) invariant(product, 404, "Product not found.");
   // Media for a live product is staged; explicit publication makes the new asset public.
-  if (product.status === "PUBLISHED") requireScope(actor, "catalog:publish");
+  if (product?.status === "PUBLISHED") requireScope(actor, "catalog:publish");
   const source = Buffer.from(await file.arrayBuffer());
   const metadata = await sharp(source, {
     limitInputPixels: 25_000_000,
@@ -92,28 +95,60 @@ export async function storeImage(
   }
   return db.$transaction(async (tx) => {
     const media = await tx.media.create({
-      data: { key, productId, alt, width: info.width, height: info.height },
+      data: {
+        key,
+        productId: product?.id ?? null,
+        alt: alt.trim(),
+        width: info.width,
+        height: info.height,
+      },
     });
-    await tx.product.update({
-      where: { id: productId },
-      data: { version: { increment: 1 } },
-    });
-    await audit(tx, actor, "media.upload", media.id, undefined, {
-      productId,
-      alt,
-    });
+    if (product)
+      await tx.product.update({
+        where: { id: productId },
+        data: { version: { increment: 1 } },
+      });
+    await audit(
+      tx,
+      actor,
+      banner ? "banner-media.upload" : "media.upload",
+      media.id,
+      undefined,
+      {
+        productId,
+        alt,
+      },
+    );
     return media;
   });
 }
 export async function readImage(id: string, actor?: Actor) {
+  const now = new Date();
   const m = await db.media.findUnique({
     where: { id },
-    include: { product: { select: { status: true } } },
+    include: {
+      product: { select: { status: true } },
+      homeSections: {
+        where: {
+          kind: "hero",
+          visible: true,
+          AND: [
+            { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+            { OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
+          ],
+        },
+        take: 1,
+        select: { id: true },
+      },
+    },
   });
   invariant(m, 404, "Image not found.");
-  if (!m.public || m.product?.status !== "PUBLISHED") {
+  const published = m.productId
+    ? m.public && m.product?.status === "PUBLISHED"
+    : m.homeSections.length > 0;
+  if (!published) {
     invariant(actor, 404, "Image not found.");
-    requireScope(actor, "catalog:read");
+    requireScope(actor, m.productId ? "catalog:read" : "content:read");
   }
   invariant(/^[a-f0-9-]+\.webp$/.test(m.key), 404, "Image not found.");
   let body: Buffer;
@@ -141,6 +176,6 @@ export async function readImage(id: string, actor?: Actor) {
   return {
     body,
     mime: m.mime,
-    public: m.public && m.product?.status === "PUBLISHED",
+    public: published,
   };
 }

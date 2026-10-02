@@ -9,7 +9,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { requestActor } from "@/lib/session";
-import { dashboard } from "@/domains/administration";
+import { dashboard, modules } from "@/domains/administration";
 import { db } from "@/lib/db";
 import { money, date } from "@/lib/utils";
 export default async function Dashboard() {
@@ -22,6 +22,18 @@ export default async function Dashboard() {
           Use the sidebar to open the modules available to your staff role. Your
           permissions are checked for every operation.
         </p>
+        <div className="workspace-actions">
+          {modules
+            .filter((m) => actor.scopes.includes(m.scope))
+            .map((m) => (
+              <Link key={m.slug} href={`/admin/${m.slug}`}>
+                <b>
+                  {m.label} <ArrowRight size={16} />
+                </b>
+                <span>{m.description}</span>
+              </Link>
+            ))}
+        </div>
       </div>
     );
   const [stats, orders] = await Promise.all([
@@ -49,6 +61,65 @@ export default async function Dashboard() {
           </Link>
         )}
       </div>
+      <section className="panel workspace-start">
+        <div className="panel-title">
+          <h2>
+            {stats.products === 0
+              ? "Build your storefront"
+              : "Keep your store up to date"}
+          </h2>
+        </div>
+        <div className="workspace-actions">
+          {[
+            {
+              href: "/admin/categories",
+              title: "Organize categories",
+              text: "Create departments before adding your first products.",
+              scope: "catalog:write",
+            },
+            {
+              href: "/admin/brands",
+              title: "Add your brands",
+              text: "Keep brand names consistent across listings.",
+              scope: "catalog:write",
+            },
+            {
+              href: "/admin/products/new",
+              title: "Add a product",
+              text: "Create a draft, add images, then review and publish.",
+              scope: "catalog:write",
+            },
+            {
+              href: "/admin/home-sections",
+              title: "Edit homepage & banners",
+              text: "Change images, headlines, buttons and section order.",
+              scope: "content:write",
+            },
+            {
+              href: "/admin/staff",
+              title: "Manage staff access",
+              text: "Give each colleague a named account and a specific role.",
+              scope: "staff:manage",
+            },
+            {
+              href: "/admin/content",
+              title: "Publish store information",
+              text: "Maintain your contact, privacy, delivery and returns pages.",
+              scope: "content:write",
+            },
+          ]
+            .filter((item) => actor.scopes.includes(item.scope))
+            .map((item) => (
+              <Link key={item.href} href={item.href}>
+                <b>
+                  {item.title}
+                  <ArrowRight size={16} />
+                </b>
+                <span>{item.text}</span>
+              </Link>
+            ))}
+        </div>
+      </section>
       <div className="metric-grid">
         {[
           {

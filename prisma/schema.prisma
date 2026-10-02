@@ -163,6 +163,7 @@ model Media {
   position    Int @default(0)
   public      Boolean @default(false)
   createdAt   DateTime @default(now())
+  homeSections HomeSection[] @relation("HomeSectionBanner")
 }
 model Collection {
   id       String @id @default(cuid())
@@ -359,10 +360,14 @@ model HomeSection {
   subtitle String
   kind     String
   href     String
+  buttonLabel String @default("Explore collection")
+  bannerMediaId String?
+  bannerMedia Media? @relation("HomeSectionBanner", fields: [bannerMediaId], references: [id], onDelete: SetNull)
   position Int @default(0)
   visible  Boolean @default(true)
   startsAt DateTime?
   endsAt   DateTime?
+  @@index([bannerMediaId])
 }
 model Setting {
   key       String @id

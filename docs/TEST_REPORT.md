@@ -20,6 +20,14 @@ Verified in the development cloud environment on **2 October 2026**. This record
 | Database snapshot restore    | Passed into an isolated database; all 50 demo products restored                                                                                  |
 | Web/worker startup           | Web readiness passed; separate worker started and durable import execution tested                                                                |
 
+## Account and staff release — 2 October 2026
+
+- 43 tests passed across eight unit/integration files in the isolated `inforteks_test` database. Coverage includes customer-only registration, strict request origins, role assignment/revocation, hashed single-use reset tokens, session invalidation, profile validation and scheduled banner visibility.
+- All nine Chromium journeys passed: the five existing store journeys and four new account/staff journeys. The latter include responsive staff login without registration, customer profile persistence and admin denial, content-role isolation, a real banner upload/private read/publication, password recovery through the private development mailbox, and authenticated password change.
+- Staff login was visually inspected at desktop width and checked for horizontal overflow at 1440, 390 and 320 pixels. The mobile accessibility check found no serious or critical Axe violations. This is representative coverage, not an independent accessibility audit.
+- Production build, type checking and lint passed. Generated OpenAPI validates 95 documented operations. The fourth migration adds nullable banner-media references and a default button label without removing existing data.
+- Live email delivery remains unverified because no authorized sender/key is connected. Development mailbox checks do not prove Microsoft 365 or Resend delivery. No browser suite, demo seed or bootstrap verification suite was pointed at production.
+
 ## Railway preparation checks
 
 The updated suite passed **33 tests**: the original 26 pricing/domain tests, two production-storage checks, three worker lifecycle checks and two database-limit checks. Worker tests cover health before database readiness, cancellation of idle sleep, draining an active job without claiming another, and cleanup after a database failure. The PostgreSQL timeout check cancels a long query and verifies the same pool remains usable.
@@ -30,7 +38,7 @@ Development setup rejects remote migration URLs and production mode. Integration
 
 The final image uses Next's standalone server; its homepage and 12 static assets returned 200. The worker stopped with exit 0, while Next used its documented SIGTERM exit 143 without an out-of-memory termination. Container checks ran sequentially after this cloud runner exhausted disk space; only obsolete Inforteks test images/containers and disposable build cache were removed. The development PostgreSQL volume was preserved.
 
-Private Vercel Blob upload/authenticated read also passed during the preceding deployment work; anonymous reads returned 403 and test objects were removed. This does not verify a Railway bucket, which has not been provisioned.
+Private Vercel Blob upload/authenticated read also passed during the preceding deployment work; anonymous reads returned 403 and test objects were removed. That earlier Blob check does not verify the subsequently provisioned Railway media buckets; see RAILWAY_STATUS.md.
 
 ## Integration coverage
 

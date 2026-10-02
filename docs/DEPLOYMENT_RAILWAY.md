@@ -75,3 +75,9 @@ Card payments, executed refunds, courier automation and order-email delivery sti
 Follow [operations](OPERATIONS.md) for backup schedules, restore checks, monitoring, rollback and launch evidence. A database volume alone is not a backup; deployment health checks are not ongoing uptime monitoring.
 
 Railway's Docker builder supports cache mounts but rejects BuildKit secret mounts. The deployment Dockerfile uses the base image's trusted CA bundle and keeps TLS verification enabled. Builds behind an enterprise proxy need a separately configured trusted build environment; do not copy proxy credentials or certificates into the production image.
+
+## Authentication email activation
+
+Microsoft 365 remains the mailbox provider. Configure a verified Resend sending domain without changing the Microsoft 365 MX records. Set `RESEND_API_KEY` securely on the worker only. Set `EMAIL_FROM` to the verified sender (for example `Inforteks <sales@inforteks.com>`) and `EMAIL_PROVIDER=resend` on both web and worker; update `.railway/railway.ts` so later infrastructure applies preserve this choice. Web enqueues messages; only the worker needs the delivery key. Validate actual delivery to a controlled mailbox before setting `AUTH_REQUIRE_EMAIL_VERIFICATION=true` on web. Leave email delivery disabled until provider authorization is complete.
+
+Authentication messages use provider idempotency, bounded retries, expiry checks, and remove recovery URLs from completed job payloads. Do not log or export pending job payloads, which contain sensitive links. Development uses only the private local mailbox.

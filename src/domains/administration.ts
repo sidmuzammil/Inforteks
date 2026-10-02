@@ -445,7 +445,15 @@ const inputSchemas = {
       title: z.string().min(2).max(150),
       subtitle: z.string().max(350),
       kind: z.enum(["hero", "categories", "featured", "new"]),
-      href: z.string().regex(/^\/[a-z0-9/?=&_-]*$/),
+      href: z
+        .string()
+        .regex(/^\/[a-z0-9/?=&_-]*$/)
+        .refine(
+          (value) => !value.startsWith("//"),
+          "Use a path within this store.",
+        ),
+      buttonLabel: z.string().trim().min(2).max(60).optional(),
+      bannerMediaId: z.string().min(1).nullable().optional(),
       position: z.number().int(),
       visible: z.boolean(),
       startsAt: z.coerce.date().nullable().optional(),
@@ -554,6 +562,22 @@ export async function saveResource(
       }
       case "home-sections": {
         const d = inputSchemas["home-sections"].parse(raw);
+        if (d.bannerMediaId) {
+          const media = await tx.media.findUnique({
+            where: { id: d.bannerMediaId },
+            select: { productId: true },
+          });
+          invariant(
+            media && media.productId === null,
+            422,
+            "Choose a homepage banner image.",
+          );
+        }
+        invariant(
+          !d.startsAt || !d.endsAt || d.endsAt > d.startsAt,
+          422,
+          "End date must be after start date.",
+        );
         result = id
           ? await tx.homeSection.update({ where: { id }, data: d })
           : await tx.homeSection.create({ data: d });
@@ -621,10 +645,18 @@ export async function createStaff(actor: Actor, raw: unknown) {
   );
   const d = z
     .object({
-      name: z.string().min(2),
-      email: z.email(),
+      name: z.string().trim().min(2).max(100),
+      email: z.string().trim().toLowerCase().pipe(z.email()),
       password: z.string().min(12).max(128),
-      role: z.enum(["MANAGER", "EDITOR", "INVENTORY", "SUPPORT", "ANALYST"]),
+      role: z.enum([
+        "MANAGER",
+        "CATALOG",
+        "CONTENT",
+        "EDITOR",
+        "INVENTORY",
+        "SUPPORT",
+        "ANALYST",
+      ]),
     })
     .strict()
     .parse(raw);
@@ -645,6 +677,66 @@ export async function createStaff(actor: Actor, raw: unknown) {
       role: d.role,
       scopes: roles[d.role],
     };
+  });
+}
+export async function updateStaffAccess(
+  actor: Actor,
+  targetId: string,
+  raw: unknown,
+) {
+  requireScope(actor, "staff:manage");
+  invariant(
+    actor.human && actor.role === "OWNER",
+    403,
+    "Only the Owner can manage staff.",
+  );
+  const { role } = z
+    .object({
+      role: z.enum([
+        "MANAGER",
+        "CATALOG",
+        "CONTENT",
+        "EDITOR",
+        "INVENTORY",
+        "SUPPORT",
+        "ANALYST",
+        "STAFF_DISABLED",
+      ]),
+    })
+    .strict()
+    .parse(raw);
+  return db.$transaction(async (tx) => {
+    const owner = await tx.user.findUnique({
+      where: { id: actor.id },
+      select: { role: true },
+    });
+    invariant(owner?.role === "OWNER", 403, "Owner access is required.");
+    const target = await tx.user.findUnique({
+      where: { id: targetId },
+      select: { role: true, grants: true },
+    });
+    invariant(target, 404, "Staff account not found.");
+    invariant(
+      targetId !== actor.id && target.role !== "OWNER",
+      403,
+      "The Owner account cannot be changed here.",
+    );
+    invariant(
+      target.role !== "CUSTOMER",
+      403,
+      "Create a named staff account instead of promoting a public registration.",
+    );
+    const updated = await tx.user.update({
+      where: { id: targetId },
+      data: { role, grants: [] },
+      select: { id: true, name: true, email: true, role: true },
+    });
+    await tx.session.deleteMany({ where: { userId: targetId } });
+    await audit(tx, actor, "staff.access-update", targetId, target, {
+      role,
+      grants: [],
+    });
+    return updated;
   });
 }
 export async function importPreview(actor: Actor, raw: unknown) {

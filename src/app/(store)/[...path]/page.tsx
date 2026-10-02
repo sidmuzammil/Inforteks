@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { ArrowRight, CheckCircle } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle,
+  ShoppingBag,
+  Heart,
+  MapPin,
+  ShieldCheck,
+} from "lucide-react";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { ownedOrder } from "@/domains/commerce";
@@ -11,13 +18,15 @@ import { Breadcrumbs } from "@/components/store";
 import { CataloguePage } from "@/components/catalogue-page";
 import { SelectionPage } from "@/components/store-client";
 import {
-  AuthForm,
   CartPage,
   MutationForm,
   TrackOrder,
   SignOut,
   PrintButton,
 } from "@/components/forms";
+import { AuthForm, AccountSecurity } from "@/components/auth-forms";
+import { safeReturnPath } from "@/lib/auth-navigation";
+import { emailDeliveryEnabled } from "@/lib/email-policy";
 import type { Metadata } from "next";
 export async function generateMetadata({
   params,
@@ -178,42 +187,128 @@ export default async function Page({
       | "register"
       | "forgot-password"
       | "reset-password";
+    if (
+      mode === "login" &&
+      (query.next === "/admin" || query.next?.startsWith("/admin/"))
+    ) {
+      redirect(
+        `/admin/login?next=${encodeURIComponent(safeReturnPath(query.next, true))}`,
+      );
+    }
+    const staff =
+      query.audience === "staff" && !["login", "register"].includes(mode);
+    const loginUrl = staff ? "/admin/login" : "/login";
+    const next = safeReturnPath(query.next);
+    if (["login", "register"].includes(mode) && (await getSession()))
+      redirect(next);
     return (
-      <div className="auth-wrap">
-        <div className="form-card">
-          <div className="eyebrow">YOUR INFORTEKS</div>
+      <div className="auth-shell">
+        <aside className="auth-story">
+          <span className="auth-kicker">YOUR INFORTEKS ACCOUNT</span>
           <h1>
+            A little less effort.
+            <br />A lot more possibility.
+          </h1>
+          <p>Your orders, favourites and delivery details, in one place.</p>
+          <ul className="auth-benefits">
+            <li>
+              <ShoppingBag />
+              <div>
+                <b>Follow every order</b>
+                <span>View your purchases and order updates.</span>
+              </div>
+            </li>
+            <li>
+              <Heart />
+              <div>
+                <b>Keep your favourites</b>
+                <span>Save the tech you’re considering.</span>
+              </div>
+            </li>
+            <li>
+              <MapPin />
+              <div>
+                <b>Keep details handy</b>
+                <span>Save your delivery addresses securely.</span>
+              </div>
+            </li>
+          </ul>
+          <Link href="/categories">
+            Continue shopping <ArrowRight size={15} />
+          </Link>
+        </aside>
+        <section className="auth-card">
+          <div className="auth-icon">
+            <ShieldCheck size={23} />
+          </div>
+          <div className="eyebrow">
+            {staff ? "STAFF ACCOUNT RECOVERY" : "CUSTOMER ACCOUNT"}
+          </div>
+          <h2>
             {mode === "login"
               ? "Welcome back."
               : mode === "register"
-                ? "Make yourself at home."
-                : "Let’s get you back in."}
-          </h1>
+                ? "Your next chapter starts here."
+                : mode === "forgot-password"
+                  ? "Forgot your password?"
+                  : "Choose a new password."}
+          </h2>
           <p>
             {mode === "login"
               ? "Sign in to your account to pick up where you left off."
               : mode === "register"
-                ? "Create an account for your orders, wishlists and more."
-                : "Secure recovery for your Inforteks account."}
+                ? "Create a customer account for your orders and favourites."
+                : mode === "forgot-password"
+                  ? "Enter your account email and we’ll help you get back in."
+                  : "Choose a unique password you haven’t used elsewhere."}
           </p>
-          {mode === "reset-password" && !query.token ? (
+          {mode === "login" && query.verified === "1" && (
+            <div className="notice success" role="status">
+              Email verified. You can now sign in.
+            </div>
+          )}
+          {mode === "reset-password" && (!query.token || query.error) ? (
             <div className="notice warning">
               This recovery link is missing or expired.{" "}
-              <Link href="/forgot-password">Request a new link.</Link>
+              <Link href={`/forgot-password${staff ? "?audience=staff" : ""}`}>
+                Request a new link.
+              </Link>
             </div>
           ) : (
-            <AuthForm mode={mode} token={query.token} />
+            <AuthForm
+              mode={mode}
+              token={query.token}
+              next={next}
+              staff={staff}
+              emailEnabled={emailDeliveryEnabled()}
+            />
           )}
           <div className="auth-switch">
             {mode === "login" ? (
               <>
-                New here? <Link href="/register">Create an account</Link>
+                New to Inforteks?{" "}
+                <Link href={`/register?next=${encodeURIComponent(next)}`}>
+                  Create a customer account
+                </Link>
               </>
             ) : (
-              <Link href="/login">Back to sign in</Link>
+              <Link
+                href={
+                  mode === "register"
+                    ? `/login?next=${encodeURIComponent(next)}`
+                    : loginUrl
+                }
+              >
+                Back to sign in
+              </Link>
             )}
           </div>
-        </div>
+          {mode === "register" && (
+            <p className="auth-footnote">
+              You can also browse and shop as a guest.
+            </p>
+          )}
+        </section>
       </div>
     );
   }
@@ -433,6 +528,11 @@ export default async function Page({
               { name: "name", label: "Full name", value: session.user.name },
             ]}
           />
+          <AccountSecurity
+            email={session.user.email}
+            verified={session.user.emailVerified}
+            emailEnabled={emailDeliveryEnabled()}
+          />
           <div style={{ marginTop: 24 }}>
             <SignOut />
           </div>
@@ -541,7 +641,11 @@ export default async function Page({
               ["Returns", "/account/returns"],
               ["Wishlist", "/wishlist"],
             ].map(([label, href]) => (
-              <Link key={href} href={href}>
+              <Link
+                key={href}
+                href={href}
+                aria-current={base === href ? "page" : undefined}
+              >
                 {label}
               </Link>
             ))}

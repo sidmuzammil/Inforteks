@@ -1,10 +1,16 @@
+import { emailDeliveryEnabled } from "@/lib/email-policy";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Plus, ArrowUpRight, FileText, ShieldCheck } from "lucide-react";
 import { requestActor } from "@/lib/session";
 import { db } from "@/lib/db";
 import { modules, adminList, dashboard } from "@/domains/administration";
-import { roles, requireScope, type Permission } from "@/domains/identity";
+import {
+  roles,
+  staffRoleLabels,
+  requireScope,
+  type Permission,
+} from "@/domains/identity";
 import { providerStatus } from "@/domains/ai";
 import { includeProduct, publicProduct } from "@/domains/catalogue";
 import { AppError } from "@/lib/errors";
@@ -20,6 +26,7 @@ import {
 import { MutationForm, type Field, PrintButton } from "@/components/forms";
 import { Gallery } from "@/components/store-client";
 import { apiOperations, openapi } from "@/lib/openapi";
+import { HomeSectionEditor } from "@/components/home-section-editor";
 
 const writeScope = (resource: string): Permission =>
   ["categories", "brands", "attributes", "collections"].includes(resource)
@@ -620,7 +627,7 @@ export default async function AdminPage({
               },
               {
                 name: "Transactional email",
-                status: process.env.RESEND_API_KEY
+                status: emailDeliveryEnabled()
                   ? "Configured"
                   : "Development mailbox",
                 note: "Queued messages are not described as delivered without provider confirmation.",
@@ -852,6 +859,11 @@ export default async function AdminPage({
             })),
           },
           { name: "href", label: "Destination path", value: "/categories" },
+          {
+            name: "buttonLabel",
+            label: "Button text",
+            value: "Explore collection",
+          },
           { name: "position", label: "Position", type: "number", value: 0 },
           { name: "visible", label: "Visible", type: "checkbox", value: true },
         ];
@@ -959,12 +971,84 @@ export default async function AdminPage({
             description="Validated changes are saved to the database and reflected on fresh storefront requests."
           />
           <div className="panel admin-editor">
-            <MutationForm
-              endpoint={`admin/${resource}${existing ? `/${id}` : ""}`}
-              method={existing ? "PATCH" : "POST"}
-              fields={fields}
-              values={json(existing)}
-            />
+            {resource === "home-sections" ? (
+              <HomeSectionEditor
+                key={String(existing?.id ?? "new")}
+                fields={fields}
+                values={json(existing) ?? {}}
+              />
+            ) : (
+              <MutationForm
+                endpoint={`admin/${resource}${existing ? `/${id}` : ""}`}
+                method={existing ? "PATCH" : "POST"}
+                fields={fields}
+                values={json(existing)}
+              />
+            )}
+          </div>
+        </>
+      );
+    }
+    if (resource === "staff" && id && id !== "new") {
+      requireScope(actor, "staff:manage");
+      const staff = await db.user.findUnique({
+        where: { id },
+        select: { id: true, name: true, email: true, role: true },
+      });
+      if (!staff || staff.role === "CUSTOMER") notFound();
+      return (
+        <>
+          <Heading
+            title={staff.name}
+            description={`Staff account · ${staff.email}`}
+          />
+          <div className="panel admin-editor">
+            {staff.role === "OWNER" ? (
+              <p className="notice">
+                The Owner retains full access. This account cannot be reassigned
+                or disabled here.
+              </p>
+            ) : (
+              <>
+                <h2>Access level</h2>
+                <p className="notice">
+                  Choose only the access this colleague needs. Saving signs them
+                  out of every device and applies the new permissions
+                  immediately.
+                </p>
+                <MutationForm
+                  endpoint={`admin/staff/${staff.id}`}
+                  method="PATCH"
+                  label="Save access level"
+                  values={{ role: staff.role }}
+                  success="Access updated. This colleague must sign in again."
+                  fields={[
+                    {
+                      name: "role",
+                      label: "Permission preset",
+                      type: "select",
+                      options: Object.entries(staffRoleLabels).map(
+                        ([value, label]) => ({ value, label }),
+                      ),
+                    },
+                  ]}
+                />
+              </>
+            )}
+            <div className="editor-section">
+              <h3>Permissions in this role</h3>
+              <div className="permission-tags">
+                {roles[staff.role]?.length ? (
+                  roles[staff.role].map((scope) => (
+                    <span key={scope} className="badge">
+                      {scope}
+                    </span>
+                  ))
+                ) : (
+                  <p>No staff permissions.</p>
+                )}
+              </div>
+            </div>
           </div>
         </>
       );
@@ -973,8 +1057,8 @@ export default async function AdminPage({
       return (
         <>
           <Heading
-            title="Invite a named colleague."
-            description="An Owner assigns an explicit staff role. No shared logins."
+            title="Create a staff account."
+            description="Give each colleague their own login and the access they need. Customers cannot register as staff."
           />
           <div className="panel admin-editor">
             <MutationForm
@@ -992,9 +1076,9 @@ export default async function AdminPage({
                   name: "role",
                   label: "Permission preset",
                   type: "select",
-                  options: Object.keys(roles)
-                    .filter((r) => !["OWNER", "CUSTOMER"].includes(r))
-                    .map((r) => ({ value: r, label: r })),
+                  options: Object.entries(staffRoleLabels)
+                    .filter(([r]) => r !== "STAFF_DISABLED")
+                    .map(([value, label]) => ({ value, label })),
                 },
               ]}
             />
@@ -1168,11 +1252,19 @@ export default async function AdminPage({
                               />
                             )}
                           {resource === "staff" && (
-                            <ActionButton
-                              endpoint={`admin/staff/${row.id}/revoke-sessions`}
-                              label="Revoke sessions"
-                              danger
-                            />
+                            <>
+                              <Link
+                                className="text-button"
+                                href={`/admin/staff/${row.id}`}
+                              >
+                                Manage access →
+                              </Link>
+                              <ActionButton
+                                endpoint={`admin/staff/${row.id}/revoke-sessions`}
+                                label="Revoke sessions"
+                                danger
+                              />
+                            </>
                           )}
                         </div>
                       </td>

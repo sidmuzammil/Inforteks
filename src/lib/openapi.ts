@@ -10,6 +10,22 @@ type OperationDoc = {
 };
 export const apiOperations: OperationDoc[] = [
   {
+    method: "post",
+    path: "/admin/banner-media",
+    id: "uploadBanner",
+    scope: "content:write",
+    summary:
+      "Multipart file and alt; image validation and reencoding, 4 MB maximum. Private until referenced by a visible, active homepage hero.",
+  },
+  {
+    method: "patch",
+    path: "/admin/staff/{id}",
+    id: "updateStaffAccess",
+    scope: "staff:manage",
+    summary:
+      "Owner session only. Change a named staff role or revoke staff access; revokes sessions and records an audit event. Cannot modify an Owner or promote a customer.",
+  },
+  {
     method: "get",
     path: "/storefront/products",
     id: "listProducts",

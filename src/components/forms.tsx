@@ -171,121 +171,14 @@ export function MutationForm({
     </form>
   );
 }
-export function AuthForm({
-  mode,
-  token,
-}: {
-  mode: "login" | "register" | "forgot-password" | "reset-password";
-  token?: string;
-}) {
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
-  const router = useRouter();
-  const fields: Field[] = [
-    ...(mode === "register"
-      ? [{ name: "name", label: "Full name", type: "text" }]
-      : []),
-    ...(mode !== "reset-password"
-      ? [{ name: "email", label: "Email address", type: "email" }]
-      : []),
-    ...(["login", "register", "reset-password"].includes(mode)
-      ? [
-          {
-            name: "password",
-            label: "Password",
-            type: "password",
-            help: mode !== "login" ? "Use at least 12 characters." : undefined,
-          },
-        ]
-      : []),
-  ];
-  return (
-    <form
-      className="form-stack"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setBusy(true);
-        setError("");
-        try {
-          const d = readFields(e.currentTarget, fields);
-          const route =
-            mode === "login"
-              ? "sign-in/email"
-              : mode === "register"
-                ? "sign-up/email"
-                : mode === "forgot-password"
-                  ? "request-password-reset"
-                  : "reset-password";
-          const body =
-            mode === "reset-password"
-              ? { token, newPassword: d.password }
-              : mode === "forgot-password"
-                ? { email: d.email, redirectTo: "/reset-password" }
-                : d;
-          await api(`/api/auth/${route}`, body);
-          if (mode === "forgot-password") {
-            setMessage(
-              "If this account exists, recovery instructions have been queued. In development, see the protected local mailbox.",
-            );
-          } else if (mode === "reset-password") {
-            router.push("/login");
-          } else {
-            const params = new URLSearchParams(window.location.search);
-            const next = params.get("next");
-            router.push(
-              next?.startsWith("/") && !next.startsWith("//")
-                ? next
-                : "/account",
-            );
-            router.refresh();
-          }
-        } catch (e) {
-          setError((e as Error).message);
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      <Fields fields={fields} />
-      {mode === "login" && (
-        <Link href="/forgot-password" className="text-button">
-          Forgot your password?
-        </Link>
-      )}
-      {error && (
-        <p className="form-error" role="alert">
-          {error}
-        </p>
-      )}
-      {message && (
-        <p className="notice success" role="status">
-          {message}
-        </p>
-      )}
-      <button className="button primary" disabled={busy}>
-        {busy
-          ? "Please wait…"
-          : mode === "login"
-            ? "Sign in"
-            : mode === "register"
-              ? "Create account"
-              : mode === "forgot-password"
-                ? "Send recovery instructions"
-                : "Reset password"}
-        <ArrowRight size={16} />
-      </button>
-    </form>
-  );
-}
-export function SignOut() {
+export function SignOut({ staff = false }: { staff?: boolean }) {
   const router = useRouter();
   return (
     <button
       className="button"
       onClick={async () => {
         await api("/api/auth/sign-out", {});
-        router.push("/login");
+        router.push(staff ? "/admin/login" : "/login");
         router.refresh();
       }}
     >

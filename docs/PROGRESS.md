@@ -6,20 +6,22 @@ This file distinguishes the supplied brief's broad target from the working imple
 
 - Branded responsive storefront with original hero, department navigation, search suggestions, shared catalogue filters, pagination, variants, image zoom, wishlist and comparison.
 - Database-backed carts, server totals, coupon/shipping/tax calculation, guest checkout, idempotent stock reservations, protected order confirmation and customer order/return views.
-- Better Auth registration, login, logout and queued password recovery; first-Owner bootstrap and named staff creation.
+- Separate customer accounts and private staff sign-in; Better Auth password changes, session revocation, expiring recovery and optional email verification; first-Owner bootstrap and named staff creation.
 - Permission-filtered administration for catalogue, inventory, orders, returns, content, promotions, imports, keys, jobs, audit and assistant conversations.
 - Shared operation scopes, one-time hashed integration keys, rate limits, version-bound approvals and transactional audit/stock ledgers.
 - Quantity-aware fulfilment, cancellation restrictions, received-return disposition/restocking and expired reservation release.
 - Validated image re-encoding, private draft media and adapters for S3-compatible storage and private Vercel Blob.
 - Durable import/email/AI worker, two official AI provider adapters and a bounded tool allowlist.
 - PostgreSQL migrations, repeatable development setup, tests, generated API registry and Railway/Vercel deployment files.
-- Separate Railway web/worker configurations, bounded database connections and query timeouts, worker health checks and graceful draining, and an operations/recovery runbook. Remote Railway provisioning remains blocked until this cloud session has API access and authentication.
+- Separate Railway web/worker configurations, bounded database connections and query timeouts, worker health checks and graceful draining, and an operations/recovery runbook. Railway production and staging are provisioned; see RAILWAY_STATUS.md for verification and remaining external requirements.
+
+- Owner-controlled staff role changes and access revocation; product and content roles; homepage banner uploads with publication-aware image access.
 
 ## Remaining product scope
 
 - Full CSV quoting/mapping, supplier imports, updating existing products and inventory imports.
 - Full response/request schemas for every OpenAPI operation and broader integration contract coverage.
-- Dedicated shipping-zone administration, staff role/custom-grant editing, API key rotation UI, customer detail workflows and date-filtered financial reporting.
+- Dedicated shipping-zone administration, custom-grant editing, API key rotation UI, customer detail workflows and date-filtered financial reporting.
 - Media removal/reordering, orphan cleanup and responsive image delivery optimization.
 - Arbitrary category-driven catalogue facets, richer product organization/SEO editing, Arabic translation and RTL review.
 - Streaming assistant responses, attachment workflows, spending ledger and broader operation coverage.
