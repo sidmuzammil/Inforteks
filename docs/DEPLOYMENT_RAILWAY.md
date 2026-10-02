@@ -2,6 +2,8 @@
 
 Railway is the intended host for the storefront, admin, worker, PostgreSQL and private product media. Repository configuration is not evidence that an account has been provisioned. Remote deployment and domain verification remain required.
 
+See the [deployment record](RAILWAY_STATUS.md) for the current Railway URLs, verified checks and remaining launch steps.
+
 ## Service layout
 
 Use one Inforteks project with separate `staging` and `production` environments. Each environment must have its own database, media bucket and authentication secrets. Public registration never creates staff accounts.
