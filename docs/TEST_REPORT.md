@@ -2,23 +2,22 @@
 
 Verified in the development cloud environment on **2 October 2026**. This records completed checks, not a production certification.
 
-| Check                        | Result                                                                                                                                           |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Repeated setup               | Passed; pinned install, verified engine, migrations and seed are repeatable                                                                      |
-| TypeScript                   | Passed with `tsc --noEmit`                                                                                                                       |
-| ESLint                       | Passed with no source errors or warnings                                                                                                         |
-| Formatting                   | Passed with Prettier                                                                                                                             |
-| Pricing/unit tests           | 7 passed                                                                                                                                         |
-| PostgreSQL integration tests | 19 passed against `inforteks_test`                                                                                                               |
-| Chromium browser journeys    | 5 passed; Owner journey rerun after correcting zero-sales display                                                                                |
-| OpenAPI generation           | 93 operations generated and validated as OpenAPI 3.1                                                                                             |
-| Next production build        | Passed with an intentionally unreachable database URL                                                                                            |
-| Docker production build      | Passed from the supplied Dockerfile without runtime secrets/database access                                                                      |
-| Container runtime            | Updated Railway image: homepage/web readiness/worker health returned 200 against the isolated test database; anonymous admin redirected to login |
-| Container isolation          | Non-root user; no `.env` or temporary build CA in the runtime image                                                                              |
-| First-Owner bootstrap        | Passed on a fresh isolated database; a second bootstrap was rejected                                                                             |
-| Database snapshot restore    | Passed into an isolated database; all 50 demo products restored                                                                                  |
-| Web/worker startup           | Web readiness passed; separate worker started and durable import execution tested                                                                |
+| Check                     | Result                                                                                                                                           |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Repeated setup            | Passed; pinned install, verified engine, migrations and seed are repeatable                                                                      |
+| TypeScript                | Passed with `tsc --noEmit`                                                                                                                       |
+| ESLint                    | Passed with no source errors or warnings                                                                                                         |
+| Formatting                | Passed with Prettier                                                                                                                             |
+| Unit/integration tests    | 43 passed across eight files; database tests use isolated `inforteks_test`                                                                       |
+| Chromium browser journeys | All 9 passed; five store journeys and four account/staff journeys                                                                                |
+| OpenAPI generation        | 95 operations generated and validated as OpenAPI 3.1                                                                                             |
+| Next production build     | Passed with an intentionally unreachable database URL                                                                                            |
+| Docker production build   | Passed from the supplied Dockerfile without runtime secrets/database access                                                                      |
+| Container runtime         | Updated Railway image: homepage/web readiness/worker health returned 200 against the isolated test database; anonymous admin redirected to login |
+| Container isolation       | Non-root user; no `.env` or temporary build CA in the runtime image                                                                              |
+| First-Owner bootstrap     | Passed on a fresh isolated database; a second bootstrap was rejected                                                                             |
+| Database snapshot restore | Passed into an isolated database; all 50 demo products restored                                                                                  |
+| Web/worker startup        | Web readiness passed; separate worker started and durable import execution tested                                                                |
 
 ## Account and staff release — 2 October 2026
 
@@ -27,6 +26,8 @@ Verified in the development cloud environment on **2 October 2026**. This record
 - Staff login was visually inspected at desktop width and checked for horizontal overflow at 1440, 390 and 320 pixels. The mobile accessibility check found no serious or critical Axe violations. This is representative coverage, not an independent accessibility audit.
 - Production build, type checking and lint passed. Generated OpenAPI validates 95 documented operations. The fourth migration adds nullable banner-media references and a default button label without removing existing data.
 - Live email delivery remains unverified because no authorized sender/key is connected. Development mailbox checks do not prove Microsoft 365 or Resend delivery. No browser suite, demo seed or bootstrap verification suite was pointed at production.
+- The final staging and production web/worker deployments passed Railway health checks. Production web applied all four migrations and served the homepage, readiness, customer authentication pages, cart, categories, offers and new arrivals successfully. Anonymous admin requests redirected to the dedicated staff login. The real authorized Owner signed in successfully and opened the workspace, staff, products and homepage-section pages, then signed out.
+- Temporary object upload, authenticated read and deletion passed against both actual Railway media buckets. This verifies storage credentials and connectivity, not a full remote browser upload workflow or anonymous bucket access. Test objects were removed.
 
 ## Railway preparation checks
 
@@ -38,7 +39,7 @@ Development setup rejects remote migration URLs and production mode. Integration
 
 The final image uses Next's standalone server; its homepage and 12 static assets returned 200. The worker stopped with exit 0, while Next used its documented SIGTERM exit 143 without an out-of-memory termination. Container checks ran sequentially after this cloud runner exhausted disk space; only obsolete Inforteks test images/containers and disposable build cache were removed. The development PostgreSQL volume was preserved.
 
-Private Vercel Blob upload/authenticated read also passed during the preceding deployment work; anonymous reads returned 403 and test objects were removed. That earlier Blob check does not verify the subsequently provisioned Railway media buckets; see RAILWAY_STATUS.md.
+Private Vercel Blob upload/authenticated read also passed during the preceding deployment work; anonymous reads returned 403 and test objects were removed. The later Railway bucket checks are recorded above; see RAILWAY_STATUS.md for the current host and deployment state.
 
 ## Integration coverage
 
@@ -62,10 +63,10 @@ Screenshots are kept privately under `.data/screenshots/`. Playwright traces and
 
 The initial Prisma engine download was blocked. The final helper uses the official endpoint and verifies both archive and extracted SHA-256 digests; verification was never disabled. Chromium was available as a system browser.
 
-Docker initially could not resolve the cloud proxy hostname, then rejected the proxy's certificate chain. Verification used an explicit build-time hostname mapping and a trusted CA bundle mounted through a BuildKit secret. The Dockerfile supports that optional secret, retains normal TLS verification, and does not copy the CA into the runtime image. The same source can build normally without the optional secret on an ordinary network.
+Docker initially could not resolve the cloud proxy hostname, then rejected the proxy's certificate chain. Earlier local verification used an explicit build-time hostname mapping and a trusted CA bundle mounted through a BuildKit secret. The final Railway Dockerfile removes secret mounts because its builder does not support them. Railway builds passed with normal TLS and Prisma checksum verification; no cloud CA or runtime credentials are copied into the image.
 
 The PostgreSQL adapter emits a deprecation warning concerning concurrent client queries; all transaction tests passed. ESLint 9 is a documented compatibility exception while the installed plugin set lacks ESLint 10 support. See architecture notes before upgrading either stack.
 
 ## Not verified or not implemented
 
-No Railway deployment, fresh published cloud restoration, live payment/refund/courier transaction, live email delivery or paid AI call was performed. Source has been pushed to GitHub and a Vercel build succeeded, but that site's database-backed homepage remained unavailable. GitHub CI results have not been independently verified. Railway login is currently blocked by cloud network access, and no Railway credentials were available in the session. Accessibility testing is representative, not a full audit. Load behavior, production backup schedules, data retention, complete API contract coverage and remaining features are tracked in [delivery status](PROGRESS.md) and [future integrations](INTEGRATIONS_LATER.md).
+Fresh published cloud restoration, live payment/refund/courier transactions, live email delivery and paid AI calls remain unverified. Source is pushed to GitHub; Railway hosts the application and the retained Vercel project redirects to it. The duplicate Vercel project was removed. GitHub CI results have not been independently verified, and Railway GitHub autodeploy access is still pending. Backup schedules and named Railway snapshots were verified, but continuous WAL coverage and a Railway restore rehearsal were not. Accessibility testing is representative, not a full audit. Load behavior, data retention, complete API contract coverage and remaining features are tracked in [delivery status](PROGRESS.md) and [future integrations](INTEGRATIONS_LATER.md).

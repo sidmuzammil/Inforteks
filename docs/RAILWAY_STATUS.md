@@ -5,24 +5,35 @@ Verified on 2 October 2026. This records observed deployment state, not a comple
 - Project: [Inforteks](https://railway.com/project/6c12fe47-eca9-4d35-86b1-8e21e853b941), in the connected Pro workspace.
 - Production: <https://web-production-b6327.up.railway.app>
 - Staging: <https://web-staging-4569.up.railway.app>
-- Application source deployed: `3c848f86fee9c44962f50778abc83a3386c551b8` or the same application source with infrastructure-only changes. GitHub repository: `sidmuzammil/Inforteks`, branch `main`.
+- Staff sign-in: <https://web-production-b6327.up.railway.app/admin/login>
+- Application source deployed: `4a40a6a1e56e597a6790fd1211a4e84a79822eec`. GitHub repository: `sidmuzammil/Inforteks`, branch `main`. Later documentation-only commits do not change the deployed application.
 
 ## Verified
 
-Both environments have separate PostgreSQL data, database credentials, authentication secrets, and private media buckets. Web, worker and PostgreSQL deployments passed Railway health checks. The original three application migrations succeeded in both environments. The account/banner release adds a fourth migration; its rollout is recorded below once verified. Only web has public HTTPS hostnames; worker and PostgreSQL use private networking. Application placement is one replica per service in Amsterdam.
+Both environments have separate PostgreSQL data, database credentials, authentication secrets, and private media buckets. Web, worker and PostgreSQL deployments passed Railway health checks. All four application migrations succeeded in both environments, including the additive homepage-banner migration. Only web has public HTTPS hostnames; worker and PostgreSQL use private networking. Application placement is one replica per service in Amsterdam.
 
-Production web before the account/banner rollout: `d28cb116-a6a9-4dca-b756-6d12b144fce8`.
-Production worker before the account/banner rollout: `3835fc0c-ab34-4f8e-a149-11dad9990ff9`.
+| Environment | Service | Successful deployment                  |
+| ----------- | ------- | -------------------------------------- |
+| Staging     | Web     | `e32fc11c-f89b-4cc2-9b30-982c8aad1a00` |
+| Staging     | Worker  | `863c6b5e-a8ce-42ed-b383-1e14f914f248` |
+| Production  | Web     | `c8b8a729-8855-40e6-b152-a94a9e2b0335` |
+| Production  | Worker  | `8ef58666-9a6f-4b4f-a3ce-39ecb786af78` |
 
-PITR configuration is enabled in both environments. Production has daily, weekly and monthly backup schedules; staging has daily and weekly schedules. Named snapshots `production-after-migrations` and `staging-after-migrations` were created and listed successfully. Continuous WAL coverage and a restore rehearsal still require verification; enabling PITR is not proof of a successful restore.
+Public production checks passed for homepage, readiness, customer and staff login, registration, cart, categories, offers and new arrivals. Anonymous `/admin` and `/admin/products` requests redirected to `/admin/login`. The real Owner signed in and opened the workspace, staff, product and homepage-section pages successfully, then signed out. No production browser suite or development seed was run.
 
-Type checking, lint and formatting passed after the infrastructure changes. Earlier application validation passed 33 domain/runtime tests and local production container checks. The Railway build succeeded after removing unsupported BuildKit secret mounts; downloads still verify TLS and Prisma engine checksums.
+The requested `sales@inforteks.com` Owner was created with a unique cryptographically generated password. Temporary bootstrap variables were removed and the normal `pnpm db:migrate` pre-deploy command restored. Credentials were delivered through a private local file excluded from Git and deployment uploads. Never print, reset or recreate this Owner as part of future setup.
+
+Inforteks is a single-merchant store. Public registration creates customer accounts only. Staff use dedicated sign-in without registration; the Owner creates named colleagues and assigns or revokes role presets. Server permissions protect product management, stock, homepage banners, content and other modules. See ADMIN_GUIDE.md.
+
+Temporary object upload, authenticated read and deletion passed against both Railway media buckets, with temporary objects removed. A full remote browser media journey and anonymous bucket-access check were not performed; local browser tests covered image validation and private-to-public banner publication.
+
+PITR configuration is enabled in both environments. Production has daily, weekly and monthly backup schedules; staging has daily and weekly schedules. Named snapshots `production-after-migrations` and `staging-after-migrations` were created and listed successfully. Before the fourth migration, production snapshot `before-account-and-banner-release` (`a3a0c012-2042-4d01-9471-486adf990fd5`) was created and verified. Continuous WAL coverage and a restore rehearsal still require verification; enabling PITR is not proof of a successful restore.
+
+The account/banner release passed 43 unit/integration tests and all nine Chromium journeys against isolated local data. Type checking, lint, formatting, the production build and OpenAPI validation for 95 operations passed. Railway builds succeeded without unsupported BuildKit secret mounts; downloads still verify TLS and Prisma engine checksums.
 
 ## Remaining launch steps
 
-1. Public Railway checks now pass: homepage, readiness, login, cart, categories, offers, new arrivals and authentication session endpoint returned HTTP 200; anonymous admin access redirected to login. All 12 homepage assets loaded. Custom-domain requests remain blocked from this cloud session and SSH hostname resolution is unavailable. Remote private-media checks and a restore rehearsal remain outstanding.
-2. The requested `sales@inforteks.com` Owner was created with a unique cryptographically generated password. Sign-in and Owner workspace access were verified. Temporary bootstrap variables were removed and the normal `pnpm db:migrate` pre-deploy command restored. Credentials were delivered privately and are excluded from Git and deployment uploads. Never print, reset or recreate this Owner as part of future setup.
-3. Finish DNS and HTTPS verification. GoDaddy does not support the apex CNAME flattening required by Railway. The straightforward route is `www.inforteks.com` on Railway, with GoDaddy forwarding `inforteks.com` to it using a permanent unmasked HTTPS redirect. Keep mail records intact. Railway currently requires:
+1. Finish DNS and HTTPS verification. GoDaddy does not support the apex CNAME flattening required by Railway. The straightforward route is `www.inforteks.com` on Railway, with GoDaddy forwarding `inforteks.com` to it using a permanent unmasked HTTPS redirect. Keep mail records intact. Railway still reports the `www` CNAME pointing to `inforteks.com`, with DNS update and ownership validation pending. GoDaddy access is not exposed in this session. Railway requires:
 
    | Type  | Name                  | Value                                                                             |
    | ----- | --------------------- | --------------------------------------------------------------------------------- |
@@ -31,8 +42,10 @@ Type checking, lint and formatting passed after the infrastructure changes. Earl
 
    After Railway reports verified DNS and a valid certificate, set both web and worker canonical origins (`APP_URL`, `BETTER_AUTH_URL`) to `https://www.inforteks.com`, update the infrastructure file, redeploy, and verify sign-in. Until then, use the generated production hostname. An apex Railway domain is also reserved, but it needs a DNS provider with flattening if chosen as the canonical host instead.
 
-4. Grant Railway's GitHub App access to `sidmuzammil/Inforteks` before enabling GitHub autodeploys. Current deployments use an authorized CLI upload. Apply infrastructure changes separately from application source pushes.
-5. Verify real merchant products, policies and operational payment/email/shipping integrations before accepting orders. Production was not seeded with development products, customers or orders. Live card payments, email delivery and courier automation remain disconnected.
+2. Connect authorized email sending. Microsoft 365 hosts the existing mailbox, but no sending credential/provider authorization is available to the application. `EMAIL_PROVIDER=disabled` remains explicit; recovery reports unavailable instead of claiming an email was sent. A verified Resend sender and a worker-only `RESEND_API_KEY`, plus matching sender/provider configuration on web and worker, are required for the existing adapter. Preserve Microsoft 365 MX records and verify actual delivery before requiring customer email verification.
+3. Grant Railway's GitHub App access to `sidmuzammil/Inforteks` before enabling GitHub autodeploys. Current deployments use an authorized CLI upload. Apply infrastructure changes separately from application source pushes.
+4. Verify real merchant products, policies and operational payment/shipping integrations before accepting orders. Production was not seeded with development products, customers or orders. Live card payments and courier automation remain disconnected.
+5. Complete a Railway restore rehearsal, monitoring and load review. Custom-domain requests remain blocked from this cloud session and SSH hostname resolution is unavailable. The generated Railway hostname and bucket operations are reachable.
 
 ## Configuration notes
 
