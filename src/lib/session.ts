@@ -3,10 +3,17 @@ import { auth } from "@/lib/auth";
 import { actorForUser, authenticateKey, type Actor } from "@/domains/identity";
 import { invariant } from "@/lib/errors";
 import { cache } from "react";
+import { redirect } from "next/navigation";
 // Deduplicate within one server render; never share sessions across requests.
 export const getSession = cache(async () =>
   auth.api.getSession({ headers: await headers() }),
 );
+// Pages render alongside layouts, so each protected page must handle sign-in.
+export async function staffPageActor(): Promise<Actor> {
+  const session = await getSession();
+  if (!session) redirect("/admin/login");
+  return actorForUser(session.user.id);
+}
 export async function requestActor(request?: Request): Promise<Actor> {
   const h = request?.headers ?? (await headers());
   const bearer = h.get("authorization");

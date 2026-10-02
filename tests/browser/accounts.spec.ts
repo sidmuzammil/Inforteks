@@ -80,6 +80,10 @@ test("staff login is separate, accessible and has no public registration", async
   ).toEqual([]);
   await page.goto("/login?next=/admin");
   await expect(page).toHaveURL(/\/admin\/login/);
+  await page.goto("/admin");
+  await expect(page).toHaveURL((url) => url.pathname === "/admin/login");
+  await page.goto("/admin/products");
+  await expect(page).toHaveURL((url) => url.pathname === "/admin/login");
 });
 test("customer registration, stored profile and administration boundary", async ({
   page,

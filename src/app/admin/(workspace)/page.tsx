@@ -8,12 +8,12 @@ import {
   ArrowRight,
   Sparkles,
 } from "lucide-react";
-import { requestActor } from "@/lib/session";
+import { staffPageActor } from "@/lib/session";
 import { dashboard, modules } from "@/domains/administration";
 import { db } from "@/lib/db";
 import { money, date } from "@/lib/utils";
 export default async function Dashboard() {
-  const actor = await requestActor();
+  const actor = await staffPageActor();
   if (!actor.scopes.includes("reports:read"))
     return (
       <div className="panel">

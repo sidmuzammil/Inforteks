@@ -2,7 +2,7 @@ import { emailDeliveryEnabled } from "@/lib/email-policy";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Plus, ArrowUpRight, FileText, ShieldCheck } from "lucide-react";
-import { requestActor } from "@/lib/session";
+import { staffPageActor } from "@/lib/session";
 import { db } from "@/lib/db";
 import { modules, adminList, dashboard } from "@/domains/administration";
 import {
@@ -61,7 +61,7 @@ export default async function AdminPage({
   params: Promise<{ path: string[] }>;
   searchParams: Promise<Record<string, string>>;
 }) {
-  const actor = await requestActor();
+  const actor = await staffPageActor();
   const { path } = await params;
   const [resource, id, action] = path;
   const query = await searchParams;
