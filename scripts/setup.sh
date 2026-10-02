@@ -40,11 +40,7 @@ if docker container inspect inforteks-postgres >/dev/null 2>&1; then
 else
   docker compose up -d postgres
 fi
-for attempt in {1..30}; do
-  if docker exec inforteks-postgres pg_isready -U inforteks -d inforteks >/dev/null 2>&1; then break; fi
-  sleep 1
-done
-docker exec inforteks-postgres pg_isready -U inforteks -d inforteks
+python3 scripts/wait-for-postgres.py
 # Docker processes/volumes may not survive cloud filesystem restoration. Only
 # restore a saved development snapshot into an empty local database.
 table_count=$(docker exec inforteks-postgres psql -U inforteks -d inforteks -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'")
