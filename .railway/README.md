@@ -9,8 +9,9 @@ railway config plan
 railway config apply --yes
 ```
 
-Read every plan before applying. This file owns the whole environment; removing
-resources from it can delete data. Do not use `--confirm-destructive` without
+Read every plan before applying. The `inforteks` partial owns application resources; removing
+owned resources from it can delete data. Railway-managed PITR buckets remain
+outside this partial and must be preserved. Do not use `--confirm-destructive` without
 reviewing the exact deletion and a verified backup.
 
 Create a separate strong `BETTER_AUTH_SECRET` shared variable in each environment

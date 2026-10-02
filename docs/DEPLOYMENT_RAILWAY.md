@@ -13,7 +13,7 @@ Use one Inforteks project with separate `staging` and `production` environments.
 | `Postgres` | Railway PostgreSQL with persistent volume                  | Private network                                     | Reserve capacity for deployment overlap and operations |
 | `media`    | Private Railway storage bucket                             | Authenticated S3 API; images served through the app | Not applicable                                         |
 
-Railway's current Infrastructure as Code configuration is `.railway/railway.ts`, using the pinned `railway` SDK. The legacy per-service TOML format is deprecated and unavailable for new services. Select the intended project/environment, run `railway config plan`, inspect the exact changes, then run `railway config apply --yes`. This file owns the complete environment: removing a resource can delete it. Keep secret values out of source and plans shared with others.
+Railway's current Infrastructure as Code configuration is `.railway/railway.ts`, using the pinned `railway` SDK. The legacy per-service TOML format is deprecated and unavailable for new services. Select the intended project/environment, run `railway config plan`, inspect the exact changes, then run `railway config apply --yes`. The named `inforteks` partial owns application resources: removing an owned resource can delete it. Provider-managed PITR buckets remain outside the partial and are preserved. Keep secret values out of source and plans shared with others.
 
 Each environment requires its own cryptographically random `BETTER_AUTH_SECRET` shared variable, configured securely before deployment. The services reference it. The SDK's deterministic `ctx.randomString` helper must not be used for credentials. PostgreSQL, web and worker use Amsterdam, with an Amsterdam private bucket. Generated Railway hostnames supply the initial application origin.
 
@@ -27,7 +27,7 @@ Start with one web and one worker replica per active environment. This is a star
 
 ## Variables
 
-Use Railway service references for credentials. The examples assume database service `Postgres` and bucket `media`; substitute the actual names. Never print resolved secrets or commit them.
+Use Railway service references for credentials. The examples assume database service `Postgres` and bucket `media` in staging or `media-production` in production; substitute the actual names. Never print resolved secrets or commit them.
 
 | Variable                                | Value / requirement                                                                                            |
 | --------------------------------------- | -------------------------------------------------------------------------------------------------------------- |

@@ -7,15 +7,23 @@ import {
   service,
 } from "railway/iac";
 
-// One configuration owns the complete environment. Review the plan before apply:
-// omitting a resource can delete it. Staging and production have separate data.
+// Own application resources while leaving Railway-managed PITR backup buckets
+// outside this partial. Removing an owned resource can still delete its data.
+export const partial = "inforteks";
+
+// Staging and production have separate data, storage and authentication secrets.
 export default defineRailway((ctx) => {
   if (!["staging", "production"].includes(ctx.environment ?? "")) {
     throw new Error("Select the Inforteks staging or production environment.");
   }
 
   const database = postgres("Postgres", { region: "europe-west4" });
-  const media = bucket("media", { region: "ams" });
+  const media = bucket(
+    ctx.isEnvironment("production") ? "media-production" : "media",
+    {
+      region: "ams",
+    },
+  );
   const origin = "https://${{web.RAILWAY_PUBLIC_DOMAIN}}";
   const common = {
     NODE_ENV: "production",
@@ -45,8 +53,7 @@ export default defineRailway((ctx) => {
     sleepApplication: false,
     restartPolicyType: "ON_FAILURE",
     restartPolicyMaxRetries: 10,
-    region: "europe-west4",
-    numReplicas: 1,
+    multiRegionConfig: { "europe-west4-drams3a": { numReplicas: 1 } },
   } as const;
 
   // Source is uploaded with `railway up` until the Railway GitHub App is granted
