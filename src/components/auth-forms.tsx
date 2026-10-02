@@ -54,6 +54,12 @@ async function authRequest(path: string, body: unknown) {
         "Unable to create this account. Try signing in or recovering your password.",
       EMAIL_UNAVAILABLE:
         "Email recovery is temporarily unavailable. Please try again later.",
+      GOOGLE_UNAVAILABLE:
+        "Google sign-in is temporarily unavailable. Please use your email and password.",
+      GOOGLE_CUSTOMER_ONLY:
+        "Google sign-in is for customer accounts. Staff should use Staff sign in.",
+      SESSION_NOT_FRESH:
+        "Please sign out and sign back in before connecting Google.",
     };
     throw new AuthRequestError(
       response.status === 429
@@ -66,6 +72,89 @@ async function authRequest(path: string, body: unknown) {
     );
   }
   return result;
+}
+
+function GoogleMark() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M21.6 12.23c0-.71-.06-1.39-.18-2.05H12v3.88h5.38a4.6 4.6 0 0 1-1.99 3.02v2.51h3.23c1.89-1.74 2.98-4.3 2.98-7.36Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 22c2.7 0 4.96-.9 6.62-2.41l-3.23-2.51c-.89.6-2.03.96-3.39.96-2.61 0-4.82-1.76-5.61-4.12H3.05v2.59A10 10 0 0 0 12 22Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M6.39 13.92a6 6 0 0 1 0-3.84V7.49H3.05a10 10 0 0 0 0 9.02l3.34-2.59Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.96c1.47 0 2.79.51 3.83 1.52l2.87-2.87A9.63 9.63 0 0 0 12 2a10 10 0 0 0-8.95 5.49l3.34 2.59C7.18 7.72 9.39 5.96 12 5.96Z"
+      />
+    </svg>
+  );
+}
+
+async function redirectToGoogle(
+  path: "sign-in/social" | "link-social",
+  next?: string,
+) {
+  const result = await authRequest(path, {
+    provider: "google",
+    callbackURL: safeReturnPath(next),
+    disableRedirect: true,
+  });
+  const url = new URL(result.url);
+  if (
+    url.origin !== "https://accounts.google.com" ||
+    url.pathname !== "/o/oauth2/v2/auth"
+  )
+    throw new Error("We couldn’t start Google sign-in. Please try again.");
+  window.location.assign(url.href);
+}
+
+export function GoogleAccountConnection({
+  connected,
+  error,
+}: {
+  connected: boolean;
+  error: string;
+}) {
+  const [failure, setFailure] = useState(error);
+  const [busy, setBusy] = useState(false);
+  return (
+    <section className="google-account-connection">
+      <h3>Google sign-in</h3>
+      <p>
+        {connected
+          ? "Google is connected to your customer account."
+          : "Connect the Google account with the same email to sign in faster next time."}
+      </p>
+      <Feedback error={failure} message="" />
+      {!connected && (
+        <button
+          type="button"
+          className="button google-sign-in"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setFailure("");
+            try {
+              await redirectToGoogle("link-social", "/account/profile");
+            } catch (e) {
+              setFailure((e as Error).message);
+              setBusy(false);
+            }
+          }}
+        >
+          <GoogleMark />
+          {busy ? "Connecting…" : "Connect Google"}
+        </button>
+      )}
+    </section>
+  );
 }
 
 export function PasswordField({
@@ -151,15 +240,19 @@ export function AuthForm({
   next,
   staff = false,
   emailEnabled = true,
+  googleEnabled = false,
+  initialError = "",
 }: {
   mode: "login" | "register" | "forgot-password" | "reset-password";
   token?: string;
   next?: string;
   staff?: boolean;
   emailEnabled?: boolean;
+  googleEnabled?: boolean;
+  initialError?: string;
 }) {
   const router = useRouter();
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialError);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -277,6 +370,33 @@ export function AuthForm({
     );
   return (
     <form className="form-stack auth-form" onSubmit={submit} aria-busy={busy}>
+      {!staff && googleEnabled && (mode === "login" || mode === "register") && (
+        <>
+          <button
+            className="button google-sign-in"
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              if (busy) return;
+              setBusy(true);
+              setError("");
+              setMessage("");
+              try {
+                await redirectToGoogle("sign-in/social", next);
+              } catch (e) {
+                setError((e as Error).message);
+                setBusy(false);
+              }
+            }}
+          >
+            <GoogleMark />
+            Continue with Google
+          </button>
+          <div className="auth-divider">
+            <span>or continue with email</span>
+          </div>
+        </>
+      )}
       {mode === "register" && (
         <label>
           Full name
@@ -399,10 +519,12 @@ export function AccountSecurity({
   email,
   verified,
   emailEnabled,
+  hasPassword = true,
 }: {
   email: string;
   verified: boolean;
   emailEnabled: boolean;
+  hasPassword?: boolean;
 }) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -412,8 +534,12 @@ export function AccountSecurity({
       <div className="security-heading">
         <ShieldCheck size={23} />
         <div>
-          <h2>Password & security</h2>
-          <p>Use a unique password and keep your account private.</p>
+          <h2>Sign-in & security</h2>
+          <p>
+            {hasPassword
+              ? "Use a unique password and keep your account private."
+              : "You sign in with Google. Manage your Google password in your Google account."}
+          </p>
         </div>
       </div>
       <div className="account-email">
@@ -447,61 +573,63 @@ export function AccountSecurity({
           Verify my email
         </button>
       )}
-      <form
-        className="form-stack"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (busy) return;
-          const form = e.currentTarget;
-          const data = new FormData(form);
-          setError("");
-          setMessage("");
-          if (data.get("newPassword") !== data.get("confirmPassword")) {
-            setError("The new passwords don’t match.");
-            return;
-          }
-          setBusy(true);
-          try {
-            await authRequest("change-password", {
-              currentPassword: data.get("currentPassword"),
-              newPassword: data.get("newPassword"),
-              revokeOtherSessions: true,
-            });
-            form.reset();
-            setMessage(
-              "Password updated. Your other devices have been signed out.",
-            );
-          } catch (err) {
-            setError((err as Error).message);
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        <PasswordField
-          name="currentPassword"
-          label="Current password"
-          disabled={busy}
-        />
-        <PasswordField
-          name="newPassword"
-          label="New password"
-          newPassword
-          disabled={busy}
-        />
-        <PasswordField
-          name="confirmPassword"
-          label="Confirm new password"
-          newPassword
-          disabled={busy}
-        />
-        <Feedback error={error} message={message} />
-        <div>
-          <button type="submit" className="button primary" disabled={busy}>
-            {busy ? "Saving…" : "Update password"}
-          </button>
-        </div>
-      </form>
+      <Feedback error={error} message={message} />
+      {hasPassword && (
+        <form
+          className="form-stack"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (busy) return;
+            const form = e.currentTarget;
+            const data = new FormData(form);
+            setError("");
+            setMessage("");
+            if (data.get("newPassword") !== data.get("confirmPassword")) {
+              setError("The new passwords don’t match.");
+              return;
+            }
+            setBusy(true);
+            try {
+              await authRequest("change-password", {
+                currentPassword: data.get("currentPassword"),
+                newPassword: data.get("newPassword"),
+                revokeOtherSessions: true,
+              });
+              form.reset();
+              setMessage(
+                "Password updated. Your other devices have been signed out.",
+              );
+            } catch (err) {
+              setError((err as Error).message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <PasswordField
+            name="currentPassword"
+            label="Current password"
+            disabled={busy}
+          />
+          <PasswordField
+            name="newPassword"
+            label="New password"
+            newPassword
+            disabled={busy}
+          />
+          <PasswordField
+            name="confirmPassword"
+            label="Confirm new password"
+            newPassword
+            disabled={busy}
+          />
+          <div>
+            <button type="submit" className="button primary" disabled={busy}>
+              {busy ? "Saving…" : "Update password"}
+            </button>
+          </div>
+        </form>
+      )}
       <div className="security-session">
         <div>
           <h3>Signed in somewhere else?</h3>

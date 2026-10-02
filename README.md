@@ -37,7 +37,7 @@ pnpm bootstrap
 unset BOOTSTRAP_EMAIL BOOTSTRAP_NAME BOOTSTRAP_PASSWORD
 ```
 
-Sign in through `/login`, then open `/admin`. The bootstrap refuses to create another Owner once one exists. Owners create named staff accounts in the workspace; public registration always produces a customer. Test users are temporary and are removed by test teardown.
+Sign in through `/admin/login`. The bootstrap refuses to create another Owner once one exists. Owners create named staff accounts in the workspace; public registration always produces a customer. Test users are temporary and are removed by test teardown. The deployed production Owner already exists; never repeat bootstrap during routine setup.
 
 ## Work on the project
 
@@ -77,6 +77,7 @@ The production build does not require a reachable database. Production readiness
 
 - [Research and reference audit](docs/REFERENCE_AUDIT.md)
 - [Administrator guide](docs/ADMIN_GUIDE.md)
+- [Google customer sign-in](docs/GOOGLE_SIGN_IN.md)
 - [REST API guide](docs/API_GUIDE.md), [OpenAPI](docs/openapi.json) and [operation matrix](docs/OPERATION_MATRIX.md)
 - [AI administration guide](docs/AI_ADMIN_GUIDE.md)
 - [Vercel deployment](docs/DEPLOYMENT_VERCEL.md) and [Railway deployment](docs/DEPLOYMENT_RAILWAY.md)

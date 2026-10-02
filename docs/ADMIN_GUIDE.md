@@ -4,6 +4,8 @@ Staff sign in at `/admin/login`; customers use `/login` and `/register` for orde
 
 The workspace home provides shortcuts for categories, brands, products, homepage banners, store pages and staff access. Each colleague sees only the modules their assigned role allows.
 
+Google sign-in, when configured, is only for customers. It cannot create, connect or sign into staff accounts. Existing email/password customers connect Google from Profile & security; staff continue using the account created by the Owner. See [Google activation](GOOGLE_SIGN_IN.md) for provider setup.
+
 ## Catalogue workflow
 
 1. Create the required brand and category. Add category attributes with product or SKU scope, type and required flags.

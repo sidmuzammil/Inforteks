@@ -5,6 +5,8 @@ import { secret } from "@/domains/identity";
 import { APIError } from "better-auth/api";
 import { customerName } from "@/lib/account-input";
 import { emailVerificationRequired } from "@/lib/email-policy";
+import { googleSignInEnabled } from "@/lib/google-auth";
+import { validateGoogleCustomer } from "@/domains/customer-google";
 async function queueEmail(
   user: { id: string; email: string },
   url: string,
@@ -30,6 +32,39 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL,
   trustedOrigins: [process.env.BETTER_AUTH_URL ?? "http://localhost:3000"],
+  socialProviders: googleSignInEnabled()
+    ? {
+        google: {
+          clientId: process.env.GOOGLE_CLIENT_ID!,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+          prompt: "select_account",
+          accessType: "online",
+          includeGrantedScopes: false,
+          mapProfileToUser: (profile) => ({
+            name:
+              profile.name?.trim().slice(0, 100).length >= 2
+                ? profile.name.trim().slice(0, 100)
+                : "Customer",
+          }),
+        },
+      }
+    : {},
+  account: {
+    encryptOAuthTokens: true,
+    accountLinking: {
+      enabled: true,
+      disableImplicitLinking: true,
+      allowDifferentEmails: false,
+      allowUnlinkingAll: false,
+    },
+  },
+  user: {
+    validateUserInfo: async ({ user, source }) => {
+      if (source.oauth?.providerId === "google")
+        return validateGoogleCustomer(user);
+    },
+  },
+  onAPIError: { errorURL: "/login" },
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 12,
@@ -86,6 +121,8 @@ export const auth = betterAuth({
     customRules: {
       "/sign-in/email": { window: 60, max: 10 },
       "/sign-up/email": { window: 60, max: 5 },
+      "/sign-in/social": { window: 60, max: 10 },
+      "/link-social": { window: 60, max: 5 },
       "/request-password-reset": { window: 60, max: 3 },
       "/send-verification-email": { window: 60, max: 3 },
       "/reset-password": { window: 60, max: 5 },

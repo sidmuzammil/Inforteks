@@ -81,3 +81,7 @@ Railway's Docker builder supports cache mounts but rejects BuildKit secret mount
 Microsoft 365 remains the mailbox provider. Configure a verified Resend sending domain without changing the Microsoft 365 MX records. Set `RESEND_API_KEY` securely on the worker only. Set `EMAIL_FROM` to the verified sender (for example `Inforteks <sales@inforteks.com>`) and `EMAIL_PROVIDER=resend` on both web and worker; update `.railway/railway.ts` so later infrastructure applies preserve this choice. Web enqueues messages; only the worker needs the delivery key. Validate actual delivery to a controlled mailbox before setting `AUTH_REQUIRE_EMAIL_VERIFICATION=true` on web. Leave email delivery disabled until provider authorization is complete.
 
 Authentication messages use provider idempotency, bounded retries, expiry checks, and remove recovery URLs from completed job payloads. Do not log or export pending job payloads, which contain sensitive links. Development uses only the private local mailbox.
+
+## Google sign-in activation
+
+See [Google customer sign-in](GOOGLE_SIGN_IN.md) for the Firebase/Google Cloud client, exact redirect URIs, web-only credential bindings and verification steps. Google sign-in is customer-only and remains disabled until both server credentials are configured. Existing customers explicitly connect Google from Profile & security after signing in; staff continue using the dedicated staff login.

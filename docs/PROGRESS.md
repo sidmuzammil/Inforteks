@@ -9,6 +9,7 @@ This file distinguishes the supplied brief's broad target from the working imple
 - Separate customer accounts and private staff sign-in; Better Auth password changes, session revocation, expiring recovery and optional email verification; first-Owner bootstrap and named staff creation.
 - Permission-filtered administration for catalogue, inventory, orders, returns, content, promotions, imports, keys, jobs, audit and assistant conversations.
 - Owner-controlled staff role changes and access revocation; product and content roles; homepage banner uploads with publication-aware image access.
+- Google customer sign-in and explicit same-email account connection, guarded by provider configuration; Google/Firebase authorization is still unavailable, so live Google consent remains unverified.
 - Shared operation scopes, one-time hashed integration keys, rate limits, version-bound approvals and transactional audit/stock ledgers.
 - Quantity-aware fulfilment, cancellation restrictions, received-return disposition/restocking and expired reservation release.
 - Validated image re-encoding, private draft media and adapters for S3-compatible storage and private Vercel Blob.

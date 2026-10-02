@@ -7,8 +7,34 @@ import {
 } from "../src/lib/email-policy";
 import { authEmail } from "../src/lib/auth-email";
 import { roles } from "../src/domains/identity";
+import { googleSignInEnabled, googleSignInError } from "../src/lib/google-auth";
 
 describe("authentication boundaries", () => {
+  it("shows Google only with both server credentials and never renders provider error text", () => {
+    expect(googleSignInEnabled({})).toBe(false);
+    expect(googleSignInEnabled({ GOOGLE_CLIENT_ID: "test-client" })).toBe(
+      false,
+    );
+    expect(
+      googleSignInEnabled({
+        GOOGLE_CLIENT_ID: "test-client",
+        GOOGLE_CLIENT_SECRET: "  ",
+      }),
+    ).toBe(false);
+    expect(
+      googleSignInEnabled({
+        GOOGLE_CLIENT_ID: "test-client",
+        GOOGLE_CLIENT_SECRET: "test-secret",
+      }),
+    ).toBe(true);
+    expect(googleSignInError("account_not_linked")).toContain(
+      "existing password",
+    );
+    expect(googleSignInError("<script>secret</script>")).not.toContain(
+      "<script>",
+    );
+    expect(googleSignInError()).toBe("");
+  });
   it("rejects external, backslash, encoded, control-character and login-loop redirects", () => {
     for (const path of [
       "https://evil.test",

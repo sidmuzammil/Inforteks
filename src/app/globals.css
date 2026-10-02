@@ -3345,6 +3345,37 @@ summary {
   width: 100%;
   min-height: 48px;
 }
+.google-sign-in {
+  background: #fff;
+  color: #1f1f1f;
+  border: 1px solid #747775;
+  gap: 12px;
+  min-height: 48px;
+}
+.google-sign-in svg {
+  flex-shrink: 0;
+}
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #56647d;
+  font-size: 12px;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+.google-account-connection {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+}
 .password-field {
   display: grid;
   gap: 8px;

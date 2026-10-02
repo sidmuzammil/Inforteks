@@ -24,9 +24,14 @@ import {
   SignOut,
   PrintButton,
 } from "@/components/forms";
-import { AuthForm, AccountSecurity } from "@/components/auth-forms";
+import {
+  AuthForm,
+  AccountSecurity,
+  GoogleAccountConnection,
+} from "@/components/auth-forms";
 import { safeReturnPath } from "@/lib/auth-navigation";
 import { emailDeliveryEnabled } from "@/lib/email-policy";
+import { googleSignInEnabled, googleSignInError } from "@/lib/google-auth";
 import type { Metadata } from "next";
 export async function generateMetadata({
   params,
@@ -281,6 +286,12 @@ export default async function Page({
               next={next}
               staff={staff}
               emailEnabled={emailDeliveryEnabled()}
+              googleEnabled={googleSignInEnabled()}
+              initialError={
+                mode === "login" || mode === "register"
+                  ? googleSignInError(query.error)
+                  : ""
+              }
             />
           )}
           <div className="auth-switch">
@@ -516,7 +527,11 @@ export default async function Page({
           )}
         </>
       );
-    } else if (slug === "profile")
+    } else if (slug === "profile") {
+      const accounts = await db.account.findMany({
+        where: { userId: session.user.id },
+        select: { providerId: true },
+      });
       content = (
         <>
           <h2 style={{ marginBottom: 22 }}>Your profile</h2>
@@ -532,13 +547,26 @@ export default async function Page({
             email={session.user.email}
             verified={session.user.emailVerified}
             emailEnabled={emailDeliveryEnabled()}
+            hasPassword={accounts.some(
+              (account) => account.providerId === "credential",
+            )}
           />
+          {googleSignInEnabled() &&
+            actor.role === "CUSTOMER" &&
+            actor.scopes.length === 0 && (
+              <GoogleAccountConnection
+                connected={accounts.some(
+                  (account) => account.providerId === "google",
+                )}
+                error={googleSignInError(query.error)}
+              />
+            )}
           <div style={{ marginTop: 24 }}>
             <SignOut />
           </div>
         </>
       );
-    else if (slug === "addresses") {
+    } else if (slug === "addresses") {
       const addresses = await db.address.findMany({
         where: { userId: session.user.id },
       });
