@@ -4,6 +4,11 @@
   "regions": ["fra1"],
   "redirects": [
     {
+      "source": "/",
+      "destination": "https://web-production-b6327.up.railway.app/",
+      "permanent": false
+    },
+    {
       "source": "/:path*",
       "destination": "https://web-production-b6327.up.railway.app/:path*",
       "permanent": false
