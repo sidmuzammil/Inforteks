@@ -1,0 +1,11 @@
+node_modules
+.next
+.data
+src/generated
+pnpm-lock.yaml
+test-results
+playwright-report
+docs/BUILD_SPEC.md
+public
+.vercel
+prisma/migrations

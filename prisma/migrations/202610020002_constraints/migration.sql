@@ -1,0 +1,11 @@
+ALTER TABLE "Sku" ADD CONSTRAINT "sku_stock_valid" CHECK ("onHand" >= 0 AND reserved >= 0 AND reserved <= "onHand");
+ALTER TABLE "Sku" ADD CONSTRAINT "sku_price_valid" CHECK (price IS NULL OR price >= 0);
+ALTER TABLE "Product" ADD CONSTRAINT "product_status_valid" CHECK (status IN ('DRAFT','PUBLISHED','ARCHIVED'));
+ALTER TABLE "CartItem" ADD CONSTRAINT "cart_quantity_valid" CHECK (quantity BETWEEN 1 AND 99);
+ALTER TABLE "OrderItem" ADD CONSTRAINT "order_item_quantities" CHECK (quantity > 0 AND fulfilled >= 0 AND fulfilled <= quantity AND returned >= 0 AND returned <= fulfilled);
+ALTER TABLE "Reservation" ADD CONSTRAINT "reservation_quantities" CHECK (quantity > 0 AND consumed >= 0 AND released >= 0 AND consumed + released <= quantity);
+ALTER TABLE "Coupon" ADD CONSTRAINT "coupon_bounds" CHECK (percent BETWEEN 1 AND 100 AND uses >= 0 AND uses <= "maxUses");
+ALTER TABLE "Review" ADD CONSTRAINT "review_rating_valid" CHECK (rating BETWEEN 1 AND 5);
+ALTER TABLE "Order" ADD CONSTRAINT "order_amounts_valid" CHECK (subtotal >= 0 AND discount >= 0 AND tax >= 0 AND shipping >= 0 AND total >= 0);
+ALTER TABLE "OrderItem" ADD CONSTRAINT "order_sku_fk" FOREIGN KEY ("skuId") REFERENCES "Sku"(id) ON DELETE RESTRICT;
+CREATE INDEX "product_search_name" ON "Product" USING gin (to_tsvector('english', name));

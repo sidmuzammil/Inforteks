@@ -1,0 +1,480 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String   @id
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  role          String   @default("CUSTOMER")
+  grants        String[] @default([])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  addresses     Address[]
+  orders        Order[]
+  wishlist      WishlistItem[]
+  reviews       Review[]
+}
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+model Account {
+  id                     String @id
+  accountId              String
+  providerId             String
+  userId                 String
+  accessToken            String?
+  refreshToken           String?
+  idToken                String?
+  accessTokenExpiresAt   DateTime?
+  refreshTokenExpiresAt  DateTime?
+  scope                  String?
+  password               String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  user                   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+model Verification {
+  id         String @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([identifier])
+}
+model RateLimit {
+  id          String @id @default(cuid())
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+}
+model Category {
+  id         String @id @default(cuid())
+  name       String
+  slug       String @unique
+  icon       String @default("laptop")
+  parentId   String?
+  parent     Category? @relation("CategoryTree", fields: [parentId], references: [id])
+  children   Category[] @relation("CategoryTree")
+  visible    Boolean @default(true)
+  position   Int @default(0)
+  products   Product[]
+  attributes Attribute[]
+}
+model Brand {
+  id       String @id @default(cuid())
+  name     String
+  slug     String @unique
+  products Product[]
+}
+model Attribute {
+  id          String @id @default(cuid())
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  key         String
+  label       String
+  type        String @default("text")
+  unit        String?
+  scope       String @default("sku")
+  required    Boolean @default(false)
+  filterable  Boolean @default(true)
+  comparable  Boolean @default(true)
+  allowed     String[] @default([])
+  @@unique([categoryId, key])
+}
+model Product {
+  id          String @id @default(cuid())
+  name        String
+  slug        String @unique
+  description String @default("")
+  highlights  String[] @default([])
+  status      String @default("DRAFT")
+  model       String?
+  brandId     String
+  brand       Brand @relation(fields: [brandId], references: [id])
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  specs       Json @default("{}")
+  featured    Boolean @default(false)
+  demo        Boolean @default(false)
+  seoTitle    String?
+  seoDescription String?
+  version     Int @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  skus        Sku[]
+  media       Media[]
+  reviews     Review[]
+  collections CollectionProduct[]
+  @@index([status, categoryId, createdAt])
+  @@index([status, brandId])
+}
+model Sku {
+  id          String @id @default(cuid())
+  code        String @unique
+  mpn         String?
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  options     Json @default("{}")
+  specs       Json @default("{}")
+  price       Int?
+  compareAt   Int?
+  cost        Int?
+  condition   String @default("New")
+  warranty    String?
+  active      Boolean @default(true)
+  onHand      Int @default(0)
+  reserved    Int @default(0)
+  version     Int @default(1)
+  movements   InventoryMovement[]
+  cartItems   CartItem[]
+  wishlist    WishlistItem[]
+  reservations Reservation[]
+  @@index([productId, active, price])
+}
+model Media {
+  id          String @id @default(cuid())
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id])
+  key         String @unique
+  alt         String
+  mime        String @default("image/webp")
+  width       Int?
+  height      Int?
+  position    Int @default(0)
+  public      Boolean @default(false)
+  createdAt   DateTime @default(now())
+}
+model Collection {
+  id       String @id @default(cuid())
+  name     String
+  slug     String @unique
+  products CollectionProduct[]
+}
+model CollectionProduct {
+  collectionId String
+  productId    String
+  collection   Collection @relation(fields: [collectionId], references: [id])
+  product      Product @relation(fields: [productId], references: [id])
+  @@id([collectionId, productId])
+}
+model SlugRedirect {
+  oldSlug String @id
+  newSlug String
+}
+model InventoryMovement {
+  id        String @id @default(cuid())
+  skuId     String
+  sku       Sku @relation(fields: [skuId], references: [id])
+  delta     Int
+  reason    String
+  reference String?
+  actorId   String
+  createdAt DateTime @default(now())
+  @@index([skuId, createdAt])
+}
+model Cart {
+  id         String @id @default(cuid())
+  tokenHash  String @unique
+  userId     String?
+  couponCode String?
+  items      CartItem[]
+  updatedAt  DateTime @updatedAt
+  @@index([userId])
+}
+model CartItem {
+  id       String @id @default(cuid())
+  cartId   String
+  cart     Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  skuId    String
+  sku      Sku @relation(fields: [skuId], references: [id])
+  quantity Int
+  @@unique([cartId, skuId])
+}
+model WishlistItem {
+  id     String @id @default(cuid())
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skuId  String
+  sku    Sku @relation(fields: [skuId], references: [id])
+  @@unique([userId, skuId])
+}
+model Address {
+  id        String @id @default(cuid())
+  userId    String
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  phone     String
+  emirate   String
+  city      String
+  line1     String
+  landmark  String?
+}
+model Order {
+  id              String @id @default(cuid())
+  reference       String @unique
+  userId          String?
+  user            User? @relation(fields: [userId], references: [id])
+  guestTokenHash  String @unique
+  email           String
+  address         Json
+  status          String @default("PLACED")
+  paymentStatus   String @default("PENDING")
+  fulfillmentStatus String @default("UNFULFILLED")
+  paymentMethod   String
+  subtotal        Int
+  discount        Int
+  tax             Int
+  shipping        Int
+  total           Int
+  shippingSnapshot Json
+  termsSnapshot   Json
+  demo            Boolean @default(false)
+  version         Int @default(1)
+  expiresAt       DateTime?
+  createdAt       DateTime @default(now())
+  items           OrderItem[]
+  reservations    Reservation[]
+  shipments       Shipment[]
+  returns         ReturnRequest[]
+  payments        Payment[]
+  refunds         RefundRequest[]
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+model OrderItem {
+  id           String @id @default(cuid())
+  orderId      String
+  order        Order @relation(fields: [orderId], references: [id])
+  skuId        String
+  snapshot     Json
+  quantity     Int
+  fulfilled    Int @default(0)
+  returned     Int @default(0)
+  unitPrice    Int
+  discount     Int @default(0)
+  tax          Int @default(0)
+  total        Int
+}
+model Reservation {
+  id       String @id @default(cuid())
+  orderId  String
+  order    Order @relation(fields: [orderId], references: [id])
+  skuId    String
+  sku      Sku @relation(fields: [skuId], references: [id])
+  quantity Int
+  consumed Int @default(0)
+  released Int @default(0)
+  @@unique([orderId, skuId])
+}
+model Shipment {
+  id        String @id @default(cuid())
+  orderId   String
+  order     Order @relation(fields: [orderId], references: [id])
+  carrier   String
+  tracking  String?
+  items     Json
+  createdAt DateTime @default(now())
+}
+model Payment {
+  id        String @id @default(cuid())
+  orderId   String
+  order     Order @relation(fields: [orderId], references: [id])
+  provider  String
+  reference String @unique
+  amount    Int
+  status    String
+  createdAt DateTime @default(now())
+}
+model ReturnRequest {
+  id        String @id @default(cuid())
+  orderId   String
+  order     Order @relation(fields: [orderId], references: [id])
+  items     Json
+  reason    String
+  status    String @default("REQUESTED")
+  disposition String?
+  version   Int @default(1)
+  createdAt DateTime @default(now())
+}
+model RefundRequest {
+  id        String @id @default(cuid())
+  orderId   String
+  order     Order @relation(fields: [orderId], references: [id])
+  amount    Int
+  reason    String
+  status    String @default("REQUESTED")
+  providerReference String? @unique
+  createdAt DateTime @default(now())
+}
+model Coupon {
+  id        String @id @default(cuid())
+  code      String @unique
+  percent   Int
+  minimum   Int @default(0)
+  maxUses   Int @default(100)
+  uses      Int @default(0)
+  startsAt  DateTime @default(now())
+  endsAt    DateTime
+  active    Boolean @default(true)
+}
+model ShippingZone {
+  id        String @id @default(cuid())
+  name      String
+  emirates  String[]
+  rate      Int
+  freeAbove Int?
+  estimate  String
+  active    Boolean @default(true)
+}
+model ContentPage {
+  slug      String @id
+  title     String
+  body      String
+  published Boolean @default(false)
+  updatedAt DateTime @updatedAt
+}
+model HomeSection {
+  id       String @id @default(cuid())
+  title    String
+  subtitle String
+  kind     String
+  href     String
+  position Int @default(0)
+  visible  Boolean @default(true)
+  startsAt DateTime?
+  endsAt   DateTime?
+}
+model Setting {
+  key       String @id
+  value     Json
+  version   Int @default(1)
+}
+model Review {
+  id        String @id @default(cuid())
+  userId    String
+  user      User @relation(fields: [userId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  rating    Int
+  body      String
+  status    String @default("PENDING")
+  verified  Boolean @default(false)
+  createdAt DateTime @default(now())
+  @@unique([userId, productId])
+}
+model Inquiry {
+  id        String @id @default(cuid())
+  name      String
+  email     String
+  subject   String
+  message   String
+  status    String @default("OPEN")
+  createdAt DateTime @default(now())
+}
+model ApiClient {
+  id       String @id @default(cuid())
+  name     String
+  scopes   String[]
+  active   Boolean @default(true)
+  keys     ApiKey[]
+}
+model ApiKey {
+  id         String @id @default(cuid())
+  clientId   String
+  client     ApiClient @relation(fields: [clientId], references: [id])
+  prefix     String
+  hash       String @unique
+  scopes     String[]
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  createdAt  DateTime @default(now())
+}
+model AuditEvent {
+  id         String @id @default(cuid())
+  actorId    String
+  source     String
+  operation  String
+  targetId   String?
+  before     Json?
+  after      Json?
+  proposalId String?
+  createdAt  DateTime @default(now())
+  @@index([operation, createdAt])
+}
+model Proposal {
+  id        String @id @default(cuid())
+  actorId   String
+  operation String
+  targetId  String
+  payload   Json
+  before    Json
+  version   Int
+  status    String @default("PENDING")
+  approverId String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+model Idempotency {
+  id          String @id @default(cuid())
+  actorId     String
+  operation   String
+  key         String
+  payloadHash String
+  result      Json
+  createdAt   DateTime @default(now())
+  @@unique([actorId, operation, key])
+}
+model Job {
+  id          String @id @default(cuid())
+  type        String
+  actorId     String
+  payload     Json
+  result      Json?
+  status      String @default("QUEUED")
+  attempts    Int @default(0)
+  dedupeKey   String @unique
+  availableAt DateTime @default(now())
+  lockedAt    DateTime?
+  lastError   String?
+  createdAt   DateTime @default(now())
+  @@index([status, availableAt])
+}
+model ImportBatch {
+  id        String @id @default(cuid())
+  actorId   String
+  rows      Json
+  errors    Json
+  status    String @default("PREVIEW")
+  createdAt DateTime @default(now())
+}
+model AiRun {
+  id        String @id @default(cuid())
+  actorId   String
+  prompt    String
+  provider  String
+  status    String @default("QUEUED")
+  result    String?
+  usage     Json?
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    container_name: inforteks-postgres
+    environment:
+      POSTGRES_USER: inforteks
+      POSTGRES_DB: inforteks
+      # Isolated local development only. Never expose this service outside loopback.
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - inforteks-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inforteks -d inforteks"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+volumes:
+  inforteks-pg:
+    external: false
+    name: inforteks-pg

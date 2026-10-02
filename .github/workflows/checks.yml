@@ -1,0 +1,36 @@
+name: Application checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Install package manager
+        run: npm install --global pnpm@11.19.0
+      - name: Set up isolated development database
+        run: bash scripts/setup.sh
+      - name: Static and database checks
+        run: |
+          pnpm typecheck
+          pnpm lint
+          pnpm format:check
+          pnpm test:integration
+          pnpm docs:generate
+          git diff --exit-code -- docs/openapi.json docs/OPERATION_MATRIX.md
+      - name: Install browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Browser journeys
+        run: pnpm test:e2e
+      - name: Production build without a live database
+        env:
+          DATABASE_URL: postgresql://build:build@127.0.0.1:1/no_database
+        run: pnpm build
