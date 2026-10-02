@@ -72,4 +72,4 @@ Card payments, executed refunds, courier automation and order-email delivery sti
 
 Follow [operations](OPERATIONS.md) for backup schedules, restore checks, monitoring, rollback and launch evidence. A database volume alone is not a backup; deployment health checks are not ongoing uptime monitoring.
 
-For a trusted enterprise TLS proxy, Docker accepts an optional BuildKit secret: `docker build --secret id=build_ca,src=/path/to/trusted-ca-bundle.pem .`. It is mounted only during downloads, never copied into the image. Keep TLS verification enabled.
+Railway's Docker builder supports cache mounts but rejects BuildKit secret mounts. The deployment Dockerfile uses the base image's trusted CA bundle and keeps TLS verification enabled. Builds behind an enterprise proxy need a separately configured trusted build environment; do not copy proxy credentials or certificates into the production image.
