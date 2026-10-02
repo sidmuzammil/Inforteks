@@ -6,14 +6,18 @@ Railway is the intended host for the storefront, admin, worker, PostgreSQL and p
 
 Use one Inforteks project with separate `staging` and `production` environments. Each environment must have its own database, media bucket and authentication secrets. Public registration never creates staff accounts.
 
-| Service    | Source / configuration                                      | Exposure                                            | Initial connection budget                              |
-| ---------- | ----------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------ |
-| `web`      | GitHub `sidmuzammil/Inforteks`, Dockerfile, `/railway.toml` | HTTPS storefront, customer account and `/admin`     | 10 per process                                         |
-| `worker`   | Same commit and Dockerfile, `/railway.worker.toml`          | Private health endpoint; no public domain           | 3 per process                                          |
-| `Postgres` | Railway PostgreSQL with persistent volume                   | Private network                                     | Reserve capacity for deployment overlap and operations |
-| `media`    | Private Railway storage bucket                              | Authenticated S3 API; images served through the app | Not applicable                                         |
+| Service    | Source / configuration                                     | Exposure                                            | Initial connection budget                              |
+| ---------- | ---------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------ |
+| `web`      | `sidmuzammil/Inforteks`, Dockerfile, `.railway/railway.ts` | HTTPS storefront, customer account and `/admin`     | 10 per process                                         |
+| `worker`   | Same commit and Dockerfile, `.railway/railway.ts`          | Private health endpoint; no public domain           | 3 per process                                          |
+| `Postgres` | Railway PostgreSQL with persistent volume                  | Private network                                     | Reserve capacity for deployment overlap and operations |
+| `media`    | Private Railway storage bucket                             | Authenticated S3 API; images served through the app | Not applicable                                         |
 
-Set the worker's **Config as Code path** to `/railway.worker.toml` in service settings. Changing only its start command while retaining the web config would give it the wrong health check and duplicate migration execution.
+Railway's current Infrastructure as Code configuration is `.railway/railway.ts`, using the pinned `railway` SDK. The legacy per-service TOML format is deprecated and unavailable for new services. Select the intended project/environment, run `railway config plan`, inspect the exact changes, then run `railway config apply --yes`. This file owns the complete environment: removing a resource can delete it. Keep secret values out of source and plans shared with others.
+
+Each environment requires its own cryptographically random `BETTER_AUTH_SECRET` shared variable, configured securely before deployment. The services reference it. The SDK's deterministic `ctx.randomString` helper must not be used for credentials. PostgreSQL, web and worker use Amsterdam, with an Amsterdam private bucket. Generated Railway hostnames supply the initial application origin.
+
+Until Railway's GitHub App is granted access to `sidmuzammil/Inforteks`, deployment uses `railway up --service web --environment staging` from the reviewed checkout, followed by the worker after web readiness succeeds. Repeat for production only after staging verification. GitHub pushes alone do not apply infrastructure configuration. Once repository access is authorized, connect the source explicitly and continue applying infrastructure changes separately.
 
 Web runs schema migrations as a pre-deploy step, then checks `/api/ready`. Worker starts with `node --import tsx scripts/worker.ts`, checks `/health`, and never runs migrations. Both configurations disable sleeping. Deploy web/migrations successfully before deploying a worker that depends on the new schema.
 
