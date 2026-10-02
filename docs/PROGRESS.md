@@ -13,6 +13,7 @@ This file distinguishes the supplied brief's broad target from the working imple
 - Validated image re-encoding, private draft media and adapters for S3-compatible storage and private Vercel Blob.
 - Durable import/email/AI worker, two official AI provider adapters and a bounded tool allowlist.
 - PostgreSQL migrations, repeatable development setup, tests, generated API registry and Railway/Vercel deployment files.
+- Separate Railway web/worker configurations, bounded database connections and query timeouts, worker health checks and graceful draining, and an operations/recovery runbook. Remote Railway provisioning remains blocked until this cloud session has API access and authentication.
 
 ## Remaining product scope
 

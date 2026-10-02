@@ -19,7 +19,7 @@ RUN --mount=type=secret,id=build_ca \
     python3 scripts/install-prisma-engine.py
 ENV PRISMA_SCHEMA_ENGINE_BINARY=/app/.data/tools/schema-engine
 # No live database or provider credentials are required by the build.
-RUN pnpm build
+RUN pnpm build && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/
 
 FROM base AS runtime
 ENV NODE_ENV=production HOSTNAME=0.0.0.0 PORT=3000 PRISMA_SCHEMA_ENGINE_BINARY=/app/.data/tools/schema-engine
@@ -27,4 +27,4 @@ ENV NODE_ENV=production HOSTNAME=0.0.0.0 PORT=3000 PRISMA_SCHEMA_ENGINE_BINARY=/
 COPY --from=build --chown=node:node /app /app
 USER node
 EXPOSE 3000
-CMD ["sh", "-c", "pnpm exec next start --hostname 0.0.0.0 --port ${PORT:-3000}"]
+CMD ["node", ".next/standalone/server.js"]

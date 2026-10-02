@@ -8,5 +8,13 @@ if [[ -z "${TEST_DATABASE_URL:-}" ]]; then
   export TEST_DATABASE_URL=postgresql://inforteks@127.0.0.1:5432/inforteks_test
 fi
 export DATABASE_URL="$TEST_DATABASE_URL"
+# Never let an inherited production migration URL override the isolated test DB.
+export DIRECT_DATABASE_URL="$TEST_DATABASE_URL"
+node --input-type=module <<'JS'
+const url = new URL(process.env.TEST_DATABASE_URL ?? "");
+if (url.pathname !== "/inforteks_test") {
+  throw new Error("Integration migrations require the isolated inforteks_test database.");
+}
+JS
 pnpm db:migrate
 pnpm exec vitest run

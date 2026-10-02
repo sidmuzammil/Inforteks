@@ -2,23 +2,35 @@
 
 Verified in the development cloud environment on **2 October 2026**. This records completed checks, not a production certification.
 
-| Check                        | Result                                                                                                     |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Repeated setup               | Passed; pinned install, verified engine, migrations and seed are repeatable                                |
-| TypeScript                   | Passed with `tsc --noEmit`                                                                                 |
-| ESLint                       | Passed with no source errors or warnings                                                                   |
-| Formatting                   | Passed with Prettier                                                                                       |
-| Pricing/unit tests           | 7 passed                                                                                                   |
-| PostgreSQL integration tests | 19 passed against `inforteks_test`                                                                         |
-| Chromium browser journeys    | 5 passed; Owner journey rerun after correcting zero-sales display                                          |
-| OpenAPI generation           | 93 operations generated and validated as OpenAPI 3.1                                                       |
-| Next production build        | Passed with an intentionally unreachable database URL                                                      |
-| Docker production build      | Passed from the supplied Dockerfile without runtime secrets/database access                                |
-| Container runtime            | Homepage and health returned 200; development settings correctly caused production readiness to return 503 |
-| Container isolation          | Non-root user; no `.env` or temporary build CA in the runtime image                                        |
-| First-Owner bootstrap        | Passed on a fresh isolated database; a second bootstrap was rejected                                       |
-| Database snapshot restore    | Passed into an isolated database; all 50 demo products restored                                            |
-| Web/worker startup           | Web readiness passed; separate worker started and durable import execution tested                          |
+| Check                        | Result                                                                                                                                           |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Repeated setup               | Passed; pinned install, verified engine, migrations and seed are repeatable                                                                      |
+| TypeScript                   | Passed with `tsc --noEmit`                                                                                                                       |
+| ESLint                       | Passed with no source errors or warnings                                                                                                         |
+| Formatting                   | Passed with Prettier                                                                                                                             |
+| Pricing/unit tests           | 7 passed                                                                                                                                         |
+| PostgreSQL integration tests | 19 passed against `inforteks_test`                                                                                                               |
+| Chromium browser journeys    | 5 passed; Owner journey rerun after correcting zero-sales display                                                                                |
+| OpenAPI generation           | 93 operations generated and validated as OpenAPI 3.1                                                                                             |
+| Next production build        | Passed with an intentionally unreachable database URL                                                                                            |
+| Docker production build      | Passed from the supplied Dockerfile without runtime secrets/database access                                                                      |
+| Container runtime            | Updated Railway image: homepage/web readiness/worker health returned 200 against the isolated test database; anonymous admin redirected to login |
+| Container isolation          | Non-root user; no `.env` or temporary build CA in the runtime image                                                                              |
+| First-Owner bootstrap        | Passed on a fresh isolated database; a second bootstrap was rejected                                                                             |
+| Database snapshot restore    | Passed into an isolated database; all 50 demo products restored                                                                                  |
+| Web/worker startup           | Web readiness passed; separate worker started and durable import execution tested                                                                |
+
+## Railway preparation checks
+
+The updated suite passed **33 tests**: the original 26 pricing/domain tests, two production-storage checks, three worker lifecycle checks and two database-limit checks. Worker tests cover health before database readiness, cancellation of idle sleep, draining an active job without claiming another, and cleanup after a database failure. The PostgreSQL timeout check cancels a long query and verifies the same pool remains usable.
+
+Both Railway TOML files validate against Railway's published JSON schema. TypeScript, ESLint and formatting passed. The new Docker image built successfully without runtime credentials. Its migration command ran against `inforteks_test`; the web and worker served successful health responses, `/admin` redirected an anonymous request to `/login`, and the worker claimed a disposable email job once and marked it blocked without a live provider. Verification records were removed. Runtime checks confirmed the non-root user and exclusion of local secrets, provider configuration and the temporary build CA.
+
+Development setup rejects remote migration URLs and production mode. Integration tests were rerun with an intentionally invalid inherited direct-database URL and still used only the isolated test database.
+
+The final image uses Next's standalone server; its homepage and 12 static assets returned 200. The worker stopped with exit 0, while Next used its documented SIGTERM exit 143 without an out-of-memory termination. Container checks ran sequentially after this cloud runner exhausted disk space; only obsolete Inforteks test images/containers and disposable build cache were removed. The development PostgreSQL volume was preserved.
+
+Private Vercel Blob upload/authenticated read also passed during the preceding deployment work; anonymous reads returned 403 and test objects were removed. This does not verify a Railway bucket, which has not been provisioned.
 
 ## Integration coverage
 
@@ -48,4 +60,4 @@ The PostgreSQL adapter emits a deprecation warning concerning concurrent client 
 
 ## Not verified or not implemented
 
-No Railway deployment, fresh published cloud restoration, live payment/refund/courier transaction, live email delivery or paid AI call was performed. CI is configured but has not run on GitHub because the source has not been pushed. Accessibility testing is representative, not a full audit. Load behavior, production backup schedules, data retention, complete API contract coverage and remaining features are tracked in [delivery status](PROGRESS.md) and [future integrations](INTEGRATIONS_LATER.md).
+No Railway deployment, fresh published cloud restoration, live payment/refund/courier transaction, live email delivery or paid AI call was performed. Source has been pushed to GitHub and a Vercel build succeeded, but that site's database-backed homepage remained unavailable. GitHub CI results have not been independently verified. Railway login is currently blocked by cloud network access, and no Railway credentials were available in the session. Accessibility testing is representative, not a full audit. Load behavior, production backup schedules, data retention, complete API contract coverage and remaining features are tracked in [delivery status](PROGRESS.md) and [future integrations](INTEGRATIONS_LATER.md).

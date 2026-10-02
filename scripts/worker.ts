@@ -7,13 +7,9 @@ import { executeAiRun } from "../src/domains/ai";
 import { expireReservations } from "../src/domains/maintenance";
 import { json } from "../src/lib/utils";
 import type { Prisma } from "../src/generated/prisma/client";
-let running = true;
-process.on("SIGTERM", () => {
-  running = false;
-});
-process.on("SIGINT", () => {
-  running = false;
-});
+import { z } from "zod";
+import { runWorker } from "../src/lib/worker-runtime";
+import { validateRuntime } from "../src/lib/runtime";
 export async function runOneJob() {
   const job = await db.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<
@@ -158,19 +154,43 @@ export async function runOneJob() {
   return true;
 }
 async function main() {
-  console.log("Inforteks worker started.");
-  let lastMaintenance = 0;
-  while (running) {
-    if (Date.now() - lastMaintenance > 60000) {
-      await expireReservations();
-      lastMaintenance = Date.now();
-    }
-    const worked = await runOneJob();
-    if (!worked)
-      await new Promise((r) =>
-        setTimeout(r, Number(process.env.WORKER_POLL_MS ?? 3000)),
-      );
+  validateRuntime();
+  const port = z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(65535)
+    .parse(process.env.PORT ?? process.env.WORKER_HEALTH_PORT ?? 8081);
+  const pollMs = z.coerce
+    .number()
+    .int()
+    .min(100)
+    .max(60000)
+    .parse(process.env.WORKER_POLL_MS ?? 3000);
+  const shutdown = new AbortController();
+  const stop = () => shutdown.abort();
+  process.once("SIGTERM", stop);
+  process.once("SIGINT", stop);
+  try {
+    await runWorker({
+      port,
+      pollMs,
+      signal: shutdown.signal,
+      maintain: expireReservations,
+      runOne: runOneJob,
+      disconnect: () => db.$disconnect(),
+      onListening: () => console.log("Inforteks worker health server started."),
+    });
+  } finally {
+    process.off("SIGTERM", stop);
+    process.off("SIGINT", stop);
   }
-  await db.$disconnect();
 }
-if (process.argv[1]?.endsWith("worker.ts")) void main();
+if (process.argv[1]?.endsWith("worker.ts")) {
+  void main().catch(() => {
+    console.error(
+      "Worker stopped after a configuration, database or runtime failure. Inspect service health and job outcomes before retrying.",
+    );
+    process.exitCode = 1;
+  });
+}

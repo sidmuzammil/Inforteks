@@ -24,6 +24,17 @@ contents = p.read_text()
 if 'PRISMA_SCHEMA_ENGINE_BINARY=' not in contents:
     p.write_text(contents.rstrip() + '\nPRISMA_SCHEMA_ENGINE_BINARY=.data/tools/schema-engine\n')
 PY
+node --input-type=module <<'JS'
+import "dotenv/config";
+if (process.env.NODE_ENV === "production") throw new Error("setup.sh is for local development only.");
+for (const key of ["DATABASE_URL", "DIRECT_DATABASE_URL"]) {
+  if (!process.env[key] && key === "DIRECT_DATABASE_URL") continue;
+  const url = new URL(process.env[key] ?? "");
+  if (!["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) || url.pathname !== "/inforteks") {
+    throw new Error(`${key} must point to the local inforteks development database before running setup.sh.`);
+  }
+}
+JS
 if docker container inspect inforteks-postgres >/dev/null 2>&1; then
   docker start inforteks-postgres >/dev/null
 else

@@ -21,7 +21,7 @@ pnpm worker
 
 Setup installs pinned dependencies, prepares a checksum-verified Prisma engine, creates a private local `.env` if missing, starts PostgreSQL on loopback, deploys migrations, and seeds demonstration data. Repeating setup preserves existing configuration and records. It creates **no default administrator**. The local Docker database uses trust authentication and must remain bound to `127.0.0.1`; production must use a separate authenticated managed database.
 
-The web service uses port 3000. `/api/health` checks the process; `/api/ready` checks runtime configuration and the database. Stop the web and worker with Ctrl-C. `docker stop inforteks-postgres` preserves the development volume. Do not remove that volume to resolve routine startup issues.
+The web service uses port 3000. `/api/health` checks the process; `/api/ready` checks runtime configuration and the database. Worker `/health` uses port 8081 locally (Railway uses its assigned `PORT`) and the worker drains its active job on shutdown. Stop web and worker with Ctrl-C. `docker stop inforteks-postgres` preserves the development volume. Do not remove that volume to resolve routine startup issues.
 
 ## Create the first Owner
 
@@ -80,6 +80,7 @@ The production build does not require a reachable database. Production readiness
 - [REST API guide](docs/API_GUIDE.md), [OpenAPI](docs/openapi.json) and [operation matrix](docs/OPERATION_MATRIX.md)
 - [AI administration guide](docs/AI_ADMIN_GUIDE.md)
 - [Vercel deployment](docs/DEPLOYMENT_VERCEL.md) and [Railway deployment](docs/DEPLOYMENT_RAILWAY.md)
+- [Production operations and recovery](docs/OPERATIONS.md)
 - [Test report](docs/TEST_REPORT.md)
 - [Remaining integrations](docs/INTEGRATIONS_LATER.md)
 - [Original supplied brief](docs/BUILD_SPEC.md)
