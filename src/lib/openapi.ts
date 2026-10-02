@@ -10,6 +10,20 @@ type OperationDoc = {
 };
 export const apiOperations: OperationDoc[] = [
   {
+    method: "get",
+    path: "/storefront/comparison",
+    id: "compareProducts",
+    summary:
+      "Live public specifications for one to four comma-separated SKU IDs in skus; same visible department only. Unavailable IDs are reported, never replaced.",
+  },
+  {
+    method: "post",
+    path: "/storefront/comparison/insights",
+    id: "comparisonInsights",
+    summary:
+      "Authenticated, origin-checked optional AI explanation of current public SKU facts; skuIds and purpose (work, study, gaming, travel). Requires configured AI and explicit enablement; bounded daily limits.",
+  },
+  {
     method: "post",
     path: "/admin/banner-media",
     id: "uploadBanner",
@@ -54,13 +68,14 @@ export const apiOperations: OperationDoc[] = [
     method: "get",
     path: "/storefront/carts",
     id: "getCart",
-    summary: "Cookie-scoped cart.",
+    summary: "Guest cookie cart or the authenticated customer’s restored cart.",
   },
   {
     method: "post",
     path: "/storefront/carts",
     id: "setCartItem",
-    summary: "Set an exact SKU quantity; zero removes the item.",
+    summary:
+      "Set an exact SKU quantity (default); mode add increments atomically. Zero with mode set removes even unavailable items.",
   },
   {
     method: "post",

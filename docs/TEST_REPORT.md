@@ -8,9 +8,9 @@ Verified in the development cloud environment on **2 October 2026**. This record
 | TypeScript                | Passed with `tsc --noEmit`                                                                                                                       |
 | ESLint                    | Passed with no source errors or warnings                                                                                                         |
 | Formatting                | Passed with Prettier                                                                                                                             |
-| Unit/integration tests    | 43 passed across eight files; database tests use isolated `inforteks_test`                                                                       |
-| Chromium browser journeys | All 9 passed; five store journeys and four account/staff journeys                                                                                |
-| OpenAPI generation        | 95 operations generated and validated as OpenAPI 3.1                                                                                             |
+| Unit/integration tests    | 57 passed across twelve files; database tests use isolated `inforteks_test`                                                                      |
+| Chromium browser journeys | All 16 passed across the full suite and the corrected account follow-up run                                                                      |
+| OpenAPI generation        | 97 operations generated and validated as OpenAPI 3.1                                                                                             |
 | Next production build     | Passed with an intentionally unreachable database URL                                                                                            |
 | Docker production build   | Passed from the supplied Dockerfile without runtime secrets/database access                                                                      |
 | Container runtime         | Updated Railway image: homepage/web readiness/worker health returned 200 against the isolated test database; anonymous admin redirected to login |
@@ -18,6 +18,16 @@ Verified in the development cloud environment on **2 October 2026**. This record
 | First-Owner bootstrap     | Passed on a fresh isolated database; a second bootstrap was rejected                                                                             |
 | Database snapshot restore | Passed into an isolated database; all 50 demo products restored                                                                                  |
 | Web/worker startup        | Web readiness passed; separate worker started and durable import execution tested                                                                |
+
+## Store workflow and Google release — 2 October 2026 UTC
+
+- **57 unit/integration tests passed across 12 files**, using isolated local PostgreSQL. The API permission matrix denied all **68 documented staff operations** to anonymous visitors (401) and customer sessions (403). This proves those access boundaries; it is not complete semantic/response-schema coverage of every endpoint.
+- The new HTTP lifecycle creates a dummy draft, uploads/re-encodes a PNG, checks private media, approves stock/publication, restores a signed-in cart without a cart cookie, quotes totals, rejects Qatar delivery, places/replays one simulator order, denies another customer access, fulfils once, processes/restocks a customer return, archives the product and removes the unavailable item. Fixtures and temporary media are removed from the isolated test database/storage.
+- Comparison tests verify current prices, shared/SKU spec precedence, actual variant differences, deduplication, the four-item/same-department limit, unpublished/inactive exclusion, and customer-cart isolation. The optional AI adapter is tested with a mocked provider for public-only inputs, output limits, malformed/provider-error fallback and the daily user limit. No paid AI response has been verified.
+- Google tests exercise the real authorization/callback/database/session handlers with only Google's TLS token exchange mocked. They cover state-cookie enforcement, replay, PKCE, verified email, customer-only creation, explicit same-email linking, staff denial, recent-session checks and rejection of forged client tokens, extra scopes and foreign origins. The fifth migration prevents duplicate provider/account identities. Live Google/Firebase authorization remains unavailable.
+- All 16 Chromium journeys passed: five store, five account/staff, two Google and four location/navigation/comparison journeys. Browser verification exposed and fixed repeated product-detail additions resetting quantity; assertions for an overlay and a native label were corrected, then all five account journeys passed in the follow-up run. Signed-in country detection, non-UAE checkout blocking, manual emirate selection, cart restoration in a new browser and sign-out isolation were verified.
+- Country tests use actual local boundary data and cover UAE, Saudi Arabia, Qatar and Oman, invalid coordinates and cookie validation. Coordinates never reach the application server. Browser tests verify permission-granted detection, manual override, coming-soon copy, mobile comparison, current configurations, and hover/keyboard/outside-click navigation.
+- Test fixtures stay off production. Password recovery uses the private development mailbox and order payments use the development simulator; these do not establish real email delivery or payment processing.
 
 ## Account and staff release — 2 October 2026
 

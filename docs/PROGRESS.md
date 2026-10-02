@@ -4,6 +4,10 @@ This file distinguishes the supplied brief's broad target from the working imple
 
 ## Implemented
 
+- Delivery-country selection in the header, UAE emirates and permission-based country detection on the device; Saudi Arabia, Qatar and Oman explicitly coming soon, with UAE-only checkout validation.
+- Live same-department comparison for up to four SKU configurations, merged shared/variant specifications, refreshed prices, difference filtering and mobile access. Optional, bounded AI explanations require separate provider enablement.
+- Signed-in carts restore across devices; additions increment atomically, archived items can be removed, and checkout retries retain their idempotency key after network failure.
+
 - Branded responsive storefront with original hero, department navigation, search suggestions, shared catalogue filters, pagination, variants, image zoom, wishlist and comparison.
 - Database-backed carts, server totals, coupon/shipping/tax calculation, guest checkout, idempotent stock reservations, protected order confirmation and customer order/return views.
 - Separate customer accounts and private staff sign-in; Better Auth password changes, session revocation, expiring recovery and optional email verification; first-Owner bootstrap and named staff creation.

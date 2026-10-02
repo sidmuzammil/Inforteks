@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { api, useShop } from "./store-client";
 import { money, emirates } from "@/lib/utils";
+import { useDeliveryLocation, saveDeliveryLocation } from "./delivery-location";
+import { comingSoon } from "@/lib/delivery-location";
 export type Field = {
   name: string;
   label: string;
@@ -212,10 +214,13 @@ type Quote = {
   paymentMethods: string[];
 };
 export function CartPage({ checkout = false }: { checkout?: boolean }) {
+  const delivery = useDeliveryLocation();
   const [cart, setCart] = useState<Cart | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [region, setRegion] = useState("Dubai");
+  const [chosenRegion, setRegion] = useState<string | null>(null);
+  const region = chosenRegion ?? delivery.emirate ?? "Dubai";
+  const countryAvailable = delivery.country === "AE";
   const [coupon, setCoupon] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
   const key = useRef("");
@@ -235,7 +240,7 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
     key.current = crypto.randomUUID();
   }, []);
   useEffect(() => {
-    if (!cart?.items.length) return;
+    if (!cart?.items.length || !countryAvailable) return;
     let cancelled = false;
     const timer = setTimeout(() => {
       api<Quote>("storefront/carts/quote", {
@@ -259,7 +264,7 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [cart, region, coupon]);
+  }, [cart, region, coupon, countryAvailable]);
   async function update(skuId: string, quantity: number) {
     setBusy(true);
     try {
@@ -301,6 +306,7 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
     );
   async function placeOrder(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!countryAvailable || busy) return;
     setBusy(true);
     setError("");
     const fd = new FormData(e.currentTarget);
@@ -318,6 +324,7 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
           "Idempotency-Key": key.current,
         },
         body: JSON.stringify({
+          country: delivery.country,
           email: fd.get("email"),
           address: { ...address, emirate: region },
           paymentMethod: fd.get("paymentMethod"),
@@ -325,13 +332,17 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
         }),
       });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error?.message ?? "Checkout failed.");
+      if (!r.ok) {
+        if (r.status < 500) key.current = crypto.randomUUID();
+        throw new Error(data.error?.message ?? "Checkout failed.");
+      }
       await shop.refresh();
       router.push(`/order-confirmation/${data.data.reference}`);
       router.refresh();
     } catch (e) {
       setError((e as Error).message);
-      key.current = crypto.randomUUID();
+      // Preserve the idempotency key after network/server failures: the order
+      // may already exist even if its response did not reach this browser.
     } finally {
       setBusy(false);
     }
@@ -349,6 +360,12 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
             : `${cart.items.length} selected item${cart.items.length === 1 ? "" : "s"}. Ready when you are.`}
         </p>
       </div>
+      {!countryAvailable && (
+        <p className="notice warning" role="status">
+          {comingSoon(delivery.country)} Choose United Arab Emirates in the
+          location menu for a UAE delivery address.
+        </p>
+      )}
       {error && (
         <p className="form-error" role="alert">
           {error}
@@ -379,7 +396,14 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
                   Emirate
                   <select
                     value={region}
-                    onChange={(e) => setRegion(e.target.value)}
+                    onChange={(e) => {
+                      setRegion(e.target.value);
+                      saveDeliveryLocation({
+                        country: "AE",
+                        emirate: e.target.value,
+                        source: "manual",
+                      });
+                    }}
                   >
                     {emirates.map((e) => (
                       <option key={e}>{e}</option>
@@ -552,7 +576,9 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
             <button
               className="button primary"
               form="checkout-form"
-              disabled={busy || !quote?.paymentMethods.length}
+              disabled={
+                busy || !countryAvailable || !quote?.paymentMethods.length
+              }
             >
               {busy ? "Placing your order…" : "Place order"}
               <ArrowRight size={16} />

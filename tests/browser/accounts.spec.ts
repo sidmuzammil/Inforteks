@@ -46,6 +46,7 @@ test.afterAll(async () => {
   await db.job.deleteMany({ where: { actorId: { in: ids } } });
   await db.verification.deleteMany({ where: { value: { in: ids } } });
   await db.auditEvent.deleteMany({ where: { actorId: { in: ids } } });
+  await db.cart.deleteMany({ where: { userId: { in: ids } } });
   await db.user.deleteMany({ where: { id: { in: ids } } });
   for (const path of mailboxes) await rm(path, { force: true });
   await db.$disconnect();
@@ -118,6 +119,77 @@ test("customer registration, stored profile and administration boundary", async 
   await expect(
     page.getByRole("heading", { name: "Staff access required." }),
   ).toBeVisible();
+});
+test("signed-in location, repeated cart additions and cross-device cart restoration", async ({
+  page,
+  context,
+  browser,
+}) => {
+  await context.grantPermissions(["geolocation"]);
+  await context.setGeolocation({
+    latitude: 25.2854,
+    longitude: 51.531,
+    accuracy: 30,
+  });
+  async function signIn(target: typeof page) {
+    await target.goto("/login");
+    await target.getByLabel("Email address", { exact: true }).fill(email);
+    await target.getByLabel("Password", { exact: true }).fill(password);
+    await target.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(target).toHaveURL(/\/account$/);
+  }
+  await signIn(page);
+  await expect(
+    page.getByRole("button", { name: "Delivery location: Qatar, coming soon" }),
+  ).toBeVisible();
+  await page.goto("/product/rog-zephyrus-g16-gaming-laptop");
+  const add = page
+    .getByRole("button", { name: "Add to cart", exact: true })
+    .first();
+  await add.click();
+  await expect(
+    page.getByRole("link", { name: "Cart, 1 items", exact: true }),
+  ).toBeVisible();
+  await add.click();
+  await expect(
+    page.getByRole("link", { name: "Cart, 2 items", exact: true }),
+  ).toBeVisible();
+  await page.goto("/checkout");
+  await expect(
+    page
+      .getByRole("status")
+      .filter({ hasText: /haven’t started operations in Qatar/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Place order/ }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: /Delivery location:/ }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: /^United Arab Emirates/ }).click();
+  await dialog.getByLabel("Delivery emirate").selectOption("Sharjah");
+  await dialog
+    .getByRole("button", { name: "Continue shopping", exact: true })
+    .click();
+  await expect(
+    page.getByRole("combobox", { name: "Emirate", exact: true }),
+  ).toHaveValue("Sharjah");
+  const other = await browser.newContext({ baseURL: "http://localhost:3000" });
+  try {
+    const nextPage = await other.newPage();
+    await signIn(nextPage);
+    await expect(
+      nextPage.getByRole("link", { name: "Cart, 2 items", exact: true }),
+    ).toBeVisible();
+    await nextPage
+      .getByRole("button", { name: "Sign out", exact: true })
+      .click();
+    await expect(nextPage).toHaveURL(/\/login$/);
+    await expect(
+      nextPage.getByRole("link", { name: "Cart, 0 items", exact: true }),
+    ).toBeVisible();
+  } finally {
+    await other.close();
+  }
 });
 test("content staff can maintain banners but cannot open products or staff management", async ({
   page,

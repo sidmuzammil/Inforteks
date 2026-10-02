@@ -13,6 +13,8 @@ import {
 import { db } from "@/lib/db";
 import { money } from "@/lib/utils";
 import type { PublicProduct } from "@/domains/catalogue";
+import { getSession } from "@/lib/session";
+import { DeliveryLocationPicker } from "./delivery-location";
 import {
   HeaderActions,
   SearchBox,
@@ -21,22 +23,30 @@ import {
   WishlistButton,
 } from "./store-client";
 export async function Header() {
-  const [categories, store] = await Promise.all([
+  const [categories, store, session] = await Promise.all([
     db.category.findMany({
       where: { visible: true },
       orderBy: { position: "asc" },
     }),
     db.setting.findUnique({ where: { key: "store" } }),
+    getSession(),
   ]);
+  const address = session
+    ? await db.address.findFirst({
+        where: { userId: session.user.id },
+        select: { emirate: true },
+        orderBy: { id: "desc" },
+      })
+    : null;
   const demo = (store?.value as { demo?: boolean })?.demo;
   return (
     <>
       <div className="utility-bar">
         <div className="container utility-inner">
-          <span>
-            <MapPin size={12} />
-            Delivering across the UAE <ChevronDown size={11} />
-          </span>
+          <DeliveryLocationPicker
+            signedIn={Boolean(session)}
+            savedEmirate={address?.emirate}
+          />
           <span className="utility-center">
             {demo
               ? "Development store · Illustrative products & prices"

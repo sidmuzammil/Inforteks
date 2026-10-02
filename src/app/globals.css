@@ -155,6 +155,86 @@ summary {
   font-size: 11px;
   color: #5e6474;
 }
+.delivery-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 33px;
+  text-align: left;
+}
+.delivery-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(520px, calc(100vw - 24px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 0;
+  color: var(--navy);
+  background: white;
+  box-shadow: 0 24px 80px #07142b40;
+}
+.delivery-dialog::backdrop {
+  background: #0b153b80;
+}
+.delivery-dialog-content {
+  position: relative;
+  padding: 30px;
+  display: grid;
+  gap: 18px;
+}
+.delivery-dialog h2 {
+  font-size: 26px;
+}
+.delivery-dialog p,
+.delivery-dialog small {
+  line-height: 1.6;
+}
+.delivery-dialog small {
+  font-size: 12px;
+  color: #56647d;
+}
+.delivery-close {
+  position: absolute;
+  right: 12px;
+  top: 10px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+}
+.delivery-countries {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.delivery-countries button {
+  padding: 14px;
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.delivery-countries button.selected {
+  border-color: var(--blue);
+  background: #f0f4ff;
+}
+.delivery-countries span {
+  font-size: 12px;
+  color: #56647d;
+}
+.delivery-emirate {
+  display: grid;
+  gap: 8px;
+}
+.delivery-emirate select {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
 .utility-inner {
   display: flex;
   justify-content: space-between;
@@ -348,7 +428,7 @@ summary {
 }
 .mega-menu {
   position: absolute;
-  top: 52px;
+  top: 100%;
   left: 0;
   width: 300px;
   background: white;
@@ -365,8 +445,19 @@ summary {
   font-size: 13px;
   border-radius: 5px;
 }
-.mega-menu a:hover {
+.mega-menu a:hover,
+.mega-menu a:focus-visible {
   background: #f0f4ff;
+}
+.nav-links a,
+.nav-new {
+  padding-block: 15px;
+  transition: color 0.15s ease;
+}
+.nav-links a:hover,
+.nav-links a:focus-visible,
+.nav-new:hover {
+  color: var(--blue);
 }
 .nav-links {
   display: flex;
@@ -1430,6 +1521,47 @@ summary {
 .comparison-scroll {
   overflow: auto;
 }
+.comparison-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+.comparison-summary {
+  background: #f5f7ff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 22px;
+  margin: 20px 0;
+  display: grid;
+  gap: 12px;
+}
+.comparison-summary h2 {
+  font-size: 20px;
+}
+.comparison-summary small {
+  color: #56647d;
+}
+.comparison-summary select {
+  margin-left: 12px;
+  padding: 8px;
+}
+.comparison-table thead th {
+  background: white;
+  text-transform: none;
+  padding-top: 34px;
+}
+.comparison-table thead small {
+  display: block;
+  margin-top: 8px;
+  color: #56647d;
+}
+.comparison-table tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
 .comparison-table {
   border-collapse: collapse;
   width: 100%;
@@ -2470,7 +2602,7 @@ summary {
     width: 20px;
   }
   .header-actions > a:nth-child(3) {
-    display: none;
+    display: flex;
   }
   .search-box {
     order: 2;
@@ -3643,4 +3775,14 @@ summary {
 }
 .banner-preview button {
   justify-self: start;
+}
+
+.comparison-scroll-hint {
+  color: var(--muted);
+  font-size: 13px;
+}
+@media (min-width: 1000px) {
+  .comparison-scroll-hint {
+    display: none;
+  }
 }

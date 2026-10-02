@@ -12,6 +12,12 @@ const email = `browser-owner-${suffix}@example.test`;
 const password = randomBytes(24).toString("base64url");
 let userId: string;
 test.beforeAll(async () => {
+  const database = new URL(process.env.DATABASE_URL ?? "");
+  if (
+    !["127.0.0.1", "localhost"].includes(database.hostname) ||
+    database.pathname !== "/inforteks"
+  )
+    throw new Error("Browser fixtures require the local development database.");
   await mkdir(".data/screenshots", { recursive: true });
   const user = await auth.api.signUpEmail({
     body: { email, password, name: "Development Owner" },

@@ -9,3 +9,4 @@ docs/BUILD_SPEC.md
 public
 .vercel
 prisma/migrations
+src/data/gulf-countries.json

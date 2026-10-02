@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import type { PublicProduct } from "@/domains/catalogue";
 import { money } from "@/lib/utils";
+import type { Comparison } from "@/domains/comparison";
 
 export async function api<T = unknown>(
   path: string,
@@ -69,6 +70,7 @@ type ShopState = {
     skuId: string,
   ) => void;
   message: (text: string) => void;
+  clearComparison: () => void;
 };
 const Shop = createContext<ShopState | null>(null);
 export const useShop = () => useContext(Shop)!;
@@ -80,23 +82,58 @@ function subscribeSelection(callback: () => void) {
     window.removeEventListener("ift-selection", callback);
   };
 }
+// Memory fallback keeps controls usable when browser storage is unavailable.
+const selectionMemory = new Map<string, string>();
+function readSelection(key: string) {
+  try {
+    return localStorage.getItem(key) ?? selectionMemory.get(key) ?? "[]";
+  } catch {
+    return selectionMemory.get(key) ?? "[]";
+  }
+}
+function writeSelection(key: string, value: string) {
+  selectionMemory.set(key, value);
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* Session-only fallback. */
+  }
+  window.dispatchEvent(new Event("ift-selection"));
+}
 function useSelectionStore(key: string) {
   const snapshot = useSyncExternalStore(
     subscribeSelection,
-    () => localStorage.getItem(key) ?? "[]",
+    () => readSelection(key),
     () => "[]",
   );
   const value = useMemo<Selection[]>(() => {
     try {
       const parsed = JSON.parse(snapshot);
-      return Array.isArray(parsed) ? parsed : [];
+      return Array.isArray(parsed)
+        ? parsed
+            .filter(
+              (item) =>
+                item &&
+                typeof item.skuId === "string" &&
+                item.product &&
+                typeof item.product.name === "string" &&
+                typeof item.product.slug === "string" &&
+                typeof item.product.category?.id === "string" &&
+                Array.isArray(item.product.skus) &&
+                Array.isArray(item.product.media) &&
+                item.product.skus.some(
+                  (sku: { id?: string; price?: number }) =>
+                    sku?.id === item.skuId && Number.isFinite(sku.price),
+                ),
+            )
+            .slice(0, key === "ift-compare" ? 4 : 100)
+        : [];
     } catch {
       return [];
     }
-  }, [snapshot]);
+  }, [snapshot, key]);
   const set = (next: Selection[]) => {
-    localStorage.setItem(key, JSON.stringify(next));
-    window.dispatchEvent(new Event("ift-selection"));
+    writeSelection(key, JSON.stringify(next));
   };
   return [value, set] as const;
 }
@@ -124,17 +161,16 @@ export function ShopProvider({
     void api<{ items: { quantity: number }[] }>("storefront/carts")
       .then((c) => setCount(c.items.reduce((a, l) => a + l.quantity, 0)))
       .catch(() => {});
-  }, []);
+  }, [userId]);
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    const initial = localStorage.getItem(wishlistKey);
+    const initial = readSelection(wishlistKey);
     void (async () => {
       try {
         const items = await api<Selection[]>("account/wishlist");
-        if (cancelled || localStorage.getItem(wishlistKey) !== initial) return;
-        localStorage.setItem(wishlistKey, JSON.stringify(items));
-        window.dispatchEvent(new Event("ift-selection"));
+        if (cancelled || readSelection(wishlistKey) !== initial) return;
+        writeSelection(wishlistKey, JSON.stringify(items));
       } catch {
         /* Keep the current selection when the network is unavailable. */
       }
@@ -189,7 +225,15 @@ export function ShopProvider({
   }
   return (
     <Shop.Provider
-      value={{ count, wishlist, compare, refresh, select, message: setToast }}
+      value={{
+        count,
+        wishlist,
+        compare,
+        refresh,
+        select,
+        message: setToast,
+        clearComparison: () => setCompare([]),
+      }}
     >
       {children}
       {toast && (
@@ -250,11 +294,74 @@ export function DepartmentMenu({
   categories: { name: string; slug: string }[];
 }) {
   const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const hovered = useRef(false);
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) {
+        setOpen(false);
+        hovered.current = false;
+      }
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [open]);
+  useEffect(() => () => clearTimeout(timer.current), []);
   return (
-    <div className="department">
+    <div
+      ref={root}
+      className="department"
+      onPointerEnter={(event) => {
+        clearTimeout(timer.current);
+        if (
+          event.pointerType === "mouse" &&
+          window.matchMedia("(hover: hover)").matches &&
+          !open
+        ) {
+          hovered.current = true;
+          setOpen(true);
+        }
+      }}
+      onPointerLeave={() => {
+        timer.current = setTimeout(() => {
+          if (!root.current?.contains(document.activeElement)) {
+            setOpen(false);
+            hovered.current = false;
+          }
+        }, 180);
+      }}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setOpen(false);
+          hovered.current = false;
+        }
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          setOpen(false);
+          hovered.current = false;
+          button.current?.focus();
+        }
+        if (event.key === "ArrowDown" && event.target === button.current) {
+          event.preventDefault();
+          setOpen(true);
+          setTimeout(() => root.current?.querySelector("a")?.focus(), 0);
+        }
+      }}
+    >
       <button
+        ref={button}
         className="department-button"
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          clearTimeout(timer.current);
+          if (hovered.current) {
+            hovered.current = false;
+            setOpen(true);
+          } else setOpen(!open);
+        }}
         aria-expanded={open}
         aria-controls="department-menu"
       >
@@ -263,13 +370,7 @@ export function DepartmentMenu({
         <ChevronDown size={15} />
       </button>
       {open && (
-        <div
-          id="department-menu"
-          className="mega-menu"
-          onKeyDown={(e) => {
-            if (e.key === "Escape") setOpen(false);
-          }}
-        >
+        <div id="department-menu" className="mega-menu">
           {categories.map((c) => (
             <Link
               key={c.slug}
@@ -404,7 +505,11 @@ export function CardActions({
         onClick={async () => {
           setBusy(true);
           try {
-            await api("storefront/carts", { skuId: sku.id, quantity: 1 });
+            await api("storefront/carts", {
+              skuId: sku.id,
+              quantity: 1,
+              mode: "add",
+            });
             await shop.refresh();
             shop.message("Added to your cart.");
           } catch (e) {
@@ -553,7 +658,11 @@ export function ProductPurchase({
           onClick={async () => {
             setBusy(true);
             try {
-              await api("storefront/carts", { skuId: sku.id, quantity });
+              await api("storefront/carts", {
+                skuId: sku.id,
+                quantity,
+                mode: "add",
+              });
               await shop.refresh();
               shop.message("Added to your cart.");
             } catch (e) {
@@ -651,6 +760,7 @@ export function Gallery({ product }: { product: PublicProduct }) {
 export function SelectionPage({ kind }: { kind: "wishlist" | "compare" }) {
   const shop = useShop();
   const items = shop[kind];
+  if (kind === "compare") return <ComparisonPage />;
   return (
     <div className="page-container">
       <div className="page-heading">
@@ -708,40 +818,290 @@ export function SelectionPage({ kind }: { kind: "wishlist" | "compare" }) {
                   </td>
                 ))}
               </tr>
-              {kind === "compare" &&
-                [
-                  ...new Set(
-                    items.flatMap((i) =>
-                      Object.keys(
-                        (i.product.skus.find((s) => s.id === i.skuId)?.specs ??
-                          {}) as object,
-                      ),
-                    ),
-                  ),
-                ].map((k) => {
-                  const values = items.map((i) =>
-                    String(
-                      (
-                        i.product.skus.find((s) => s.id === i.skuId)
-                          ?.specs as Record<string, unknown>
-                      )?.[k] ?? "Not specified",
-                    ),
-                  );
-                  return (
-                    <tr
-                      key={k}
-                      className={new Set(values).size > 1 ? "different" : ""}
-                    >
-                      <th>{k}</th>
-                      {values.map((v, i) => (
-                        <td key={i}>{v}</td>
-                      ))}
-                    </tr>
-                  );
-                })}
             </tbody>
           </table>
         </div>
+      )}
+    </div>
+  );
+}
+function ComparisonPage() {
+  const shop = useShop();
+  const key = shop.compare.map((item) => item.skuId).join(",");
+  const [result, setResult] = useState<{
+    key: string;
+    data?: Comparison;
+    error?: string;
+  } | null>(null);
+  const [onlyDifferences, setOnlyDifferences] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const [purpose, setPurpose] = useState("work");
+  const [busy, setBusy] = useState(false);
+  const [ai, setAi] = useState<{
+    key: string;
+    summary: string;
+    cautions: string[];
+    disclaimer: string;
+  } | null>(null);
+  const [aiError, setAiError] = useState("");
+  useEffect(() => {
+    if (!key) return;
+    const controller = new AbortController();
+    const load = () =>
+      fetch(`/api/v1/storefront/comparison?skus=${encodeURIComponent(key)}`, {
+        signal: controller.signal,
+        cache: "no-store",
+      })
+        .then(async (response) => {
+          const value = await response.json();
+          if (!response.ok)
+            throw new Error(
+              value.error?.message ??
+                "We couldn’t load the current comparison.",
+            );
+          if (!controller.signal.aborted) setResult({ key, data: value.data });
+        })
+        .catch((error) => {
+          if (!controller.signal.aborted)
+            setResult({ key, error: error.message });
+        });
+    void load();
+    window.addEventListener("focus", load);
+    return () => {
+      controller.abort();
+      window.removeEventListener("focus", load);
+    };
+  }, [key, revision]);
+  const current = result?.key === key ? result : null;
+  const data = current?.data;
+  const aiKey = `${key}:${data?.checkedAt}:${purpose}`;
+  return (
+    <div className="page-container">
+      <div className="page-heading">
+        <div className="eyebrow">MAKE ROOM FOR THE RIGHT CHOICE</div>
+        <h1>Compare your next upgrade</h1>
+        <p>
+          Current prices and listed specifications, side by side. Compare up to
+          four configurations from one department.
+        </p>
+      </div>
+      {!key ? (
+        <div className="empty-state">
+          <ChartNoAxesColumnIncreasing size={40} />
+          <h2>Make an informed choice</h2>
+          <p>
+            Choose Compare on a product to start. You can compare different
+            configurations of the same product too.
+          </p>
+          <Link className="button primary" href="/categories">
+            Explore departments <ArrowRight size={16} />
+          </Link>
+        </div>
+      ) : (
+        <>
+          <div className="comparison-controls">
+            <label className="check-label">
+              <input
+                type="checkbox"
+                checked={onlyDifferences}
+                disabled={(data?.items.length ?? 0) < 2}
+                onChange={(event) => setOnlyDifferences(event.target.checked)}
+              />
+              Show differences only
+            </label>
+            <button
+              className="text-button"
+              onClick={() => setRevision((value) => value + 1)}
+            >
+              Refresh prices
+            </button>
+            <button className="text-button" onClick={shop.clearComparison}>
+              Clear comparison
+            </button>
+          </div>
+          {current?.error && (
+            <p className="notice warning" role="alert">
+              {current.error}
+            </p>
+          )}
+          {!current && (
+            <p className="notice" role="status">
+              Loading current product details…
+            </p>
+          )}
+          {Boolean(data?.unavailableIds.length) && (
+            <div className="notice warning">
+              <p>
+                Some selected configurations are no longer published or
+                available for comparison.
+              </p>
+              {shop.compare
+                .filter((item) => data!.unavailableIds.includes(item.skuId))
+                .map((item) => (
+                  <button
+                    key={item.skuId}
+                    className="text-button"
+                    onClick={() =>
+                      shop.select("compare", item.product, item.skuId)
+                    }
+                  >
+                    Remove {item.product.name}
+                  </button>
+                ))}
+            </div>
+          )}
+          {data && data.items.length > 0 && (
+            <>
+              <section
+                className="comparison-summary"
+                aria-label="Comparison summary"
+              >
+                <h2>At a glance</h2>
+                {data.summary.map((line) => (
+                  <p key={line}>{line}</p>
+                ))}
+                <small>
+                  Based on the current catalogue. Prices and stock are checked
+                  again at checkout.
+                </small>
+              </section>
+              <p className="comparison-scroll-hint">
+                Swipe or scroll across to compare configurations.
+              </p>
+              <div
+                className="comparison-scroll"
+                role="region"
+                aria-label="Product specification comparison"
+                tabIndex={0}
+              >
+                <table className="comparison-table">
+                  <caption className="sr-only">
+                    Product specifications and current prices
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Configuration</th>
+                      {data.items.map(({ product, skuId }) => {
+                        const sku = product.skus.find(
+                          (sku) => sku.id === skuId,
+                        )!;
+                        return (
+                          <th scope="col" key={skuId}>
+                            <button
+                              className="remove-selection"
+                              aria-label={`Remove ${product.name} ${sku.code}`}
+                              onClick={() =>
+                                shop.select("compare", product, skuId)
+                              }
+                            >
+                              <X size={16} />
+                            </button>
+                            <img
+                              src={
+                                product.media[0]?.url ??
+                                "/illustrations/laptop.svg"
+                              }
+                              alt={product.media[0]?.alt ?? product.name}
+                            />
+                            <Link
+                              href={`/product/${product.slug}?sku=${skuId}`}
+                            >
+                              <b>{product.name}</b>
+                            </Link>
+                            <small>{sku.code}</small>
+                            <p>{money(sku.price)}</p>
+                            <CardActions product={product} skuId={skuId} />
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.rows
+                      .filter((row) => !onlyDifferences || row.different)
+                      .map((row) => (
+                        <tr
+                          key={row.key}
+                          className={row.different ? "different" : ""}
+                        >
+                          <th scope="row">{row.label}</th>
+                          {row.values.map((value, i) => (
+                            <td key={data.items[i].skuId}>{value}</td>
+                          ))}
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+              {onlyDifferences && !data.rows.some((row) => row.different) && (
+                <p className="notice">
+                  No differences in the listed specifications.
+                </p>
+              )}
+              {data.aiAvailable && data.items.length >= 2 && (
+                <section className="comparison-summary">
+                  <h2>Explain the tradeoffs</h2>
+                  <p>
+                    Get an optional AI explanation using these listed
+                    specifications.
+                  </p>
+                  <label>
+                    What will you use it for?
+                    <select
+                      value={purpose}
+                      onChange={(event) => setPurpose(event.target.value)}
+                    >
+                      {["work", "study", "gaming", "travel"].map((value) => (
+                        <option key={value}>{value}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    className="button"
+                    disabled={busy}
+                    onClick={async () => {
+                      setBusy(true);
+                      setAiError("");
+                      try {
+                        const answer = await api<{
+                          summary: string;
+                          cautions: string[];
+                          disclaimer: string;
+                        }>("storefront/comparison/insights", {
+                          skuIds: data.items.map((item) => item.skuId),
+                          purpose,
+                        });
+                        setAi({ ...answer, key: aiKey });
+                      } catch (error) {
+                        setAiError((error as Error).message);
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                  >
+                    {busy ? "Preparing explanation…" : "Explain with AI"}
+                  </button>
+                  {aiError && (
+                    <p className="notice warning" role="alert">
+                      {aiError}
+                    </p>
+                  )}
+                  {ai?.key === aiKey && (
+                    <div>
+                      <p>{ai.summary}</p>
+                      <ul>
+                        {ai.cautions.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                      <small>{ai.disclaimer}</small>
+                    </div>
+                  )}
+                </section>
+              )}
+            </>
+          )}
+        </>
       )}
     </div>
   );

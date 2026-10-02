@@ -56,3 +56,11 @@ Owners can create named scoped API clients, choose expiry and copy the one-time 
 Staff and customers can change their password under **Account → Profile & security** using their current password; changing it signs out other devices. Use unique passwords of 12–128 characters. The Owner can also revoke a colleague’s sessions from Staff & access.
 
 Password reset uses an expiring, single-use link and does not reveal whether an email is registered. Real recovery and email verification require the configured email provider. Until sender authorization is complete, recovery clearly reports that email is unavailable; it never claims an email was sent. Microsoft 365 can remain the business mailbox while a verified transactional sender delivers authentication mail.
+
+## Delivery countries and comparison
+
+The header lets visitors choose UAE, Saudi Arabia, Qatar or Oman. Only UAE delivery is supported. The other three show a coming-soon apology, and checkout rejects non-UAE destinations. Customers may permit browser location detection; coordinates stay on their device. A saved delivery emirate takes priority when a signed-in customer has not chosen a location.
+
+Comparison reads the current published catalogue, combining product specifications, SKU options and SKU specifications (SKU values override shared values). Maintain consistent specification names and include units in displayed values. Customers can compare up to four configurations in one department and filter to differences. Missing values are shown explicitly; no performance benchmarks are inferred. Product prices and availability are checked again at checkout.
+
+AI explanations are optional and disconnected until configured. They receive only public catalogue facts, are limited to signed-in customers, and cannot change products or orders. The normal comparison remains usable when AI is unavailable.

@@ -36,6 +36,6 @@ Keys have explicit scopes, expiry, immediate revocation and a database-backed re
 
 ## Contract coverage
 
-The generated registry documents 95 operations. Core checkout, product creation, carts, image upload, proposal creation and several common mutations include request schemas. Some generic admin resource bodies and response payloads still use descriptive/generic schemas; this is not yet a complete generated client contract for every table. Zod domain validators are authoritative, and `src/lib/api-client.ts` provides a small typed caller. Add concrete schemas and contract tests when expanding an integration.
+The generated registry documents 97 operations. Core checkout, product creation, carts, image upload, proposal creation and several common mutations include request schemas. Some generic admin resource bodies and response payloads still use descriptive/generic schemas; this is not yet a complete generated client contract for every table. Zod domain validators are authoritative, and `src/lib/api-client.ts` provides a small typed caller. Add concrete schemas and contract tests when expanding an integration.
 
 No live payment webhook, courier API or executed-refund endpoint is implemented. The refund execution route intentionally returns 503. A missing provider must never be interpreted as success. Contact inquiries are durably saved but are not automatically emailed.

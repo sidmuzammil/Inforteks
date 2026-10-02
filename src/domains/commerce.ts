@@ -26,6 +26,7 @@ export const addressInput = z
   .strict();
 export const checkoutInput = z
   .object({
+    country: z.literal("AE").default("AE"),
     email: z.email().max(200),
     address: addressInput,
     paymentMethod: z.enum(["OFFLINE", "SIMULATOR"]),
@@ -34,20 +35,27 @@ export const checkoutInput = z
   .strict();
 export type CheckoutInput = z.infer<typeof checkoutInput>;
 export async function getCart(token: string | undefined, userId?: string) {
-  if (!token) return null;
-  const cart = await db.cart.findUnique({
-    where: { tokenHash: hash(token) },
-    include: {
-      items: {
-        include: {
-          sku: { include: { product: { include: { media: true } } } },
-        },
-        orderBy: { id: "asc" },
+  const include = {
+    items: {
+      include: {
+        sku: { include: { product: { include: { media: true } } } },
       },
+      orderBy: { id: "asc" as const },
     },
-  });
-  if (cart?.userId && cart.userId !== userId) return null;
-  return cart;
+  };
+  const cart = token
+    ? await db.cart.findUnique({ where: { tokenHash: hash(token) }, include })
+    : null;
+  if (cart && (!cart.userId || cart.userId === userId)) return cart;
+  // A signed-in customer can restore their cart on a new device without the
+  // previous browser's guest token. Never fall back to another user's cart.
+  return userId
+    ? db.cart.findFirst({
+        where: { userId },
+        include,
+        orderBy: { updatedAt: "desc" },
+      })
+    : null;
 }
 export async function ensureCart(token?: string, userId?: string) {
   const current = await getCart(token, userId);
@@ -85,7 +93,14 @@ export async function ensureCart(token?: string, userId?: string) {
         await tx.cart.update({ where: { id: current.id }, data: { userId } });
       });
     }
-    return { cart: current, token: token! };
+    const currentToken =
+      token && current.tokenHash === hash(token) ? token : secret();
+    if (currentToken !== token)
+      await db.cart.update({
+        where: { id: current.id },
+        data: { tokenHash: hash(currentToken) },
+      });
+    return { cart: current, token: currentToken };
   }
   const value = secret();
   const cart = await db.cart.create({
@@ -102,44 +117,62 @@ export async function ensureCart(token?: string, userId?: string) {
   return { cart, token: value };
 }
 export async function setCartItem(cartId: string, raw: unknown) {
-  const { skuId, quantity } = z
-    .object({ skuId: z.string(), quantity: z.number().int().min(0).max(99) })
+  const input = z
+    .object({
+      skuId: z.string().min(1).max(100),
+      quantity: z.number().int().min(0).max(99),
+      mode: z.enum(["set", "add"]).default("set"),
+    })
     .strict()
     .parse(raw);
-  const sku = await db.sku.findUnique({
-    where: { id: skuId },
-    include: { product: true },
-  });
-  invariant(
-    sku &&
-      sku.active &&
-      sku.product.status === "PUBLISHED" &&
-      sku.price !== null,
-    404,
-    "This item is no longer available.",
-  );
-  invariant(
-    quantity <= sku.onHand - sku.reserved,
-    409,
-    "The requested quantity is not available.",
-  );
-  const existing = await db.cartItem.findUnique({
-    where: { cartId_skuId: { cartId, skuId } },
-  });
-  invariant(
-    existing ||
-      !quantity ||
-      (await db.cartItem.count({ where: { cartId } })) < 100,
-    422,
-    "A cart can contain up to 100 distinct SKUs.",
-  );
-  if (!quantity) await db.cartItem.deleteMany({ where: { cartId, skuId } });
-  else
-    await db.cartItem.upsert({
+  return db.$transaction(async (tx) => {
+    // Serialize changes with checkout and other additions to this cart.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${cartId},1))`;
+    const { skuId } = input;
+    if (input.mode === "set" && input.quantity === 0) {
+      // Customers must be able to remove a product even after it is archived.
+      await tx.cartItem.deleteMany({ where: { cartId, skuId } });
+      return;
+    }
+    const sku = await tx.sku.findUnique({
+      where: { id: skuId },
+      include: { product: { include: { category: true } } },
+    });
+    invariant(
+      sku &&
+        sku.active &&
+        sku.product.status === "PUBLISHED" &&
+        sku.product.category.visible &&
+        sku.price !== null,
+      404,
+      "This item is no longer available.",
+    );
+    const existing = await tx.cartItem.findUnique({
+      where: { cartId_skuId: { cartId, skuId } },
+    });
+    const quantity =
+      input.mode === "add"
+        ? (existing?.quantity ?? 0) + input.quantity
+        : input.quantity;
+    invariant(
+      quantity <= 99 && quantity <= sku.onHand - sku.reserved,
+      409,
+      "The requested quantity is not available.",
+    );
+    invariant(
+      existing ||
+        !quantity ||
+        (await tx.cartItem.count({ where: { cartId } })) < 100,
+      422,
+      "A cart can contain up to 100 distinct SKUs.",
+    );
+    if (!quantity) return;
+    await tx.cartItem.upsert({
       where: { cartId_skuId: { cartId, skuId } },
       create: { cartId, skuId, quantity },
       update: { quantity },
     });
+  });
 }
 async function quoteTx(
   tx: Tx,
@@ -151,7 +184,9 @@ async function quoteTx(
     where: { id: cartId },
     include: {
       items: {
-        include: { sku: { include: { product: true } } },
+        include: {
+          sku: { include: { product: { include: { category: true } } } },
+        },
         orderBy: { id: "asc" },
       },
     },
@@ -161,6 +196,7 @@ async function quoteTx(
     invariant(
       sku.active &&
         sku.product.status === "PUBLISHED" &&
+        sku.product.category.visible &&
         sku.price !== null &&
         sku.onHand - sku.reserved >= quantity,
       409,

@@ -85,3 +85,9 @@ Authentication messages use provider idempotency, bounded retries, expiry checks
 ## Google sign-in activation
 
 See [Google customer sign-in](GOOGLE_SIGN_IN.md) for the Firebase/Google Cloud client, exact redirect URIs, web-only credential bindings and verification steps. Google sign-in is customer-only and remains disabled until both server credentials are configured. Existing customers explicitly connect Google from Profile & security after signing in; staff continue using the dedicated staff login.
+
+## Optional AI comparison
+
+The web service can explain current comparison facts with OpenAI when `AI_COMPARE_ENABLED=true`, `OPENAI_API_KEY` and an explicitly selected `OPENAI_MODEL` are present. Keep secrets in Railway variables. This is separate from the administration worker's AI configuration. The feature remains hidden otherwise. Requests are origin-checked and require a session, with five attempts per user per day and 100 per store per day, a 20-second timeout, no automatic retry and a 700-token output cap. Catalogue text is treated as untrusted data; the model has no tools or write access. These limits bound requests, not an exact monetary budget. Verify the chosen model's JSON-mode compatibility and billing before enabling; no paid call has been verified in this environment.
+
+The location picker uses browser geolocation only with permission and classifies country locally using attributed Natural Earth boundaries. The site must send `Permissions-Policy: geolocation=(self)` and serve HTTPS. Approximate geography is a suggestion; a confirmed UAE delivery address is still required.

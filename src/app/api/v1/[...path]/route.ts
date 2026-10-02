@@ -47,6 +47,7 @@ import { storeImage } from "@/domains/storage";
 import { startAiRun, providerStatus } from "@/domains/ai";
 import { reviewReturn } from "@/domains/returns";
 import { profileInput } from "@/lib/account-input";
+import { compareProducts, comparisonInsights } from "@/domains/comparison";
 
 export const dynamic = "force-dynamic";
 const ok = (data: unknown, status = 200) =>
@@ -76,6 +77,19 @@ async function dispatch(
   };
   if (method !== "GET") checkOrigin(req);
   if (area === "storefront") {
+    if (resource === "comparison") {
+      if (method === "GET" && !id)
+        return ok(
+          await compareProducts({ skuIds: (query.skus ?? "").split(",") }),
+        );
+      invariant(
+        method === "POST" && id === "insights",
+        405,
+        "Method not allowed.",
+      );
+      invariant(userId, 401, "Sign in to request an AI comparison.");
+      return ok(await comparisonInsights(userId, await body()));
+    }
     if (method === "GET") {
       if (resource === "products" || resource === "search") {
         if (!id) return ok(await catalogue(query));
@@ -127,6 +141,7 @@ async function dispatch(
       );
       let response: NextResponse;
       if (resource === "carts" && id === "quote") {
+        invariant(method === "POST", 405, "Method not allowed.");
         const d = z
           .object({ emirate: z.string(), coupon: z.string().optional() })
           .strict()
@@ -272,6 +287,7 @@ async function dispatch(
             take: 50,
           }),
         );
+      invariant(method === "POST", 405, "Method not allowed.");
       return ok(await requestReturn(userId, await body()), 201);
     }
     if (resource === "wishlist") {
@@ -345,6 +361,13 @@ async function dispatch(
   }
   if (area === "admin") {
     const actor = await requestActor(req);
+    invariant(
+      actor.scopes.length > 0 &&
+        (!actor.human ||
+          !["CUSTOMER", "STAFF_DISABLED"].includes(actor.role ?? "")),
+      403,
+      "Staff access is required.",
+    );
     if (resource === "returns" && id && method === "PATCH")
       return ok(await reviewReturn(actor, id, await body()));
     if (resource === "refund-requests" && action === "execute") {
@@ -582,6 +605,7 @@ async function dispatch(
       return ok(await db.inquiry.update({ where: { id }, data: d }));
     }
     if (resource === "ai" && id === "runs") {
+      requireScope(actor, "ai:use");
       if (method === "POST") {
         if (action) {
           await db.aiRun.updateMany({
