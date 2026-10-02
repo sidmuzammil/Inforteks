@@ -1,6 +1,10 @@
 # Deploying Inforteks on Vercel
 
-The repository includes Vercel's Next.js configuration. The application uses server-rendered pages and requires a reachable PostgreSQL database at runtime; it cannot run as a static export. The cloud development database is bound to its own loopback address and is not reachable from Vercel.
+**Current hosting is Railway.** `vercel.json` redirects legacy Vercel URLs to `https://web-production-b6327.up.railway.app`, preserving paths and query strings. The redirect is temporary so a later verified custom-domain cutover does not leave a permanently cached Railway hostname. Vercel handles it before invoking the application, so old links no longer depend on the unconfigured Vercel database. Railway ignores this Vercel-specific routing file.
+
+The instructions below are historical deployment reference. Do not reapply their Vercel DNS records during the Railway migration; use [the current deployment record](RAILWAY_STATUS.md). A deliberate move back to Vercel would require removing the redirect and provisioning the runtime services described below.
+
+The application uses server-rendered pages and requires a reachable PostgreSQL database at runtime; it cannot run as a static export. The cloud development database is bound to its own loopback address and is not reachable from Vercel.
 
 ## Connect the repository
 

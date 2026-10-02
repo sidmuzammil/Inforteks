@@ -24,7 +24,11 @@ export default defineRailway((ctx) => {
       region: "ams",
     },
   );
-  const origin = "https://${{web.RAILWAY_PUBLIC_DOMAIN}}";
+  // Attaching an unverified custom domain can change RAILWAY_PUBLIC_DOMAIN.
+  // Pin the working origin until custom-domain DNS and HTTPS are verified.
+  const origin = ctx.isEnvironment("production")
+    ? "https://web-production-b6327.up.railway.app"
+    : "https://web-staging-4569.up.railway.app";
   const common = {
     NODE_ENV: "production",
     DATABASE_URL: database.env.DATABASE_URL,

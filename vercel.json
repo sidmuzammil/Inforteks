@@ -2,6 +2,13 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "regions": ["fra1"],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "destination": "https://web-production-b6327.up.railway.app/:path*",
+      "permanent": false
+    }
+  ],
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm build"
 }
