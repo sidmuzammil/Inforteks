@@ -392,6 +392,7 @@ async function execute(
       return tx.sku.update({
         where: { id },
         data: { ...data, version: { increment: 1 } },
+        select: { id: true, price: true, compareAt: true, version: true },
       });
     }
     case "inventory.adjust": {
@@ -408,7 +409,10 @@ async function execute(
           reference: proposalId,
         },
       });
-      return tx.sku.findUnique({ where: { id } });
+      return tx.sku.findUnique({
+        where: { id },
+        select: { id: true, onHand: true, reserved: true, version: true },
+      });
     }
     case "order.cancel": {
       const order = await tx.order.findUniqueOrThrow({

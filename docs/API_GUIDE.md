@@ -32,6 +32,8 @@ To stage a price change, POST `/admin/proposals`:
 
 This requires `pricing:write`. The result is a proposal, not a changed price. A human reviews it in the workspace and approves through `/admin/proposals/{id}/approve`. Versions, expiry, initiator permissions and reviewer permissions are checked again. Integration keys cannot approve their own proposed changes.
 
+Successful price approvals return only `id`, `price`, `compareAt` and `version`. Inventory approvals return only `id`, `onHand`, `reserved` and `version`. Fetch other details through the appropriate permission-checked read endpoint.
+
 Keys have explicit scopes, expiry, immediate revocation and a database-backed request limit. Limits are currently fixed in code (120 requests/minute per key); there is no configurable quota dashboard. Never include raw keys in query parameters, logs or client JavaScript.
 
 ## Contract coverage

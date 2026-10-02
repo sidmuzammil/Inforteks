@@ -97,6 +97,65 @@ afterAll(async () => {
   await db.$disconnect();
 });
 describe("shared services against PostgreSQL", () => {
+  it.each([
+    {
+      operation: "inventory.adjust",
+      role: "INVENTORY",
+      grants: [],
+      payload: { delta: 1, reason: "Isolated stock receipt" },
+      keys: ["id", "onHand", "reserved", "version"],
+    },
+    {
+      operation: "price.change",
+      role: "CUSTOMER",
+      grants: ["pricing:write"],
+      payload: { price: 12000, compareAt: null },
+      keys: ["id", "price", "compareAt", "version"],
+    },
+  ])(
+    "returns only operation fields after $operation approval",
+    async ({ operation, role, grants, payload, keys }) => {
+      const id = `${prefix}-${operation}`;
+      await db.user.create({
+        data: {
+          id,
+          email: `${id}@example.test`,
+          name: "Scoped test actor",
+          role,
+          grants,
+        },
+      });
+      const actor = await actorForUser(id);
+      expect(actor.scopes).not.toContain("costs:read");
+      const sku = await db.sku.create({
+        data: { productId, code: id, cost: 7500, price: 10000 },
+      });
+      try {
+        const proposal = await propose(actor, operation, sku.id, payload);
+        const result = JSON.parse(
+          JSON.stringify(await approve(actor, proposal.id)),
+        );
+        expect(Object.keys(result).sort()).toEqual(keys.sort());
+        expect(result).toMatchObject({ id: sku.id, version: sku.version + 1 });
+        const saved = await db.sku.findUniqueOrThrow({ where: { id: sku.id } });
+        expect(saved.cost).toBe(7500);
+        if (operation === "inventory.adjust") {
+          expect(result).toMatchObject({ onHand: 1, reserved: 0 });
+          expect(saved.onHand).toBe(1);
+        } else {
+          expect(result).toMatchObject({ price: 12000, compareAt: null });
+          expect(saved.price).toBe(12000);
+        }
+        await expect(approve(actor, proposal.id)).rejects.toMatchObject({
+          status: 409,
+        });
+      } finally {
+        await db.inventoryMovement.deleteMany({ where: { skuId: sku.id } });
+        await db.sku.delete({ where: { id: sku.id } });
+        await db.user.delete({ where: { id } });
+      }
+    },
+  );
   it("keeps drafts out of every public catalogue", async () => {
     expect(await getProduct(slug)).toBeNull();
     expect((await catalogue({ q: prefix })).total).toBe(0);
