@@ -160,7 +160,17 @@ summary {
   align-items: center;
   gap: 6px;
   min-height: 33px;
+  min-width: 0;
+  max-width: min(48vw, 320px);
   text-align: left;
+}
+.delivery-trigger > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.delivery-trigger > svg {
+  flex-shrink: 0;
 }
 .delivery-dialog {
   position: fixed;

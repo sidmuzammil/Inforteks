@@ -54,6 +54,25 @@ test("country picker remembers selection and explains countries that are coming 
   await expect(
     page.getByRole("button", { name: "Delivery location: UAE, Sharjah" }),
   ).toBeVisible();
+  await page.context().addCookies([
+    {
+      name: "ift-location",
+      value: encodeURIComponent(
+        JSON.stringify({
+          country: "AE",
+          emirate: "Dubai",
+          area: "Neighbourhood".repeat(7),
+          source: "manual",
+        }),
+      ),
+      url: "http://localhost:3000",
+    },
+  ]);
+  await page.setViewportSize({ width: 320, height: 900 });
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: /Delivery location:.*Neighbourhood/ }),
+  ).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
