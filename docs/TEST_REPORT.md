@@ -1,5 +1,13 @@
 # Verification report
 
+## Delivery addresses — 3 October 2026
+
+- 74 unit/integration tests passed across 17 files. Coverage includes separated area/zone/postal fields, customer-confirmed pin validation, private address ownership, removing a pin, optional postal codes, legacy addresses and immutable checkout snapshots. Geocoding tests cover explicit consent, missing configuration, missing provider components, UAE-only results, bounded calls and sanitized failures. Provider responses in these tests are fixtures.
+- All 22 browser cases passed across the local regression and corrected reruns, then together in [GitHub Actions run 37119151669](https://github.com/sidmuzammil/Inforteks/actions/runs/37119151669) on final application source `37446f82349b610a00ed7d2ab92f66582b45a513`. Setup, static/database checks and the production build also passed in that run. New journeys save and reload a confirmed pin, edit an address, use it at checkout, update the header area, leave unavailable postal codes blank, invalidate confirmation after an address edit and preserve manual entry after permission denial. Mobile checks include a 320px header with a long neighbourhood name and 390px checkout.
+- An initial browser assertion matched a login redirect query parameter before navigation completed; it now checks the URL pathname. The broader CI run exposed the shared sign-in rate window in the existing wishlist journey. A local HTTP 429 was reproduced; the test now waits for the server-provided retry window and passed without changing authentication limits or deleting rate records.
+- Type checking, lint, formatting, the production build without a reachable database and OpenAPI validation for 102 operations passed. Migration seven adds nullable address fields without rewriting existing records.
+- Initial staging and production deployments passed readiness and provider/access checks. The existing production Owner opened the new address editor and its scripts, queried the migrated address schema, opened staff orders and signed out. No production address, pin, customer or order was created or changed by verification. Google reverse geocoding remains disabled until separately connected and tested with real credentials.
+
 ## Product image editing — 3 October 2026
 
 - 68 unit/integration tests passed across 15 files. Five new tests cover persistent ordering/descriptions, unchanged original files and visibility, shared storefront/cart/admin order, staff permissions, complete image-set validation, stale/competing saves and concurrent upload appends. All 70 documented staff operations deny anonymous/customer access.

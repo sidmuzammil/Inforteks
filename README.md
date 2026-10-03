@@ -78,6 +78,7 @@ The production build does not require a reachable database. Production readiness
 - [Research and reference audit](docs/REFERENCE_AUDIT.md)
 - [Administrator guide](docs/ADMIN_GUIDE.md)
 - [Google customer sign-in](docs/GOOGLE_SIGN_IN.md)
+- [Delivery addresses and location setup](docs/DELIVERY_LOCATION.md)
 - [REST API guide](docs/API_GUIDE.md), [OpenAPI](docs/openapi.json) and [operation matrix](docs/OPERATION_MATRIX.md)
 - [AI administration guide](docs/AI_ADMIN_GUIDE.md)
 - [Vercel deployment](docs/DEPLOYMENT_VERCEL.md) and [Railway deployment](docs/DEPLOYMENT_RAILWAY.md)
