@@ -335,6 +335,7 @@ test("account wishlist restores in a new browser and clears on sign out", async 
   page,
   browser,
 }) => {
+  test.setTimeout(150000);
   const product = await db.product.findFirstOrThrow({
     where: { status: "PUBLISHED", demo: true },
     include: { skus: true },
@@ -343,7 +344,35 @@ test("account wishlist restores in a new browser and clears on sign out", async 
     await target.goto("/login");
     await target.getByLabel("Email address").fill(email);
     await target.getByLabel("Password", { exact: true }).fill(password);
-    await target.getByRole("button", { name: "Sign in", exact: true }).click();
+    async function submit() {
+      const response = target.waitForResponse(
+        (r) =>
+          new URL(r.url()).pathname === "/api/auth/sign-in/email" &&
+          r.request().method() === "POST",
+      );
+      await target
+        .getByRole("button", { name: "Sign in", exact: true })
+        .click();
+      return response;
+    }
+    let response = await submit();
+    if (response.status() === 429) {
+      // All CI browsers share one IP. Respect the real server window without
+      // bypassing authentication or deleting database rate-limit records.
+      await expect(
+        target.getByRole("alert").filter({ hasText: "Too many attempts" }),
+      ).toContainText("Too many attempts");
+      const seconds = Number(response.headers()["x-retry-after"]);
+      expect(Number.isFinite(seconds) && seconds >= 0 && seconds <= 60).toBe(
+        true,
+      );
+      console.log(
+        "Sign-in returned HTTP 429; waiting for the server's retry window.",
+      );
+      await target.waitForTimeout(seconds * 1000 + 500);
+      response = await submit();
+    }
+    expect(response.status(), "Email sign-in HTTP status").toBe(200);
     await expect(target).toHaveURL(/\/account$/);
   }
   await signIn(page);
