@@ -11,6 +11,134 @@
     }
   ],
   "paths": {
+    "/admin/home-sections/preview": {
+      "post": {
+        "operationId": "previewHomeSection",
+        "summary": "Validate and sanitize an unsaved homepage section and return only its preview data. Does not publish or save.",
+        "x-required-scope": "content:write",
+        "parameters": [],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or origin denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, version or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Provider or service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/storefront/comparison": {
       "get": {
         "operationId": "compareProducts",
@@ -256,7 +384,7 @@
     "/admin/banner-media": {
       "post": {
         "operationId": "uploadBanner",
-        "summary": "Multipart file and alt; image validation and reencoding, 4 MB maximum. Private until referenced by a visible, active homepage hero.",
+        "summary": "Multipart file and alt; image validation and reencoding, 4 MB maximum. Private until referenced by a visible, active homepage section.",
         "x-required-scope": "content:write",
         "parameters": [],
         "security": [
@@ -5489,10 +5617,24 @@
                     }
                   },
                   "brandId": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 1
                   },
                   "categoryId": {
-                    "type": "string"
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "featured": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "seoTitle": {
+                    "type": "string",
+                    "maxLength": 180
+                  },
+                  "seoDescription": {
+                    "type": "string",
+                    "maxLength": 300
                   },
                   "model": {
                     "type": "string",
@@ -5608,6 +5750,11 @@
                               "type": "null"
                             }
                           ]
+                        },
+                        "condition": {
+                          "default": "New",
+                          "type": "string",
+                          "enum": ["New", "Refurbished", "Used"]
                         }
                       },
                       "required": [
@@ -5616,7 +5763,8 @@
                         "specs",
                         "price",
                         "compareAt",
-                        "warranty"
+                        "warranty",
+                        "condition"
                       ],
                       "additionalProperties": false
                     }
@@ -5628,6 +5776,7 @@
                   "highlights",
                   "brandId",
                   "categoryId",
+                  "featured",
                   "specs",
                   "skus"
                 ],

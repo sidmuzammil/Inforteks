@@ -10,6 +10,14 @@ type OperationDoc = {
 };
 export const apiOperations: OperationDoc[] = [
   {
+    method: "post",
+    path: "/admin/home-sections/preview",
+    id: "previewHomeSection",
+    scope: "content:write",
+    summary:
+      "Validate and sanitize an unsaved homepage section and return only its preview data. Does not publish or save.",
+  },
+  {
     method: "get",
     path: "/storefront/comparison",
     id: "compareProducts",
@@ -29,7 +37,7 @@ export const apiOperations: OperationDoc[] = [
     id: "uploadBanner",
     scope: "content:write",
     summary:
-      "Multipart file and alt; image validation and reencoding, 4 MB maximum. Private until referenced by a visible, active homepage hero.",
+      "Multipart file and alt; image validation and reencoding, 4 MB maximum. Private until referenced by a visible, active homepage section.",
   },
   {
     method: "patch",

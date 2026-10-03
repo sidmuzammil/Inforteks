@@ -1,3 +1,4 @@
+import { homeSectionInput, prepareHomeSection } from "./home-sections";
 import { z } from "zod";
 import { db, type Tx } from "@/lib/db";
 import {
@@ -440,26 +441,7 @@ const inputSchemas = {
       published: z.boolean(),
     })
     .strict(),
-  "home-sections": z
-    .object({
-      title: z.string().min(2).max(150),
-      subtitle: z.string().max(350),
-      kind: z.enum(["hero", "categories", "featured", "new"]),
-      href: z
-        .string()
-        .regex(/^\/[a-z0-9/?=&_-]*$/)
-        .refine(
-          (value) => !value.startsWith("//"),
-          "Use a path within this store.",
-        ),
-      buttonLabel: z.string().trim().min(2).max(60).optional(),
-      bannerMediaId: z.string().min(1).nullable().optional(),
-      position: z.number().int(),
-      visible: z.boolean(),
-      startsAt: z.coerce.date().nullable().optional(),
-      endsAt: z.coerce.date().nullable().optional(),
-    })
-    .strict(),
+  "home-sections": homeSectionInput,
 };
 export async function saveResource(
   actor: Actor,
@@ -489,7 +471,7 @@ export async function saveResource(
       case "categories": {
         const d = inputSchemas.categories.parse(raw);
         invariant(
-          d.parentId !== id,
+          !id || d.parentId !== id,
           422,
           "A category cannot be its own parent.",
         );
@@ -561,26 +543,28 @@ export async function saveResource(
         break;
       }
       case "home-sections": {
-        const d = inputSchemas["home-sections"].parse(raw);
-        if (d.bannerMediaId) {
-          const media = await tx.media.findUnique({
-            where: { id: d.bannerMediaId },
-            select: { productId: true },
+        const { mediaIds, version, ...d } = await prepareHomeSection(raw, tx);
+        if (id) {
+          const current = await tx.homeSection.findUnique({ where: { id } });
+          invariant(current, 404, "Homepage section not found.");
+          const changed = await tx.homeSection.updateMany({
+            where: { id, version: version ?? current.version },
+            data: { ...d, version: { increment: 1 } },
           });
           invariant(
-            media && media.productId === null,
-            422,
-            "Choose a homepage banner image.",
+            changed.count === 1,
+            409,
+            "This section changed in another tab. Reload before saving.",
           );
+          result = await tx.homeSection.update({
+            where: { id },
+            data: { assets: { set: mediaIds.map((id) => ({ id })) } },
+          });
+        } else {
+          result = await tx.homeSection.create({
+            data: { ...d, assets: { connect: mediaIds.map((id) => ({ id })) } },
+          });
         }
-        invariant(
-          !d.startsAt || !d.endsAt || d.endsAt > d.startsAt,
-          422,
-          "End date must be after start date.",
-        );
-        result = id
-          ? await tx.homeSection.update({ where: { id }, data: d })
-          : await tx.homeSection.create({ data: d });
         break;
       }
     }

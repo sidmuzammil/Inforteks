@@ -18,8 +18,16 @@ export const skuInput = z
     price: z.number().int().min(0).max(100_000_000).nullable().default(null),
     compareAt: z.number().int().min(0).nullable().default(null),
     warranty: z.string().max(200).nullable().default(null),
+    condition: z.enum(["New", "Refurbished", "Used"]).default("New"),
   })
-  .strict();
+  .strict()
+  .refine(
+    (s) => s.compareAt === null || (s.price !== null && s.compareAt > s.price),
+    {
+      message: "Previous price must exceed the current price.",
+      path: ["compareAt"],
+    },
+  );
 export const productInput = z
   .object({
     name: z.string().min(3).max(180),
@@ -30,8 +38,11 @@ export const productInput = z
       .optional(),
     description: z.string().max(20000).default(""),
     highlights: z.array(z.string().max(250)).max(12).default([]),
-    brandId: z.string(),
-    categoryId: z.string(),
+    brandId: z.string().min(1, "Choose or create a brand."),
+    categoryId: z.string().min(1, "Choose or create a category."),
+    featured: z.boolean().default(false),
+    seoTitle: z.string().max(180).optional(),
+    seoDescription: z.string().max(300).optional(),
     model: z.string().max(100).optional(),
     specs: spec.default({}),
     skus: z.array(skuInput).min(1).max(50),
@@ -114,6 +125,7 @@ export const searchInput = z.object({
   page: z.coerce.number().int().min(1).max(1000).default(1),
   limit: z.coerce.number().int().min(1).max(48).default(20),
   offers: z.string().default(""),
+  featured: z.string().default(""),
 });
 export async function catalogue(input: Record<string, unknown> = {}) {
   const f = searchInput.parse(input);
@@ -140,6 +152,7 @@ export async function catalogue(input: Record<string, unknown> = {}) {
     conditions.push(Prisma.sql`s.specs->>'storage' = ${f.storage}`);
   if (f.available === "true")
     conditions.push(Prisma.sql`s."onHand" > s.reserved`);
+  if (f.featured === "true") conditions.push(Prisma.sql`p.featured = true`);
   if (f.offers === "true") conditions.push(Prisma.sql`s."compareAt" > s.price`);
   if (f.collection)
     conditions.push(
@@ -202,6 +215,16 @@ export async function createProduct(actor: Actor, raw: unknown, tx?: Tx) {
     "SKU codes must be unique.",
   );
   const create = async (conn: Tx) => {
+    invariant(
+      await conn.brand.count({ where: { id: data.brandId } }),
+      422,
+      "Choose an existing brand or create one first.",
+    );
+    invariant(
+      await conn.category.count({ where: { id: data.categoryId } }),
+      422,
+      "Choose an existing category or create one first.",
+    );
     const p = await conn.product.create({
       data: {
         ...data,

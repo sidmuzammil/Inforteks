@@ -2,6 +2,14 @@
 import { useState, useEffect, type FormEvent } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import {
+  PriceFields,
+  PriceEditor,
+  SpecificationFields,
+  TaxonomyPicker,
+  ChosenImages,
+} from "./merchant-inputs";
+import { readPrices } from "@/lib/merchant-pricing";
 import { MAX_IMAGE_BYTES } from "@/lib/uploads";
 import {
   Package,
@@ -131,6 +139,10 @@ export function ActionButton({
   );
 }
 type ProductEdit = {
+  featured: boolean;
+  model?: string | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
   id: string;
   name: string;
   slug: string;
@@ -171,6 +183,9 @@ export function ProductEditor({
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [skuCount, setSkuCount] = useState(1);
+  const [files, setFiles] = useState<File[]>([]);
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const [uploaded, setUploaded] = useState(0);
   useEffect(() => {
     function guard(e: BeforeUnloadEvent) {
       if (dirty) e.preventDefault();
@@ -180,11 +195,31 @@ export function ProductEditor({
   }, [dirty]);
   const overview: Field[] = [
     { name: "name", label: "Product name", value: product?.name },
+    { name: "model", label: "Model", value: product?.model, required: false },
+    {
+      name: "featured",
+      label: "Feature on homepage",
+      type: "checkbox",
+      value: product?.featured ?? false,
+    },
+    {
+      name: "seoTitle",
+      label: "Search engine title",
+      value: product?.seoTitle,
+      required: false,
+    },
+    {
+      name: "seoDescription",
+      label: "Search engine description",
+      value: product?.seoDescription,
+      required: false,
+    },
     {
       name: "slug",
       label: "URL slug",
       value: product?.slug,
-      help: "Lowercase letters, numbers and hyphens.",
+      help: "Leave blank to generate from the product name. Lowercase letters, numbers and hyphens.",
+      required: Boolean(product),
     },
     {
       name: "description",
@@ -209,6 +244,10 @@ export function ProductEditor({
       const values = readFields(e.currentTarget, overview);
       const common = {
         ...values,
+        slug: values.slug || undefined,
+        brandId: fd.get("brandId"),
+        categoryId: fd.get("categoryId"),
+        specs: JSON.parse(String(fd.get("specs") ?? "{}")),
         highlights: String(values.highlights).split("\n").filter(Boolean),
       };
       if (product) {
@@ -222,20 +261,38 @@ export function ProductEditor({
       } else {
         const skus = Array.from({ length: skuCount }, (_, i) => ({
           code: String(fd.get(`sku_${i}`)),
-          price:
-            scopes.includes("pricing:write") && fd.get(`price_${i}`) !== ""
-              ? Math.round(Number(fd.get(`price_${i}`)) * 100)
-              : null,
+          ...(scopes.includes("pricing:write")
+            ? readPrices(fd, `_${i}`)
+            : { price: null, compareAt: null }),
+          mpn: String(fd.get(`mpn_${i}`) ?? ""),
+          warranty: String(fd.get(`warranty_${i}`) ?? "") || null,
+          condition: String(fd.get(`condition_${i}`) ?? "New"),
           specs: JSON.parse(String(fd.get(`specs_${i}`) ?? "{}")),
           options: JSON.parse(String(fd.get(`options_${i}`) ?? "{}")),
         }));
-        const p = await api<{ id: string }>("admin/products", {
-          ...common,
-          brandId: fd.get("brandId"),
-          categoryId: fd.get("categoryId"),
-          specs: JSON.parse(String(fd.get("specs") ?? "{}")),
-          skus,
-        });
+        for (const file of files)
+          if (file.size > MAX_IMAGE_BYTES)
+            throw new Error(
+              `${file.name}: choose an image of 4 MB or smaller.`,
+            );
+        const p = createdId
+          ? { id: createdId }
+          : await api<{ id: string }>("admin/products", {
+              ...common,
+              brandId: fd.get("brandId"),
+              categoryId: fd.get("categoryId"),
+              specs: JSON.parse(String(fd.get("specs") ?? "{}")),
+              skus,
+            });
+        setCreatedId(p.id);
+        for (let i = uploaded; i < files.length; i++) {
+          const form = new FormData();
+          form.set("file", files[i]);
+          form.set("productId", p.id);
+          form.set("alt", String(fd.get("imageAlt") || values.name));
+          await api("admin/media", form);
+          setUploaded(i + 1);
+        }
         setDirty(false);
         router.push(`/admin/products/${p.id}`);
       }
@@ -274,41 +331,56 @@ export function ProductEditor({
             <Fields fields={overview} />
           </div>
         </section>
+        <section className="editor-section" id="organization">
+          <h2>Organization</h2>
+          <div className="form-grid">
+            <TaxonomyPicker
+              kind="brands"
+              options={brands}
+              value={product?.brandId}
+            />
+            <TaxonomyPicker
+              kind="categories"
+              options={categories}
+              value={product?.categoryId}
+            />
+          </div>
+        </section>
+        <SpecificationFields
+          name="specs"
+          value={product?.specs}
+          label="Product specifications"
+        />
         {!product && (
           <>
-            <section className="editor-section" id="organization">
-              <h2>Organization</h2>
-              <div className="form-grid">
-                <Fields
-                  fields={[
-                    {
-                      name: "brandId",
-                      label: "Brand",
-                      type: "select",
-                      options: brands.map((b) => ({
-                        value: b.id,
-                        label: b.name,
-                      })),
-                    },
-                    {
-                      name: "categoryId",
-                      label: "Category",
-                      type: "select",
-                      options: categories.map((c) => ({
-                        value: c.id,
-                        label: c.name,
-                      })),
-                    },
-                  ]}
+            <section id="media" className="editor-section">
+              <h2>Product images</h2>
+              <p className="form-help">
+                JPEG, PNG, WebP or AVIF. Up to 4 MB each, at least 100 × 100
+                pixels. The first image becomes the cover.
+              </p>
+              <label>
+                Choose product images
+                <input
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,image/avif"
+                  disabled={Boolean(createdId)}
+                  onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
                 />
-              </div>
+              </label>
+              <ChosenImages files={files} />
+              <label>
+                Image description
+                <input
+                  name="imageAlt"
+                  maxLength={250}
+                  placeholder="Describe the product shown; defaults to the product name"
+                />
+              </label>
             </section>
             <section className="editor-section" id="specifications">
               <h2>Specifications & variants</h2>
-              <label>
-                Product specifications (JSON)
-                <textarea name="specs" defaultValue="{}" />
-              </label>
               {Array.from({ length: skuCount }, (_, i) => (
                 <div key={i} className="panel" style={{ marginTop: 18 }}>
                   <h3>SKU {i + 1}</h3>
@@ -318,36 +390,32 @@ export function ProductEditor({
                       <input name={`sku_${i}`} required />
                     </label>
                     {scopes.includes("pricing:write") && (
-                      <label>
-                        Price (AED)
-                        <input
-                          type="number"
-                          name={`price_${i}`}
-                          step="0.01"
-                          min="0"
-                        />
-                      </label>
+                      <PriceFields suffix={`_${i}`} />
                     )}
                     <label>
-                      SKU specifications (JSON)
-                      <textarea
-                        name={`specs_${i}`}
-                        defaultValue={
-                          i === 0
-                            ? '{"ram":16,"storage":512}'
-                            : '{"ram":32,"storage":1024}'
-                        }
-                      />
+                      Manufacturer part number
+                      <input name={`mpn_${i}`} maxLength={100} />
                     </label>
                     <label>
-                      Variant options (JSON)
-                      <textarea
-                        name={`options_${i}`}
-                        defaultValue={
-                          i === 0 ? "{}" : '{"ram":32,"storage":1024}'
-                        }
-                      />
+                      Condition
+                      <select name={`condition_${i}`}>
+                        <option>New</option>
+                        <option>Refurbished</option>
+                        <option>Used</option>
+                      </select>
                     </label>
+                    <label>
+                      Supplied warranty details
+                      <input name={`warranty_${i}`} maxLength={200} />
+                    </label>
+                    <SpecificationFields
+                      name={`specs_${i}`}
+                      label="SKU specifications"
+                    />
+                    <SpecificationFields
+                      name={`options_${i}`}
+                      label="Variant options"
+                    />
                   </div>
                 </div>
               ))}
@@ -355,6 +423,7 @@ export function ProductEditor({
                 type="button"
                 className="button"
                 style={{ marginTop: 15 }}
+                disabled={skuCount >= 50}
                 onClick={() => setSkuCount(skuCount + 1)}
               >
                 <Plus size={14} />
@@ -368,10 +437,19 @@ export function ProductEditor({
             {error}
           </p>
         )}
+        {createdId && error && (
+          <p className="notice">
+            Your draft is saved. Retry to resume the remaining uploads, or{" "}
+            <Link href={`/admin/products/${createdId}`}>
+              open the saved draft
+            </Link>
+            . A second product will not be created.
+          </p>
+        )}
         <p className="form-help">
           {product
             ? "Changes are prepared as an exact proposal. Review and approve to apply them; existing live content remains unchanged until then."
-            : "This saves an unpublished draft. Upload images, review stock and publish in the next step."}
+            : "This saves an unpublished draft with your images. Review stock and publish in the next step."}
         </p>
         <button className="button primary" disabled={busy}>
           {busy
@@ -462,28 +540,7 @@ export function ProductEditor({
               <div key={s.id} style={{ marginBottom: 25 }}>
                 <h3 style={{ marginBottom: 15 }}>{s.code}</h3>
                 {scopes.includes("pricing:write") ? (
-                  <ProposalForm
-                    operation="price.change"
-                    targetId={s.id}
-                    fields={[
-                      {
-                        name: "price",
-                        label: "Selling price (fils)",
-                        type: "number",
-                        value: s.price ?? 0,
-                        min: 0,
-                        help: "100 fils = AED 1.00",
-                      },
-                      {
-                        name: "compareAt",
-                        label: "Comparison price (fils; 0 to clear)",
-                        type: "number",
-                        value: s.compareAt ?? 0,
-                        min: 0,
-                      },
-                    ]}
-                    label="Preview price change"
-                  />
+                  <PriceEditor sku={s} />
                 ) : (
                   <p className="notice">You do not have pricing permissions.</p>
                 )}
@@ -572,6 +629,7 @@ export function ProductEditor({
 export function MediaUpload({ productId }: { productId: string }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
   const router = useRouter();
   return (
     <form
@@ -580,6 +638,8 @@ export function MediaUpload({ productId }: { productId: string }) {
       onSubmit={async (e) => {
         e.preventDefault();
         setError("");
+        setMessage("");
+        const form = e.currentTarget;
         setBusy(true);
         const fd = new FormData(e.currentTarget);
         fd.set("productId", productId);
@@ -589,6 +649,8 @@ export function MediaUpload({ productId }: { productId: string }) {
             throw new Error("Images must be 4 MB or smaller.");
           }
           await api("admin/media", fd);
+          form.reset();
+          setMessage("Image uploaded successfully.");
           router.refresh();
         } catch (e) {
           setError((e as Error).message);
@@ -615,6 +677,11 @@ export function MediaUpload({ productId }: { productId: string }) {
           <input name="alt" required maxLength={250} />
         </label>
       </div>
+      {message && (
+        <p role="status" className="notice success">
+          {message}
+        </p>
+      )}
       {error && (
         <p className="form-error" role="alert">
           {error}

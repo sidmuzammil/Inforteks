@@ -24,6 +24,7 @@ export async function CataloguePage({
     "available",
     "brand",
     "sort",
+    "featured",
   ];
   const update = (k: string, v: string) => {
     const q = new URLSearchParams(
@@ -45,6 +46,9 @@ export async function CataloguePage({
           <form action={base}>
             <h3>Refine your search</h3>
             {query.q && <input type="hidden" name="q" value={query.q} />}
+            {query.featured === "true" && (
+              <input type="hidden" name="featured" value="true" />
+            )}
             <fieldset>
               <legend>Brand</legend>
               {result.facets.brands.map((b) => (

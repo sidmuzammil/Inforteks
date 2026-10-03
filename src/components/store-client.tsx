@@ -52,9 +52,16 @@ export async function api<T = unknown>(
   const result = await response.json();
   if (!response.ok)
     throw new Error(
-      result.error?.message ??
-        result.message ??
-        "Unable to complete this request.",
+      result.error?.issues?.length
+        ? result.error.issues
+            .map(
+              (i: { path: (string | number)[]; message: string }) =>
+                `${i.path.join(" → ")}: ${i.message}`,
+            )
+            .join(". ")
+        : (result.error?.message ??
+          result.message ??
+          "Unable to complete this request."),
     );
   return (result.data ?? result) as T;
 }

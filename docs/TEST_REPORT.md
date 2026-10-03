@@ -1,5 +1,14 @@
 # Verification report
 
+## Merchant editors — 3 October 2026
+
+- 63 tests passed across 14 unit/integration files in `inforteks_test`. Coverage adds first-category creation, complete sale-product metadata, independent featured/offer selections, exact decimal-to-fils conversion, invalid discounts, sanitized HTML, preview without persistence, stale-edit rejection, customer denial and publication-aware HTML image access. All 69 documented staff API operations deny anonymous and customer access.
+- All 19 browser journeys passed across the regression run and the corrected two-SKU test rerun. New journeys create a brand/category inside the product form, attach an image before saving the draft, publish a featured discounted product, verify the crossed-out price, approve an AED price change, preview custom HTML on desktop/mobile without publishing, check hidden/public image access, and preview a complete hero with edited side-banner text.
+- Existing customer checkout, stock approval, comparison, location, keyboard/hover navigation, recovery, wishlist and representative accessibility checks passed. Google consent handoff uses local test-only configuration; this does not establish live provider availability.
+- The production build passed with deliberately unreachable database URLs and no Google credentials. OpenAPI validates 98 operations. Six migrations apply to the isolated database; migration six adds section settings/version/media relations and editable homepage templates without inserting products or customer records.
+- An old test initially matched both the current and previous price inputs (and both variant buttons); it now uses exact accessible names. An immediate retry hit the real login rate limit, and a simultaneous Prisma generation briefly invalidated test imports. Checks were rerun without disabling security controls or generation races.
+- Testing is scoped to implemented workflows; live payments, Google consent, email delivery, custom-domain DNS and recovery drills remain separately unverified where provider setup is incomplete.
+
 Verified in the development cloud environment on **2 October 2026**. This records completed checks, not a production certification.
 
 | Check                     | Result                                                                                                                                           |

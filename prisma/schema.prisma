@@ -165,6 +165,7 @@ model Media {
   public      Boolean @default(false)
   createdAt   DateTime @default(now())
   homeSections HomeSection[] @relation("HomeSectionBanner")
+  sectionAssets HomeSection[] @relation("HomeSectionAssets")
 }
 model Collection {
   id       String @id @default(cuid())
@@ -356,6 +357,9 @@ model ContentPage {
   updatedAt DateTime @updatedAt
 }
 model HomeSection {
+  content Json @default("{}")
+  version Int @default(1)
+  assets Media[] @relation("HomeSectionAssets")
   id       String @id @default(cuid())
   title    String
   subtitle String

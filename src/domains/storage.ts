@@ -130,7 +130,17 @@ export async function readImage(id: string, actor?: Actor) {
       product: { select: { status: true } },
       homeSections: {
         where: {
-          kind: "hero",
+          visible: true,
+          AND: [
+            { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+            { OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
+          ],
+        },
+        take: 1,
+        select: { id: true },
+      },
+      sectionAssets: {
+        where: {
           visible: true,
           AND: [
             { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
@@ -145,7 +155,7 @@ export async function readImage(id: string, actor?: Actor) {
   invariant(m, 404, "Image not found.");
   const published = m.productId
     ? m.public && m.product?.status === "PUBLISHED"
-    : m.homeSections.length > 0;
+    : m.homeSections.length > 0 || m.sectionAssets.length > 0;
   if (!published) {
     invariant(actor, 404, "Image not found.");
     requireScope(actor, m.productId ? "catalog:read" : "content:read");

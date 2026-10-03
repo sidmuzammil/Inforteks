@@ -6,6 +6,7 @@ import sharp from "sharp";
 import { db } from "../src/lib/db";
 import { storeImage, readImage } from "../src/domains/storage";
 import { saveResource } from "../src/domains/administration";
+import { defaultContent } from "../src/lib/home-sections";
 import { roles, type Actor } from "../src/domains/identity";
 
 const id = `banner-test-${randomUUID()}`;
@@ -94,4 +95,45 @@ it("keeps uploaded banners private until an authorized editor publishes an activ
     section.id,
   );
   await expect(readImage(media.id)).rejects.toThrow();
+});
+
+it("publishes referenced HTML assets only while their owning section is active", async () => {
+  const data = {
+    title: "HTML asset check",
+    subtitle: "",
+    kind: "html",
+    href: "/categories",
+    position: 99,
+    visible: true,
+    bannerMediaId: null,
+    startsAt: null,
+    endsAt: null,
+    content: {
+      ...defaultContent,
+      html: `<img src="/media/${mediaId}" alt="Banner">`,
+    },
+  };
+  await saveResource(actor, "home-sections", data, sectionId);
+  expect((await readImage(mediaId!)).public).toBe(true);
+  await saveResource(
+    actor,
+    "home-sections",
+    { ...data, visible: false },
+    sectionId,
+  );
+  await expect(readImage(mediaId!)).rejects.toThrow();
+  await expect(
+    saveResource(
+      actor,
+      "home-sections",
+      {
+        ...data,
+        content: {
+          ...data.content,
+          html: '<img src="/media/missing" alt="Missing">',
+        },
+      },
+      sectionId,
+    ),
+  ).rejects.toThrow(/uploaded/);
 });

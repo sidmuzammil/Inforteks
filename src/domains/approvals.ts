@@ -63,6 +63,16 @@ const policy = {
         description: z.string().max(20000),
         highlights: z.array(z.string().max(250)).max(12),
         slug: z.string().regex(/^[a-z0-9-]+$/),
+        featured: z.boolean().optional(),
+        model: z.string().max(100).optional(),
+        brandId: z.string().min(1).optional(),
+        categoryId: z.string().min(1).optional(),
+        specs: z
+          .record(
+            z.string().regex(/^[a-zA-Z0-9_ ]{1,40}$/),
+            z.union([z.string().max(200), z.number().finite()]),
+          )
+          .optional(),
         seoTitle: z.string().max(180).optional(),
         seoDescription: z.string().max(300).optional(),
       })
@@ -370,6 +380,18 @@ async function execute(
       });
     case "product.edit": {
       const data = policy[op].schema.parse(raw);
+      if (data.brandId)
+        invariant(
+          await tx.brand.count({ where: { id: data.brandId } }),
+          422,
+          "Brand no longer exists.",
+        );
+      if (data.categoryId)
+        invariant(
+          await tx.category.count({ where: { id: data.categoryId } }),
+          422,
+          "Category no longer exists.",
+        );
       const old = await tx.product.findUniqueOrThrow({ where: { id } });
       if (old.slug !== data.slug)
         await tx.slugRedirect.upsert({

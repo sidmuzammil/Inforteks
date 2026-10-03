@@ -1,3 +1,4 @@
+import { previewHomeSection } from "@/domains/home-sections";
 import { emailDeliveryEnabled } from "@/lib/email-policy";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -478,6 +479,9 @@ async function dispatch(
         .strict()
         .parse(await body());
       return ok(await propose(actor, d.operation, d.targetId, d.payload), 201);
+    }
+    if (resource === "home-sections" && id === "preview" && method === "POST") {
+      return ok(await previewHomeSection(actor, await body()));
     }
     if (["media", "banner-media"].includes(resource) && method === "POST") {
       requireScope(

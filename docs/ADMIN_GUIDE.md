@@ -8,9 +8,9 @@ Google sign-in, when configured, is only for customers. It cannot create, connec
 
 ## Catalogue workflow
 
-1. Create the required brand and category. Add category attributes with product or SKU scope, type and required flags.
-2. Create a draft product and its SKU configurations. Enter only verified specifications and warranties. Price entry requires a separate pricing scope.
-3. Upload images with descriptive alternative text. The server validates actual bytes and re-encodes images; adding media to a live product stages it for a later publication approval.
+1. Open **Products → Create product**. Choose a brand/category or use **Create brand / Create category** directly in the editor, including on an empty store. Category attributes can define required product or SKU specifications.
+2. Enter the name, description, real specifications, model, search-engine copy and SKU details. Leave the URL slug blank to generate it from the name. **Feature on homepage** includes the published product in a featured-products section.
+3. Enter **Price (AED)** and, optionally, a genuine **Previous price (AED)**. Previous price must be higher; the storefront shows it crossed out beside the current price, with a calculated discount. Blank previous price means no sale. Price entry requires pricing permission. Choose product images in this same form; the first is the cover. Each must be JPEG/PNG/WebP/AVIF, at least 100 × 100 pixels and no more than 4 MB. The server validates and re-encodes actual bytes. A partially failed upload preserves the new draft and resumes remaining files on retry. Existing products also have an upload form with success feedback; new media on a published product needs publication approval.
 4. Adjust opening stock through a reasoned proposal. Review the current value and proposed delta, then approve.
 5. Preview the draft privately. Request publication and inspect the exact proposal before approving. Missing required specifications, media or SKU prices block publication.
 
@@ -28,7 +28,16 @@ Customers can request returns against eligible fulfilled quantities. Staff revie
 
 Categories, brands, attributes, collections, promotions, content pages and scheduled homepage sections have validated administration forms. Tax/store settings are Owner-controlled JSON forms. Policy seed text and development shipping rates must be replaced with approved business information before selling.
 
-In **Homepage**, create or open a section. A hero supports a headline, supporting text, destination, button label and an uploaded image. Describe the image, upload it, then save the section. Uploads remain private until attached to a visible hero within its active dates. Turn off Visible to remove it from the homepage; already-cached public image responses may remain visible for up to five minutes. Other section types use the same ordering and visibility controls.
+In **Homepage**, the section list follows page position. Open **Edit & preview** for the exact area you want:
+
+- **Hero & side banners:** headline, eyebrow, description, destination/button, background image and decorative footer text; show/hide the two side banners and edit their copy, images and destinations separately.
+- **Call to action banner:** editable headline, supporting copy, image, button and decorative text. The old hardcoded workspace CTA is now a normal section.
+- **Custom HTML banner:** paste HTML or insert the starter template. Use inline colours/spacing and `/media/…` paths from uploaded images. Scripts, forms, embeds, external URLs and unsafe CSS are stripped by the server. Preview shows the sanitized result.
+- **Featured products**, **Discounted products**, **New arrivals** and **Departments:** independent data selections with editable headings, destinations and button labels. Empty product/department sections stay hidden on the public homepage.
+
+Click **Preview this section** to see only that area in a desktop or mobile frame. Previewing does not save or publish; its links and shopping controls are disabled. After editing again, refresh the preview. Upload selected files before saving or previewing. **Save homepage section** saves the current visibility setting; new sections start hidden. Check **Visible on storefront** and save to publish. Optional start/end dates use Dubai time (UTC+4). Lower position numbers appear first. Conflicting edits from another tab require a reload rather than silently overwriting content.
+
+Uploaded banner assets remain private until their attached section is visible and within its schedule, including images inside HTML and hero side banners. Turn off Visible to remove a section. Already-cached public image responses may remain visible for up to five minutes. Upload removal/reordering and general media-library cleanup are separate future work.
 
 CSV import accepts the supplied six-column template: `name,sku,brand,category,price_aed,description`. Use existing brand/category slugs and new SKU codes. The current parser accepts 1–500 simple unquoted rows; embedded commas/newlines, updates to existing SKUs, supplier mapping and stock-import files are unsupported. Preview lists row errors without changing products. A human commits a valid batch and the worker creates all drafts in one transaction. Imports do not publish or allocate stock.
 

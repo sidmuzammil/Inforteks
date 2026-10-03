@@ -336,7 +336,23 @@ async function main() {
     },
     update: {},
   });
-  if (!(await db.homeSection.count()))
+  if (
+    !(await db.homeSection.count({
+      where: {
+        id: {
+          notIn: [
+            "homepage-main-hero",
+            "homepage-workspace-cta",
+            "homepage-featured-products",
+            "homepage-sale-products",
+          ],
+        },
+      },
+    }))
+  ) {
+    await db.homeSection.deleteMany({
+      where: { id: { in: ["homepage-main-hero", "homepage-sale-products"] } },
+    });
     await db.homeSection.createMany({
       data: [
         {
@@ -357,7 +373,7 @@ async function main() {
         {
           title: "Worth a closer look",
           subtitle: "Selected for your next upgrade",
-          kind: "featured",
+          kind: "offers",
           href: "/offers",
           position: 2,
         },
@@ -370,6 +386,7 @@ async function main() {
         },
       ],
     });
+  }
   const pages = {
     about: [
       "Technology, with purpose.",

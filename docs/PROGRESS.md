@@ -4,6 +4,9 @@ This file distinguishes the supplied brief's broad target from the working imple
 
 ## Implemented
 
+- English-only header without a language control. Product creation supports inline brand/category creation, initial image uploads with resumable partial failure, structured specifications, AED current/previous prices, featured selection, model and search-engine fields.
+- Database-managed full hero, side banners and CTA, optional sanitized HTML banners, exact section-only desktop/mobile previews, ordering, visibility, Dubai-time schedules and optimistic edit conflicts. Featured selections and sale-price selections are separate.
+
 - Delivery-country selection in the header, UAE emirates and permission-based country detection on the device; Saudi Arabia, Qatar and Oman explicitly coming soon, with UAE-only checkout validation.
 - Live same-department comparison for up to four SKU configurations, merged shared/variant specifications, refreshed prices, difference filtering and mobile access. Optional, bounded AI explanations require separate provider enablement.
 - Signed-in carts restore across devices; additions increment atomically, archived items can be removed, and checkout retries retain their idempotency key after network failure.
@@ -27,7 +30,7 @@ This file distinguishes the supplied brief's broad target from the working imple
 - Full response/request schemas for every OpenAPI operation and broader integration contract coverage.
 - Dedicated shipping-zone administration, custom-grant editing, API key rotation UI, customer detail workflows and date-filtered financial reporting.
 - Media removal/reordering, orphan cleanup and responsive image delivery optimization.
-- Arbitrary category-driven catalogue facets, richer product organization/SEO editing, Arabic translation and RTL review.
+- Arbitrary category-driven catalogue facets; translation and RTL would be a separately requested expansion (the current store is English only).
 - Streaming assistant responses, attachment workflows, spending ledger and broader operation coverage.
 - Payment webhooks/reconciliation, executed refunds, courier automation, order email delivery and broader remote workflow testing.
 - Independent accessibility, security, load, retention/backup and production-operational reviews.

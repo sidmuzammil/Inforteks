@@ -188,6 +188,9 @@ export default async function AdminPage({
           ...s,
           cost: undefined,
           price: actor.scopes.includes("pricing:read") ? s.price : undefined,
+          compareAt: actor.scopes.includes("pricing:read")
+            ? s.compareAt
+            : undefined,
           onHand: actor.scopes.includes("inventory:read")
             ? s.onHand
             : undefined,
@@ -807,7 +810,9 @@ export default async function AdminPage({
       >[];
       const existing =
         id !== "new"
-          ? rows.find((r) => r.id === id || r.slug === id)
+          ? resource === "home-sections"
+            ? await db.homeSection.findUnique({ where: { id } })
+            : rows.find((r) => r.id === id || r.slug === id)
           : undefined;
       if (id !== "new" && !existing) notFound();
       let fields: Field[] = [];
@@ -844,28 +849,6 @@ export default async function AdminPage({
             type: "checkbox",
             value: false,
           },
-        ];
-      if (resource === "home-sections")
-        fields = [
-          { name: "title", label: "Headline" },
-          { name: "subtitle", label: "Supporting text" },
-          {
-            name: "kind",
-            label: "Section type",
-            type: "select",
-            options: ["hero", "categories", "featured", "new"].map((v) => ({
-              value: v,
-              label: v,
-            })),
-          },
-          { name: "href", label: "Destination path", value: "/categories" },
-          {
-            name: "buttonLabel",
-            label: "Button text",
-            value: "Explore collection",
-          },
-          { name: "position", label: "Position", type: "number", value: 0 },
-          { name: "visible", label: "Visible", type: "checkbox", value: true },
         ];
       if (resource === "collections")
         fields = [
@@ -974,7 +957,6 @@ export default async function AdminPage({
             {resource === "home-sections" ? (
               <HomeSectionEditor
                 key={String(existing?.id ?? "new")}
-                fields={fields}
                 values={json(existing) ?? {}}
               />
             ) : (
@@ -1085,6 +1067,55 @@ export default async function AdminPage({
           </div>
         </>
       );
+    if (resource === "home-sections") {
+      const sections = await db.homeSection.findMany({
+        orderBy: [{ position: "asc" }, { id: "asc" }],
+      });
+      const canEdit = actor.scopes.includes("content:write");
+      return (
+        <>
+          <Heading
+            title="Homepage sections"
+            description="Your page, from top to bottom. Edit one area, preview it on desktop or mobile, then save."
+          >
+            {canEdit && (
+              <Link href="/admin/home-sections/new" className="button primary">
+                Add section
+              </Link>
+            )}
+          </Heading>
+          <div className="homepage-section-list">
+            {sections.map((s) => (
+              <article className="panel homepage-section-card" key={s.id}>
+                <div className="section-order">{s.position}</div>
+                <div>
+                  <span className="eyebrow">
+                    {s.kind.toUpperCase()} · {s.visible ? "Visible" : "Hidden"}
+                    {s.startsAt || s.endsAt ? " · Scheduled" : ""}
+                  </span>
+                  <h2>{s.title}</h2>
+                  <p>{s.subtitle}</p>
+                </div>
+                {canEdit && (
+                  <Link
+                    className="button"
+                    href={`/admin/home-sections/${s.id}`}
+                  >
+                    Edit & preview
+                  </Link>
+                )}
+              </article>
+            ))}
+            {!sections.length && (
+              <p className="notice">
+                Add your first hero, banner or product section to start building
+                the homepage.
+              </p>
+            )}
+          </div>
+        </>
+      );
+    }
     const records = (await adminList(
       actor,
       resource,

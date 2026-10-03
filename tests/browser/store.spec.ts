@@ -177,10 +177,49 @@ test("owner creates two-SKU product, uploads image, adjusts stock and publishes"
   });
   await page.getByLabel("Category", { exact: true }).selectOption(laptop.id);
   await page.getByLabel("SKU code").fill(`BROWSER-${suffix}-A`);
-  await page.getByLabel("Price (AED)").fill("1999.50");
-  await page.getByRole("button", { name: "Add variant" }).click();
+  await page.getByLabel("Price (AED)", { exact: true }).fill("1999.50");
+  await page
+    .getByRole("button", { name: "Add sku specifications", exact: true })
+    .click();
+  await page
+    .getByLabel("SKU specifications name 1", { exact: true })
+    .fill("ram");
+  await page
+    .getByLabel("SKU specifications value 1", { exact: true })
+    .fill("16");
+  await page
+    .getByRole("button", { name: "Add sku specifications", exact: true })
+    .click();
+  await page
+    .getByLabel("SKU specifications name 2", { exact: true })
+    .fill("storage");
+  await page
+    .getByLabel("SKU specifications value 2", { exact: true })
+    .fill("512");
+  await page.getByRole("button", { name: "Add variant", exact: true }).click();
   await page.getByLabel("SKU code").nth(1).fill(`BROWSER-${suffix}-B`);
-  await page.getByLabel("Price (AED)").nth(1).fill("2199.50");
+  await page.getByLabel("Price (AED)", { exact: true }).nth(1).fill("2199.50");
+  const secondSku = page.locator("#specifications .panel").nth(1);
+  await secondSku
+    .getByRole("button", { name: "Add sku specifications", exact: true })
+    .click();
+  await secondSku
+    .getByLabel("SKU specifications name 1", { exact: true })
+    .fill("ram");
+  await secondSku
+    .getByLabel("SKU specifications value 1", { exact: true })
+    .fill("32");
+  await secondSku
+    .getByRole("button", { name: "Add sku specifications", exact: true })
+    .click();
+  await secondSku
+    .getByLabel("SKU specifications name 2", { exact: true })
+    .fill("storage");
+  await secondSku
+    .getByLabel("SKU specifications value 2", { exact: true })
+    .fill("1024");
+  for (const spec of await page.locator(".spec-row select").all())
+    await spec.selectOption("number");
   await page.getByRole("button", { name: "Create product draft" }).click();
   await expect(
     page.getByRole("heading", { name: `Browser test laptop ${suffix}` }),

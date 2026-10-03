@@ -3786,3 +3786,154 @@ summary {
     display: none;
   }
 }
+
+/* Merchant editors share storefront rendering inside a script-free preview frame. */
+.hero-grid.hero-full {
+  grid-template-columns: 1fr;
+}
+.custom-home-banner {
+  margin-block: 24px;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+}
+.custom-home-banner img {
+  max-width: 100%;
+  height: auto;
+}
+.homepage-builder {
+  max-width: 100%;
+}
+.homepage-section-list {
+  display: grid;
+  gap: 16px;
+}
+.homepage-section-card {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.homepage-section-card > div:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+.homepage-section-card h2 {
+  margin: 8px 0;
+  font-size: 20px;
+}
+.section-order {
+  display: grid;
+  place-items: center;
+  min-width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #eff3ff;
+  color: #164cf5;
+  font-weight: 700;
+}
+.builder-actions,
+.section-preview-toolbar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+.section-preview-panel {
+  border: 1px solid #dbe2ed;
+  border-radius: 16px;
+  padding: 16px;
+  min-width: 0;
+  background: #f8fafc;
+}
+.section-preview-toolbar h2 {
+  font-size: 18px;
+}
+.isolated-preview {
+  width: 100%;
+  overflow: hidden;
+  background: white;
+  border: 1px solid #e2e8f0;
+  margin-top: 16px;
+}
+.code-editor {
+  font-family: ui-monospace, monospace;
+  min-height: 300px;
+  tab-size: 2;
+}
+.spec-editor {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 20px;
+  margin-top: 12px;
+}
+.spec-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 100px auto;
+  gap: 12px;
+  align-items: end;
+  margin: 12px 0;
+}
+.price-preview {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-radius: 10px;
+  background: #f4f7fb;
+  padding: 16px;
+}
+.price-preview small {
+  width: 100%;
+  color: #475569;
+}
+.price-preview strong {
+  font-size: 24px;
+}
+.price-preview del {
+  color: #64748b;
+}
+.taxonomy-picker label,
+.inline-create {
+  display: grid;
+  gap: 8px;
+}
+.inline-create {
+  background: #f4f7fb;
+  padding: 16px;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+.checkbox-row {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.checkbox-row input {
+  width: 18px;
+  height: 18px;
+}
+.thumbnails figure {
+  max-width: 150px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.homepage-builder details summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding-block: 8px;
+}
+@media (max-width: 650px) {
+  .homepage-section-card {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .homepage-section-card .button {
+    margin-left: 54px;
+  }
+  .spec-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.custom-home-banner :is(h1, h2, h3, h4) {
+  color: inherit;
+}
