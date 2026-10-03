@@ -8,6 +8,7 @@ export type DeliveryCountry = (typeof deliveryCountries)[number]["code"];
 export type DeliveryLocation = {
   country: DeliveryCountry;
   emirate?: string;
+  area?: string;
   source: "manual" | "detected";
 };
 export function comingSoon(country: DeliveryCountry) {
@@ -36,6 +37,12 @@ export function parseDeliveryLocation(raw: string): DeliveryLocation | null {
       source: value.source,
       ...(value.country === "AE" && allowed.includes(value.emirate)
         ? { emirate: value.emirate }
+        : {}),
+      ...(value.country === "AE" &&
+      typeof value.area === "string" &&
+      value.area.trim().length <= 100 &&
+      !/[\u0000-\u001f\u007f]/.test(value.area)
+        ? { area: value.area.trim() }
         : {}),
     };
   } catch {

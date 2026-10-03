@@ -231,6 +231,10 @@ model Address {
   city      String
   line1     String
   landmark  String?
+  area      String?
+  zone      String?
+  postalCode String?
+  location  Json?
 }
 model Order {
   id              String @id @default(cuid())

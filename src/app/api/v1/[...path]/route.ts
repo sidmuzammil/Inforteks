@@ -22,7 +22,6 @@ import {
   checkout,
   ownedOrder,
   requestReturn,
-  addressInput,
   paymentMethods,
 } from "@/domains/commerce";
 import {
@@ -50,6 +49,14 @@ import { startAiRun, providerStatus } from "@/domains/ai";
 import { reviewReturn } from "@/domains/returns";
 import { profileInput } from "@/lib/account-input";
 import { compareProducts, comparisonInsights } from "@/domains/comparison";
+
+import {
+  customerAddresses,
+  saveAddress,
+  deleteAddress,
+} from "@/domains/addresses";
+import { addressLookupEnabled, lookupAddress } from "@/domains/geocoding";
+import { hash } from "@/domains/identity";
 
 export const dynamic = "force-dynamic";
 const ok = (data: unknown, status = 200) =>
@@ -79,6 +86,16 @@ async function dispatch(
   };
   if (method !== "GET") checkOrigin(req);
   if (area === "storefront") {
+    if (resource === "location" && !id) {
+      if (method === "GET") return ok({ enabled: addressLookupEnabled() });
+      invariant(method === "POST", 405, "Method not allowed.");
+      const requester =
+        userId ??
+        hash(
+          req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "shared",
+        );
+      return ok(await lookupAddress(await body(), requester));
+    }
     if (resource === "comparison") {
       if (method === "GET" && !id)
         return ok(
@@ -269,16 +286,17 @@ async function dispatch(
             }),
       );
     if (resource === "addresses") {
-      if (method === "GET")
-        return ok(await db.address.findMany({ where: { userId } }));
+      if (method === "GET" && !id) return ok(await customerAddresses(userId));
       if (method === "DELETE") {
         invariant(id, 400, "Choose an address to delete.");
-        await db.address.deleteMany({ where: { id, userId } });
-        return ok({ deleted: true });
+        return ok(await deleteAddress(userId, id));
       }
-      invariant(method === "POST", 405, "Method not allowed.");
-      const d = addressInput.parse(await body());
-      return ok(await db.address.create({ data: { ...d, userId } }), 201);
+      invariant(
+        (method === "POST" && !id) || (method === "PATCH" && id),
+        405,
+        "Method not allowed.",
+      );
+      return ok(await saveAddress(userId, await body(), id), id ? 200 : 201);
     }
     if (resource === "returns") {
       if (method === "GET")

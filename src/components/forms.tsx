@@ -16,6 +16,9 @@ import { api, useShop } from "./store-client";
 import { money, emirates } from "@/lib/utils";
 import { useDeliveryLocation, saveDeliveryLocation } from "./delivery-location";
 import { comingSoon } from "@/lib/delivery-location";
+import { DeliveryAddressFields } from "./delivery-address";
+import { readDeliveryAddress, type DeliveryAddress } from "@/lib/address";
+
 export type Field = {
   name: string;
   label: string;
@@ -215,6 +218,9 @@ type Quote = {
 };
 export function CartPage({ checkout = false }: { checkout?: boolean }) {
   const delivery = useDeliveryLocation();
+  const [addresses, setAddresses] = useState<
+    (DeliveryAddress & { id: string })[]
+  >([]);
   const [cart, setCart] = useState<Cart | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -238,6 +244,9 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
       .then(setCart)
       .catch((e) => setError(e.message));
     key.current = crypto.randomUUID();
+    void api<(DeliveryAddress & { id: string })[]>("account/addresses")
+      .then(setAddresses)
+      .catch(() => {});
   }, []);
   useEffect(() => {
     if (!cart?.items.length || !countryAvailable) return;
@@ -310,13 +319,8 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
     setBusy(true);
     setError("");
     const fd = new FormData(e.currentTarget);
-    const address = Object.fromEntries(
-      ["name", "phone", "city", "line1", "landmark"].map((k) => [
-        k,
-        String(fd.get(k) ?? ""),
-      ]),
-    );
     try {
+      const address = readDeliveryAddress(fd);
       const r = await fetch("/api/v1/storefront/checkout", {
         method: "POST",
         headers: {
@@ -326,7 +330,7 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
         body: JSON.stringify({
           country: delivery.country,
           email: fd.get("email"),
-          address: { ...address, emirate: region },
+          address,
           paymentMethod: fd.get("paymentMethod"),
           ...(coupon ? { coupon } : {}),
         }),
@@ -337,6 +341,12 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
         throw new Error(data.error?.message ?? "Checkout failed.");
       }
       await shop.refresh();
+      saveDeliveryLocation({
+        country: "AE",
+        emirate: address.emirate,
+        area: address.area,
+        source: "manual",
+      });
       router.push(`/order-confirmation/${data.data.reference}`);
       router.refresh();
     } catch (e) {
@@ -380,48 +390,23 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
               onSubmit={placeOrder}
             >
               <h2>Contact & delivery</h2>
-              <div className="form-grid">
-                <Fields
-                  fields={[
-                    { name: "email", label: "Email address", type: "email" },
-                    { name: "name", label: "Full name" },
-                    {
-                      name: "phone",
-                      label: "UAE mobile number",
-                      help: "Start with +971, without spaces.",
-                    },
-                  ]}
-                />
-                <label>
-                  Emirate
-                  <select
-                    value={region}
-                    onChange={(e) => {
-                      setRegion(e.target.value);
-                      saveDeliveryLocation({
-                        country: "AE",
-                        emirate: e.target.value,
-                        source: "manual",
-                      });
-                    }}
-                  >
-                    {emirates.map((e) => (
-                      <option key={e}>{e}</option>
-                    ))}
-                  </select>
-                </label>
-                <Fields
-                  fields={[
-                    { name: "city", label: "City / area" },
-                    { name: "line1", label: "Building, street & apartment" },
-                    {
-                      name: "landmark",
-                      label: "Landmark (optional)",
-                      required: false,
-                    },
-                  ]}
-                />
-              </div>
+              <Fields
+                fields={[
+                  { name: "email", label: "Email address", type: "email" },
+                ]}
+              />
+              <DeliveryAddressFields
+                emirate={region}
+                saved={addresses}
+                onEmirateChange={(emirate) => {
+                  setRegion(emirate);
+                  saveDeliveryLocation({
+                    country: "AE",
+                    emirate,
+                    source: "manual",
+                  });
+                }}
+              />
               <h3>Payment method</h3>
               {quote?.paymentMethods.length ? (
                 quote.paymentMethods.map((m, i) => (

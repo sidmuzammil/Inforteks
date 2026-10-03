@@ -24,7 +24,7 @@ export async function Header() {
   const address = session
     ? await db.address.findFirst({
         where: { userId: session.user.id },
-        select: { emirate: true },
+        select: { emirate: true, area: true },
         orderBy: { id: "desc" },
       })
     : null;
@@ -36,6 +36,7 @@ export async function Header() {
           <DeliveryLocationPicker
             signedIn={Boolean(session)}
             savedEmirate={address?.emirate}
+            savedArea={address?.area ?? undefined}
           />
           <span className="utility-center">
             {demo

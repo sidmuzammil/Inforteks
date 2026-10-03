@@ -1,3 +1,4 @@
+import { AddressSummary } from "@/components/address-summary";
 import { emailDeliveryEnabled } from "@/lib/email-policy";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -449,12 +450,7 @@ export default async function AdminPage({
               <b>Order total</b>
               <b>{money(o.total)}</b>
             </div>
-            <p className="notice">
-              Ship to:{" "}
-              {Object.entries(o.address as object)
-                .map(([k, v]) => `${k}: ${v}`)
-                .join(" · ")}
-            </p>
+            <AddressSummary address={o.address} />
           </div>
           <div className="integration-grid" style={{ marginTop: 24 }}>
             {actor.scopes.includes("fulfillments:write") &&

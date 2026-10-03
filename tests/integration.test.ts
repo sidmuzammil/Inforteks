@@ -41,6 +41,15 @@ const address = {
   emirate: "Dubai",
   city: "Test Area",
   line1: "Test Building 1",
+  area: "Downtown Dubai",
+  zone: "Business district",
+  postalCode: "",
+  location: {
+    latitude: 25.1972,
+    longitude: 55.2744,
+    accuracy: 18,
+    confirmed: true,
+  },
 };
 beforeAll(async () => {
   if (!process.env.DATABASE_URL?.includes("inforteks_test"))
@@ -208,6 +217,10 @@ describe("shared services against PostgreSQL", () => {
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     expect(results.filter((r) => r.status === "rejected")).toHaveLength(1);
     const sku = await db.sku.findUniqueOrThrow({ where: { id: skuId } });
+    const placed = await db.order.findFirstOrThrow({
+      where: { items: { some: { skuId } } },
+    });
+    expect(placed.address).toMatchObject(address);
     expect(sku.reserved).toBe(1);
     expect(sku.onHand).toBe(1);
   });

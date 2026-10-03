@@ -117,7 +117,13 @@ test("selected SKU, guest cart, server quote and protected order confirmation", 
     .getByLabel("Full name", { exact: true })
     .fill("Browser Test Guest");
   await page.getByLabel("UAE mobile number").fill("+971501234567");
-  await page.getByLabel("City / area").fill("Dubai");
+  await page.getByLabel("City", { exact: true }).fill("Dubai");
+  await page
+    .getByLabel("Area / neighbourhood", { exact: true })
+    .fill("Downtown Dubai");
+  await page
+    .getByLabel("Zone / district (optional)", { exact: true })
+    .fill("Business district");
   await page
     .getByLabel("Building, street & apartment")
     .fill("Development Building 1");

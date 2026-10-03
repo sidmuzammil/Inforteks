@@ -50,9 +50,11 @@ export function useDeliveryLocation() {
 export function DeliveryLocationPicker({
   signedIn,
   savedEmirate,
+  savedArea,
 }: {
   signedIn: boolean;
   savedEmirate?: string;
+  savedArea?: string;
 }) {
   const location = useDeliveryLocation();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -120,6 +122,7 @@ export function DeliveryLocationPicker({
       saveDeliveryLocation({
         country: "AE",
         emirate: savedEmirate,
+        area: savedArea,
         source: "manual",
       });
       return;
@@ -136,7 +139,7 @@ export function DeliveryLocationPicker({
     return () => {
       cancelled = true;
     };
-  }, [signedIn, savedEmirate, detect]);
+  }, [signedIn, savedEmirate, savedArea, detect]);
   return (
     <>
       <button
@@ -145,12 +148,12 @@ export function DeliveryLocationPicker({
         type="button"
         onClick={() => dialog.current?.showModal()}
         aria-haspopup="dialog"
-        aria-label={`Delivery location: ${country.short}${location.emirate ? `, ${location.emirate}` : ""}${country.active ? "" : ", coming soon"}`}
+        aria-label={`Delivery location: ${country.short}${location.emirate ? `, ${location.emirate}` : ""}${location.area ? `, ${location.area}` : ""}${country.active ? "" : ", coming soon"}`}
       >
         <MapPin size={13} />
         <span>
           {country.active
-            ? `Deliver to ${location.emirate ?? "UAE"}`
+            ? `Deliver to ${location.area || location.emirate || "UAE"}`
             : `${country.short} · Coming soon`}
         </span>
         <ChevronDown size={12} />

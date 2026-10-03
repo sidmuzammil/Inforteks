@@ -70,7 +70,9 @@ Password reset uses an expiring, single-use link and does not reveal whether an 
 
 ## Delivery countries and comparison
 
-The header lets visitors choose UAE, Saudi Arabia, Qatar or Oman. Only UAE delivery is supported. The other three show a coming-soon apology, and checkout rejects non-UAE destinations. Customers may permit browser location detection; coordinates stay on their device. A saved delivery emirate takes priority when a signed-in customer has not chosen a location.
+The header lets visitors choose UAE, Saudi Arabia, Qatar or Oman. Only UAE delivery is supported. The other three show a coming-soon apology, and checkout rejects non-UAE destinations. The header's country detection keeps coordinates on the device. A saved delivery emirate and area take priority when a signed-in customer has not chosen a location.
+
+Checkout and **Account → Addresses** collect city, area/neighbourhood, building/street/apartment, optional zone/district, postal code and landmark. Customers can share their current position, check its map link and explicitly confirm the delivery pin; manual entry works without location permission. Postal codes remain blank where not applicable. Saved addresses can be edited or removed, and selected at checkout. Order pages display delivery details and a confirmed pin link for authorized staff; existing order snapshots do not change when an address is edited. Automatic area/street suggestions require a separately configured Google Geocoding connection. See [delivery location setup](DELIVERY_LOCATION.md).
 
 Comparison reads the current published catalogue, combining product specifications, SKU options and SKU specifications (SKU values override shared values). Maintain consistent specification names and include units in displayed values. Customers can compare up to four configurations in one department and filter to differences. Missing values are shown explicitly; no performance benchmarks are inferred. Product prices and availability are checked again at checkout.
 

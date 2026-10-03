@@ -3,28 +3,12 @@ import { db, type Tx } from "@/lib/db";
 import { invariant } from "@/lib/errors";
 import { hash, secret, idempotent, audit, type Actor } from "./identity";
 import { calculate } from "./pricing";
-import { emirates, json } from "@/lib/utils";
+import { json } from "@/lib/utils";
 import type { Prisma } from "@/generated/prisma/client";
 import { productMediaOrder } from "@/lib/product-media";
 
-export const addressInput = z
-  .object({
-    name: z.string().trim().min(2).max(100),
-    phone: z
-      .string()
-      .trim()
-      .transform((phone) => phone.replace(/[ ()-]/g, ""))
-      .pipe(
-        z
-          .string()
-          .regex(/^\+971[0-9]{8,9}$/, "Use a UAE number starting +971."),
-      ),
-    emirate: z.enum(emirates as [string, ...string[]]),
-    city: z.string().trim().min(2).max(100),
-    line1: z.string().trim().min(5).max(250),
-    landmark: z.string().trim().max(200).optional(),
-  })
-  .strict();
+import { addressInput } from "@/lib/address";
+export { addressInput } from "@/lib/address";
 export const checkoutInput = z
   .object({
     country: z.literal("AE").default("AE"),

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { productInput } from "@/domains/catalogue";
 import { addressInput, checkoutInput } from "@/domains/commerce";
 import { productMediaInput } from "@/lib/product-media";
+import { locationLookupInput } from "@/domains/geocoding";
 type OperationDoc = {
   method: "get" | "post" | "patch" | "delete";
   path: string;
@@ -10,6 +11,27 @@ type OperationDoc = {
   summary: string;
 };
 export const apiOperations: OperationDoc[] = [
+  {
+    method: "get",
+    path: "/storefront/location",
+    id: "addressLookupStatus",
+    summary:
+      "Reports whether optional automatic address lookup is configured. Never exposes a key.",
+  },
+  {
+    method: "post",
+    path: "/storefront/location",
+    id: "lookupDeliveryAddress",
+    summary:
+      "Origin-checked, rate-limited reverse geocoding after explicit consent. Returns suggestions only; never saves a location. Requires Google Geocoding configuration.",
+  },
+  {
+    method: "patch",
+    path: "/account/addresses/{id}",
+    id: "updateDeliveryAddress",
+    summary:
+      "Replace an owned saved address. Optional GPS pin requires explicit confirmation and device-reported accuracy at most 200m. Existing order snapshots remain unchanged.",
+  },
   {
     method: "patch",
     path: "/admin/products/{id}/media",
@@ -430,6 +452,8 @@ export const apiOperations: OperationDoc[] = [
   },
 ];
 const requestSchemas: Record<string, unknown> = {
+  updateDeliveryAddress: z.toJSONSchema(addressInput),
+  lookupDeliveryAddress: z.toJSONSchema(locationLookupInput),
   updateProductMedia: z.toJSONSchema(productMediaInput),
   createProduct: z.toJSONSchema(productInput),
   createOrder: z.toJSONSchema(checkoutInput),

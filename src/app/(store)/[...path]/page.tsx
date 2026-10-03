@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { AddressBook } from "@/components/delivery-address";
+import { AddressSummary } from "@/components/address-summary";
 import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import {
@@ -382,6 +384,7 @@ export default async function Page({
                 <b>{money(i.total)}</b>
               </div>
             ))}
+            <AddressSummary address={order.address} />
             <PrintButton />
             {token && (
               <details style={{ marginTop: 24 }}>
@@ -447,6 +450,7 @@ export default async function Page({
             <b>Total</b>
             <b>{money(order.total)}</b>
           </div>
+          <AddressSummary address={order.address} />
           <PrintButton />
           {order.items.some((i) => i.fulfilled > i.returned) && (
             <div className="editor-section">
@@ -573,41 +577,7 @@ export default async function Page({
       content = (
         <>
           <h2>Saved addresses</h2>
-          {addresses.map((a) => (
-            <div className="notice" key={a.id}>
-              <b>{a.name}</b>
-              <p>
-                {a.line1}, {a.city}, {a.emirate}
-                <br />
-                {a.phone}
-              </p>
-            </div>
-          ))}
-          <h3 style={{ marginBlock: 22 }}>Add an address</h3>
-          <MutationForm
-            endpoint="account/addresses"
-            fields={[
-              { name: "name", label: "Full name" },
-              { name: "phone", label: "Phone (+971)" },
-              {
-                name: "emirate",
-                label: "Emirate",
-                type: "select",
-                options: [
-                  "Dubai",
-                  "Abu Dhabi",
-                  "Sharjah",
-                  "Ajman",
-                  "Fujairah",
-                  "Ras Al Khaimah",
-                  "Umm Al Quwain",
-                ].map((e) => ({ value: e, label: e })),
-              },
-              { name: "city", label: "City / area" },
-              { name: "line1", label: "Building, street & apartment" },
-              { name: "landmark", label: "Landmark", required: false },
-            ]}
-          />
+          <AddressBook addresses={addresses} />
         </>
       );
     } else if (slug === "returns") {
