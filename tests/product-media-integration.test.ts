@@ -2,6 +2,7 @@ import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { rm } from "node:fs/promises";
 import sharp from "sharp";
+import { z } from "zod";
 import { beforeAll, afterAll, expect, it } from "vitest";
 import { db } from "../src/lib/db";
 import { roles, hash, type Actor } from "../src/domains/identity";
@@ -87,10 +88,14 @@ it("saves order and descriptions atomically without replacing files or publishin
   });
   expect(saved.media.map((m) => m.id)).toEqual(images.map((m) => m.id));
   expect(saved.media.map((m) => m.position)).toEqual([0, 1, 2]);
-  const adminRows = (await adminList(actor, "products", 1, key)) as {
-    id: string;
-    media: { id: string }[];
-  }[];
+  const adminRows = z
+    .array(
+      z.object({
+        id: z.string(),
+        media: z.array(z.object({ id: z.string() })),
+      }),
+    )
+    .parse(await adminList(actor, "products", 1, key));
   expect(
     adminRows.find((row) => row.id === p.id)!.media.map((m) => m.id),
   ).toEqual(images.map((m) => m.id));
