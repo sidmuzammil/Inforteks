@@ -18,6 +18,8 @@ Money is integer AED fils. Discount allocations use exact integer arithmetic and
 
 Inventory constraints require nonnegative stock and reservations, with reserved stock no greater than physical stock. Checkout reserves; fulfilment consumes; cancellation/expiry releases; accepted returns restock only through an explicit inspected disposition. Order line quantities bound fulfilment and returns. These are transaction invariants, not UI-only checks.
 
+Homepage sections have validated JSON presentation settings, an edit version and media references for hero, CTA and custom HTML assets. Visibility and schedules control public image access. The sixth migration converts the old static CTA into content and preserves existing offer selections; it inserts no catalogue or customer records.
+
 Product and SKU versions prevent stale proposal application. Publication requires prices on active SKUs, media and required category attributes. Draft media remains private until publication. Archived records retain order history instead of cascading away commercial evidence.
 
 Guest cart and order tokens are stored as hashes for lookup. The guest order token is also part of the private idempotency response so a checkout retry can recover the same receipt; database backups must therefore be treated as sensitive. Auth credentials, sessions, customer addresses, job payloads and local recovery mailboxes also require private access and a defined retention policy before launch.

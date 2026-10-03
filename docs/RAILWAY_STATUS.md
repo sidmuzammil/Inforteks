@@ -1,23 +1,27 @@
 # Railway deployment record
 
-Verified on 2 October 2026 UTC. This records observed deployment state, not a completed retail launch.
+Verified on 3 October 2026 UTC. This records observed deployment state, not a completed retail launch.
 
 - Project: [Inforteks](https://railway.com/project/6c12fe47-eca9-4d35-86b1-8e21e853b941), in the connected Pro workspace.
 - Production: <https://web-production-b6327.up.railway.app>
 - Staging: <https://web-staging-4569.up.railway.app>
 - Staff sign-in: <https://web-production-b6327.up.railway.app/admin/login>
-- Application source deployed: `9d62cd968fa256c9fdb390ad42b495b221a1b481`. GitHub repository: `sidmuzammil/Inforteks`, branch `main`. Later documentation/CI-only commits do not change the deployed application.
+- Application source deployed: `43ae21b469bf6a59e92c4d4d9bbc1c64f53f39c7`. GitHub repository: `sidmuzammil/Inforteks`, branch `main`. Later documentation/CI-only commits do not change the deployed application.
 
 ## Verified
 
-Both environments have separate PostgreSQL data, database credentials, authentication secrets, and private media buckets. Web, worker and PostgreSQL deployments passed Railway health checks. All five application migrations succeeded in both environments, including the additive homepage-banner migration and the unique provider/account identity index. Only web has public HTTPS hostnames; worker and PostgreSQL use private networking. Application placement is one replica per service in Amsterdam.
+Both environments have separate PostgreSQL data, database credentials, authentication secrets, and private media buckets. Web, worker and PostgreSQL deployments passed Railway health checks. All six application migrations succeeded in both environments, including the additive homepage-banner migration, unique provider/account identity index and merchant section settings/media relations. Only web has public HTTPS hostnames; worker and PostgreSQL use private networking. Application placement is one replica per service in Amsterdam.
 
 | Environment | Service | Successful deployment                  |
 | ----------- | ------- | -------------------------------------- |
-| Staging     | Web     | `3845efdc-2d32-4d3f-ab29-ab1b0f650846` |
-| Staging     | Worker  | `b5c414fe-3ded-47fc-b7d8-79195fc06e17` |
-| Production  | Web     | `72221245-6473-4368-8fc2-c64ab3501b74` |
-| Production  | Worker  | `f0cccc3e-feb1-46f5-87e7-606c92b73013` |
+| Staging     | Web     | `db2f59bc-3092-4e83-902d-14b71286db08` |
+| Staging     | Worker  | `27f1b0ff-ab10-41d4-ae24-8d349d4f2d04` |
+| Production  | Web     | `097878cb-bdd3-4036-b9c0-6e70847ee8a8` |
+| Production  | Worker  | `2057a653-7530-4450-81a6-da68af6c4503` |
+
+The merchant editor release removes the language control, fixes first-category creation, supports initial product image uploads and AED current/previous prices, and exposes featured selection and product organization/SEO fields. Full hero/side banners, CTA and sanitized HTML sections share the exact storefront renderer with isolated desktop/mobile previews. Four editable production homepage templates are present; empty product sections stay hidden. No production catalogue seed or dummy product was created.
+
+The real Owner opened the new-product form and every configured homepage editor. Authenticated HTML preview returned sanitized content without saving a record; anonymous preview was denied. Verification used the existing Owner in short-lived sessions that were signed out.
 
 Current release checks passed on staging and production for homepage, readiness, customer and staff login, registration, cart, checkout, comparison and categories. The header contains the four delivery countries and permits same-origin browser geolocation. The comparison API safely reports an unavailable SKU; Google and AI remain gated and production payment methods remain empty. Anonymous `/admin` and `/admin/products` requests redirected to `/admin/login`. The real Owner signed in and opened the workspace, staff, product, order and homepage-section pages successfully, then signed out. No production browser suite or development seed was run.
 
@@ -25,13 +29,13 @@ The requested `sales@inforteks.com` Owner was created with a unique cryptographi
 
 Inforteks is a single-merchant store. Public registration creates customer accounts only. Staff use dedicated sign-in without registration; the Owner creates named colleagues and assigns or revokes role presets. Server permissions protect product management, stock, homepage banners, content and other modules. See ADMIN_GUIDE.md.
 
-Temporary object upload, authenticated read and deletion passed against both Railway media buckets, with temporary objects removed. A full remote browser media journey and anonymous bucket-access check were not performed; local browser tests covered image validation and private-to-public banner publication.
+Temporary object upload, authenticated read and deletion were rechecked on 3 October against both Railway media buckets, with temporary objects removed. A full remote browser media journey and anonymous bucket-access check were not performed; local browser tests covered image validation and private-to-public banner publication.
 
-PITR configuration is enabled in both environments. Production has daily, weekly and monthly backup schedules; staging has daily and weekly schedules. Named snapshots `production-after-migrations` and `staging-after-migrations` were created and listed successfully. Before the fourth migration, production snapshot `before-account-and-banner-release` (`a3a0c012-2042-4d01-9471-486adf990fd5`) was created and verified. Before the fifth migration, production snapshot `before-google-identity-release` (`7b69d1c8-faf0-402b-a477-b4f714a6fc92`) was created and listed at `2026-10-02T19:52:06.563Z`. Continuous WAL coverage and a restore rehearsal still require verification; enabling PITR is not proof of a successful restore.
+PITR configuration is enabled in both environments. Production has daily, weekly and monthly backup schedules; staging has daily and weekly schedules. Named snapshots `production-after-migrations` and `staging-after-migrations` were created and listed successfully. Before the fourth migration, production snapshot `before-account-and-banner-release` (`a3a0c012-2042-4d01-9471-486adf990fd5`) was created and verified. Before the fifth migration, production snapshot `before-google-identity-release` (`7b69d1c8-faf0-402b-a477-b4f714a6fc92`) was created and listed at `2026-10-02T19:52:06.563Z`. Before migration six, snapshot `before-merchant-editor-release` (`97defc40-36dd-4cdb-a704-06b1abc174c1`) was created and listed at `2026-10-03T05:59:37.499Z`. Continuous WAL coverage and a restore rehearsal still require verification; enabling PITR is not proof of a successful restore.
 
-The store workflow/Google release passed 57 unit/integration tests and all 16 Chromium journeys against isolated local data. All 68 documented staff API operations denied both anonymous and customer access. Dummy image upload/publication, order creation/replay, fulfillment and return/restocking passed through HTTP handlers. Type checking, lint, formatting, the production build and OpenAPI validation for 97 operations passed. Railway builds succeeded without unsupported BuildKit secret mounts; downloads still verify TLS and Prisma engine checksums.
+The merchant editor release passed 63 unit/integration tests and all 19 Chromium journeys against local data. All 69 documented staff API operations denied anonymous/customer access. Dummy product images, featured/discounted publication, stock approvals, checkout/replay, fulfillment, return/restocking and isolated HTML/hero previews were verified. Type checking, lint, formatting, the production build and OpenAPI validation for 98 operations passed.
 
-GitHub Actions [run 37062842834](https://github.com/sidmuzammil/Inforteks/actions/runs/37062842834) passed setup, static/database checks, browser journeys and the production build on commit `a73f56de33b13e004ff77be593f449a72cd8c02e`. That commit changes only CI; the deployed application source above is unchanged.
+GitHub Actions [run 37102474211](https://github.com/sidmuzammil/Inforteks/actions/runs/37102474211) passed fresh setup, static/database checks, all browser journeys and the production build on the exact deployed application commit `43ae21b469bf6a59e92c4d4d9bbc1c64f53f39c7`. Fresh setup now waits for a real TCP query to the application database; this fixes the temporary PostgreSQL initialization-server race exposed by CI. Both a fresh isolated disposable database and the existing development database passed this readiness check.
 
 ## Remaining launch steps
 
