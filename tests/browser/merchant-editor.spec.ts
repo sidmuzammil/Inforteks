@@ -91,7 +91,7 @@ test("merchant creates taxonomy, uploads images in the new product form, and pub
   await expect(page.locator(".price-preview del")).toContainText("999.95");
   await page
     .getByLabel("Choose product images")
-    .setInputFiles("public/brand/inforteks.png");
+    .setInputFiles(["public/brand/inforteks.png", "public/brand/hero.png"]);
   await page
     .getByLabel("Image description", { exact: true })
     .fill("Local product image");
@@ -101,12 +101,16 @@ test("merchant creates taxonomy, uploads images in the new product form, and pub
       /^\/admin\/products\/[^/]+$/.test(url.pathname) &&
       !url.pathname.endsWith("/new"),
   );
-  await expect(page.locator(".thumbnails img")).toHaveCount(1);
+  await expect(page.locator(".thumbnails img")).toHaveCount(2);
   const product = await db.product.findUniqueOrThrow({
     where: { slug: key },
-    include: { skus: true },
+    include: { skus: true, media: { orderBy: { createdAt: "asc" } } },
   });
   expect(product.featured).toBe(true);
+  await expect(page.locator(".thumbnails img").first()).toHaveAttribute(
+    "src",
+    `/media/${product.media[0].id}`,
+  );
   expect(product.skus[0].compareAt).toBe(99995);
   await page
     .getByRole("button", { name: "Publish product", exact: true })

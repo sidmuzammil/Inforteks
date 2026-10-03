@@ -53,7 +53,13 @@ export const includeProduct = {
   brand: true,
   category: true,
   skus: { orderBy: { price: "asc" as const } },
-  media: { orderBy: { position: "asc" as const } },
+  media: {
+    orderBy: [
+      { position: "asc" as const },
+      { createdAt: "asc" as const },
+      { id: "asc" as const },
+    ],
+  },
   reviews: {
     where: { status: "APPROVED", verified: true },
     select: { id: true, rating: true, body: true, createdAt: true },
