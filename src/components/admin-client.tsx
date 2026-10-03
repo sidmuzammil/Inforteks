@@ -11,6 +11,7 @@ import {
 } from "./merchant-inputs";
 import { readPrices } from "@/lib/merchant-pricing";
 import { MAX_IMAGE_BYTES } from "@/lib/uploads";
+import { ProductMediaEditor } from "./product-media-editor";
 import {
   Package,
   LayoutDashboard,
@@ -139,6 +140,7 @@ export function ActionButton({
   );
 }
 type ProductEdit = {
+  version: number;
   featured: boolean;
   model?: string | null;
   seoTitle?: string | null;
@@ -462,28 +464,18 @@ export function ProductEditor({
       </form>
       {product && (
         <>
-          <section
-            id="media"
-            className="editor-section panel"
-            style={{ marginTop: 24 }}
-          >
-            <h2>Media</h2>
-            <div className="thumbnails">
-              {product.media.map((m) => (
-                <img
-                  key={m.id}
-                  src={
-                    m.key.startsWith("illustrations/")
-                      ? `/${m.key}`
-                      : `/media/${m.id}`
-                  }
-                  alt={m.alt}
-                  style={{ width: 100, height: 80, objectFit: "contain" }}
-                />
-              ))}
-            </div>
-            <MediaUpload productId={product.id} />
-          </section>
+          <ProductMediaEditor
+            key={product.id}
+            productId={product.id}
+            initialVersion={product.version}
+            initialMedia={product.media}
+            published={product.status === "PUBLISHED"}
+            canEdit={
+              scopes.includes("catalog:write") &&
+              (product.status !== "PUBLISHED" ||
+                scopes.includes("catalog:publish"))
+            }
+          />
           <section className="editor-section panel" id="specifications">
             <h2>Specifications & options</h2>
             {product.skus.map((s) => (
@@ -624,75 +616,6 @@ export function ProductEditor({
         </>
       )}
     </div>
-  );
-}
-export function MediaUpload({ productId }: { productId: string }) {
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const router = useRouter();
-  return (
-    <form
-      className="form-stack"
-      style={{ marginTop: 20 }}
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setError("");
-        setMessage("");
-        const form = e.currentTarget;
-        setBusy(true);
-        const fd = new FormData(e.currentTarget);
-        fd.set("productId", productId);
-        try {
-          const file = fd.get("file");
-          if (file instanceof File && file.size > MAX_IMAGE_BYTES) {
-            throw new Error("Images must be 4 MB or smaller.");
-          }
-          await api("admin/media", fd);
-          form.reset();
-          setMessage("Image uploaded successfully.");
-          router.refresh();
-        } catch (e) {
-          setError((e as Error).message);
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      <div className="form-grid">
-        <label>
-          Product image
-          <input
-            type="file"
-            name="file"
-            accept="image/png,image/jpeg,image/webp,image/avif"
-            required
-          />
-          <small className="form-help">
-            Up to 4 MB. Minimum 100 × 100 pixels.
-          </small>
-        </label>
-        <label>
-          Alternative text
-          <input name="alt" required maxLength={250} />
-        </label>
-      </div>
-      {message && (
-        <p role="status" className="notice success">
-          {message}
-        </p>
-      )}
-      {error && (
-        <p className="form-error" role="alert">
-          {error}
-        </p>
-      )}
-      <div>
-        <button className="button" disabled={busy}>
-          {busy ? "Uploading…" : "Upload image"}
-        </button>
-      </div>
-    </form>
   );
 }
 export function ProposalForm({

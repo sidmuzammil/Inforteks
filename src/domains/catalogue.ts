@@ -4,6 +4,7 @@ import { db, type Tx } from "@/lib/db";
 import { invariant } from "@/lib/errors";
 import { audit, requireScope, type Actor } from "./identity";
 import { slugify } from "@/lib/utils";
+import { productMediaOrder } from "@/lib/product-media";
 
 const spec = z.record(
   z.string().regex(/^[a-zA-Z0-9_ ]{1,40}$/),
@@ -54,11 +55,7 @@ export const includeProduct = {
   category: true,
   skus: { orderBy: { price: "asc" as const } },
   media: {
-    orderBy: [
-      { position: "asc" as const },
-      { createdAt: "asc" as const },
-      { id: "asc" as const },
-    ],
+    orderBy: productMediaOrder,
   },
   reviews: {
     where: { status: "APPROVED", verified: true },

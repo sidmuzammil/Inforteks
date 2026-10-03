@@ -14,7 +14,9 @@ Google sign-in, when configured, is only for customers. It cannot create, connec
 4. Adjust opening stock through a reasoned proposal. Review the current value and proposed delta, then approve.
 5. Preview the draft privately. Request publication and inspect the exact proposal before approving. Missing required specifications, media or SKU prices block publication.
 
-Published product edits, SKU edits, price changes, unpublishing and archiving also require proposals. Approvals expire after 15 minutes and fail if the target changed. Start a new proposal after reviewing the new state. An API key or AI response cannot supply human approval.
+Product details, SKU edits, price changes, unpublishing and archiving require proposals. Approvals expire after 15 minutes and fail if the target changed. Start a new proposal after reviewing the new state. An API key or AI response cannot supply human approval.
+
+To fix an existing product's photos, open **Products → your product → Media**. Use **Make main image** or **Earlier / Later**, and edit each image description as needed. The large main-image preview updates before saving. Click **Save images** to apply the order and descriptions, or **Discard changes** to undo your unsaved edits. Reordering already-published photos updates the storefront gallery, product cards and cart without reuploading files or republishing the product. The first published image is the public cover; private photos stay private until publication. New uploads append at the end. Product editing permission is required, plus publishing permission for live products. Saves are audited and reject stale versions; **Reload images** loads the latest saved order and discards unsaved changes.
 
 ## Orders, payments and returns
 
@@ -37,7 +39,7 @@ In **Homepage**, the section list follows page position. Open **Edit & preview**
 
 Click **Preview this section** to see only that area in a desktop or mobile frame. Previewing does not save or publish; its links and shopping controls are disabled. After editing again, refresh the preview. Upload selected files before saving or previewing. **Save homepage section** saves the current visibility setting; new sections start hidden. Check **Visible on storefront** and save to publish. Optional start/end dates use Dubai time (UTC+4). Lower position numbers appear first. Conflicting edits from another tab require a reload rather than silently overwriting content.
 
-Uploaded banner assets remain private until their attached section is visible and within its schedule, including images inside HTML and hero side banners. Turn off Visible to remove a section. Already-cached public image responses may remain visible for up to five minutes. Upload removal/reordering and general media-library cleanup are separate future work.
+Uploaded banner assets remain private until their attached section is visible and within its schedule, including images inside HTML and hero side banners. Turn off Visible to remove a section. Already-cached public image responses may remain visible for up to five minutes. File removal and general media-library cleanup are separate future work; product photo ordering is available in each product editor.
 
 CSV import accepts the supplied six-column template: `name,sku,brand,category,price_aed,description`. Use existing brand/category slugs and new SKU codes. The current parser accepts 1–500 simple unquoted rows; embedded commas/newlines, updates to existing SKUs, supplier mapping and stock-import files are unsupported. Preview lists row errors without changing products. A human commits a valid batch and the worker creates all drafts in one transaction. Imports do not publish or allocate stock.
 

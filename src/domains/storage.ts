@@ -94,6 +94,20 @@ export async function storeImage(
     await writeFile(path.join(root(), key), data);
   }
   return db.$transaction(async (tx) => {
+    let position = 0;
+    if (product) {
+      const current = await tx.product.update({
+        where: { id: productId },
+        data: { version: { increment: 1 } },
+      });
+      if (current.status === "PUBLISHED")
+        requireScope(actor, "catalog:publish");
+      const last = await tx.media.aggregate({
+        where: { productId },
+        _max: { position: true },
+      });
+      position = (last._max.position ?? -1) + 1;
+    }
     const media = await tx.media.create({
       data: {
         key,
@@ -101,13 +115,9 @@ export async function storeImage(
         alt: alt.trim(),
         width: info.width,
         height: info.height,
+        position,
       },
     });
-    if (product)
-      await tx.product.update({
-        where: { id: productId },
-        data: { version: { increment: 1 } },
-      });
     await audit(
       tx,
       actor,

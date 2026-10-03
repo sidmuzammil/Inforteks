@@ -45,6 +45,7 @@ import {
   csvCell,
 } from "@/domains/administration";
 import { storeImage } from "@/domains/storage";
+import { updateProductMedia } from "@/domains/product-media";
 import { startAiRun, providerStatus } from "@/domains/ai";
 import { reviewReturn } from "@/domains/returns";
 import { profileInput } from "@/lib/account-input";
@@ -397,6 +398,8 @@ async function dispatch(
       });
     }
     if (resource === "products") {
+      if (method === "PATCH" && id && action === "media")
+        return ok(await updateProductMedia(actor, id, await body()));
       if (method === "GET" && id) {
         requireScope(actor, "catalog:read");
         const p = await db.product.findUnique({

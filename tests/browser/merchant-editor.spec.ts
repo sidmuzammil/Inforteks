@@ -22,6 +22,7 @@ test.beforeAll(async () => {
   await db.user.update({ where: { id: userId }, data: { role: "OWNER" } });
 });
 test.afterAll(async () => {
+  await db.cart.deleteMany({ where: { userId } });
   const products = await db.product.findMany({
     where: { slug: { startsWith: key } },
     include: { media: true },
@@ -101,23 +102,72 @@ test("merchant creates taxonomy, uploads images in the new product form, and pub
       /^\/admin\/products\/[^/]+$/.test(url.pathname) &&
       !url.pathname.endsWith("/new"),
   );
-  await expect(page.locator(".thumbnails img")).toHaveCount(2);
+  await expect(page.locator(".product-image-card > img")).toHaveCount(2);
   const product = await db.product.findUniqueOrThrow({
     where: { slug: key },
     include: { skus: true, media: { orderBy: { createdAt: "asc" } } },
   });
   expect(product.featured).toBe(true);
-  await expect(page.locator(".thumbnails img").first()).toHaveAttribute(
-    "src",
-    `/media/${product.media[0].id}`,
-  );
+  await expect(
+    page.locator(".product-image-card > img").first(),
+  ).toHaveAttribute("src", `/media/${product.media[0].id}`);
   expect(product.skus[0].compareAt).toBe(99995);
+  const mainImage = product.media[1];
+  await page
+    .locator(".product-image-card")
+    .nth(1)
+    .getByRole("button", { name: "Make main image" })
+    .click();
+  await page
+    .getByLabel("Image 1 description", { exact: true })
+    .fill("Laptop front view");
+  await expect(page.locator(".product-media-cover > img")).toHaveAttribute(
+    "src",
+    `/media/${mainImage.id}`,
+  );
+  await page.getByRole("button", { name: "Save images", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Images saved");
+  await page.reload();
+  await expect(
+    page.locator(".product-image-card > img").first(),
+  ).toHaveAttribute("src", `/media/${mainImage.id}`);
+  await expect(
+    page.getByLabel("Image 1 description", { exact: true }),
+  ).toHaveValue("Laptop front view");
+  await page.getByRole("button", { name: "Move image 1 later" }).click();
+  await page
+    .getByRole("button", { name: "Discard changes", exact: true })
+    .click();
+  await expect(page.locator(".product-media-cover > img")).toHaveAttribute(
+    "src",
+    `/media/${mainImage.id}`,
+  );
+  await page
+    .getByLabel("Product image", { exact: true })
+    .setInputFiles("public/brand/inforteks.png");
+  await page
+    .getByLabel("Alternative text", { exact: true })
+    .fill("Third product photo");
+  await page.getByRole("button", { name: "Upload image", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("uploaded at the end");
+  await expect(page.locator(".product-image-card > img")).toHaveCount(3);
+  await expect(
+    page.locator(".product-image-card > img").first(),
+  ).toHaveAttribute("src", `/media/${mainImage.id}`);
   await page
     .getByRole("button", { name: "Publish product", exact: true })
     .click();
   await page.getByRole("button", { name: "Approve & apply change" }).click();
   await expect(page.getByText(/Status: APPROVED/)).toBeVisible();
   await page.goto(`/product/${key}`);
+  await expect(page.locator(".gallery-main img")).toHaveAttribute(
+    "src",
+    `/media/${mainImage.id}`,
+  );
+  await expect(page.locator(".gallery-main img")).toHaveAttribute(
+    "alt",
+    "Laptop front view",
+  );
   await expect(page.locator("del")).toContainText("999.95");
   await page.goto("/offers");
   await expect(
@@ -132,6 +182,56 @@ test("merchant creates taxonomy, uploads images in the new product form, and pub
     ),
   ).toBe(true);
   await page.goto(`/admin/products/${product.id}`);
+  // Reorder already-published photos without uploading or republishing them.
+  await page.getByRole("button", { name: "Move image 1 later" }).click();
+  await page.getByRole("button", { name: "Save images", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Images saved");
+  await page.goto(`/product/${key}`);
+  await expect(page.locator(".gallery-main img")).toHaveAttribute(
+    "src",
+    `/media/${product.media[0].id}`,
+  );
+  await page.goto("/offers");
+  await expect(
+    page
+      .locator(".product-card")
+      .filter({ hasText: key })
+      .locator("img")
+      .first(),
+  ).toHaveAttribute("src", `/media/${product.media[0].id}`);
+  await db.sku.update({
+    where: { id: product.skus[0].id },
+    data: { onHand: 5 },
+  });
+  expect(
+    (
+      await page.request.post("/api/v1/storefront/carts", {
+        headers: { Origin: "http://localhost:3000" },
+        data: { skuId: product.skus[0].id, quantity: 1 },
+      })
+    ).ok(),
+  ).toBe(true);
+  const cart = await page.request.get("/api/v1/storefront/carts");
+  expect((await cart.json()).data.items[0].image).toBe(
+    `/media/${product.media[0].id}`,
+  );
+  await page.request.post("/api/v1/storefront/carts", {
+    headers: { Origin: "http://localhost:3000" },
+    data: { skuId: product.skus[0].id, quantity: 0 },
+  });
+  await page.goto(`/admin/products/${product.id}`);
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await page.locator("#media").scrollIntoViewIfNeeded();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: ".data/screenshots/product-image-editor-mobile.png",
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page
     .locator("#pricing")
     .getByLabel("Price (AED)", { exact: true })

@@ -1,5 +1,6 @@
 import { homeSectionInput, prepareHomeSection } from "./home-sections";
 import { z } from "zod";
+import { productMediaOrder } from "@/lib/product-media";
 import { db, type Tx } from "@/lib/db";
 import {
   audit,
@@ -181,7 +182,12 @@ export async function adminList(
       const rows = await db.product.findMany({
         ...range,
         where: q ? { name: { contains: q, mode: "insensitive" } } : {},
-        include: { brand: true, category: true, skus: true, media: true },
+        include: {
+          brand: true,
+          category: true,
+          skus: true,
+          media: { orderBy: productMediaOrder },
+        },
         orderBy: { updatedAt: "desc" },
       });
       return rows.map((p) => ({

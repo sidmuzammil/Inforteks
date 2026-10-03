@@ -5,6 +5,7 @@ import { hash, secret, idempotent, audit, type Actor } from "./identity";
 import { calculate } from "./pricing";
 import { emirates, json } from "@/lib/utils";
 import type { Prisma } from "@/generated/prisma/client";
+import { productMediaOrder } from "@/lib/product-media";
 
 export const addressInput = z
   .object({
@@ -38,7 +39,15 @@ export async function getCart(token: string | undefined, userId?: string) {
   const include = {
     items: {
       include: {
-        sku: { include: { product: { include: { media: true } } } },
+        sku: {
+          include: {
+            product: {
+              include: {
+                media: { where: { public: true }, orderBy: productMediaOrder },
+              },
+            },
+          },
+        },
       },
       orderBy: { id: "asc" as const },
     },
@@ -108,7 +117,18 @@ export async function ensureCart(token?: string, userId?: string) {
     include: {
       items: {
         include: {
-          sku: { include: { product: { include: { media: true } } } },
+          sku: {
+            include: {
+              product: {
+                include: {
+                  media: {
+                    where: { public: true },
+                    orderBy: productMediaOrder,
+                  },
+                },
+              },
+            },
+          },
         },
         orderBy: { id: "asc" },
       },

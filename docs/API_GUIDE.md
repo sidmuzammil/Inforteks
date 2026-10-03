@@ -34,8 +34,10 @@ This requires `pricing:write`. The result is a proposal, not a changed price. A 
 
 Keys have explicit scopes, expiry, immediate revocation and a database-backed request limit. Limits are currently fixed in code (120 requests/minute per key); there is no configurable quota dashboard. Never include raw keys in query parameters, logs or client JavaScript.
 
+To reorder existing product photos or change image descriptions, PATCH `/admin/products/{id}/media` with the current product `version` and the complete ordered `images` array, each containing `id` and `alt`. The order is applied atomically and increments the product version. Every current image must appear exactly once; attaching foreign images, omitting images or changing publication flags is rejected. Requires `catalog:write`, plus `catalog:publish` for a published product. A stale version returns 409. The result contains the new version and ordered media. Files and visibility stay unchanged; new uploads append after existing images and remain private until publication.
+
 ## Contract coverage
 
-The generated registry documents 97 operations. Core checkout, product creation, carts, image upload, proposal creation and several common mutations include request schemas. Some generic admin resource bodies and response payloads still use descriptive/generic schemas; this is not yet a complete generated client contract for every table. Zod domain validators are authoritative, and `src/lib/api-client.ts` provides a small typed caller. Add concrete schemas and contract tests when expanding an integration.
+The generated registry documents 99 operations. Core checkout, product creation, carts, image upload and ordering, proposal creation and several common mutations include request schemas. Some generic admin resource bodies and response payloads still use descriptive/generic schemas; this is not yet a complete generated client contract for every table. Zod domain validators are authoritative, and `src/lib/api-client.ts` provides a small typed caller. Add concrete schemas and contract tests when expanding an integration.
 
 No live payment webhook, courier API or executed-refund endpoint is implemented. The refund execution route intentionally returns 503. A missing provider must never be interpreted as success. Contact inquiries are durably saved but are not automatically emailed.

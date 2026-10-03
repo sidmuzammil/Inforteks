@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { productInput } from "@/domains/catalogue";
 import { addressInput, checkoutInput } from "@/domains/commerce";
+import { productMediaInput } from "@/lib/product-media";
 type OperationDoc = {
   method: "get" | "post" | "patch" | "delete";
   path: string;
@@ -9,6 +10,14 @@ type OperationDoc = {
   summary: string;
 };
 export const apiOperations: OperationDoc[] = [
+  {
+    method: "patch",
+    path: "/admin/products/{id}/media",
+    id: "updateProductMedia",
+    scope: "catalog:write",
+    summary:
+      "Save the complete ordered image IDs and descriptions with the current product version. Published products additionally require catalog:publish. Never changes image visibility or files; stale versions return 409.",
+  },
   {
     method: "post",
     path: "/admin/home-sections/preview",
@@ -421,6 +430,7 @@ export const apiOperations: OperationDoc[] = [
   },
 ];
 const requestSchemas: Record<string, unknown> = {
+  updateProductMedia: z.toJSONSchema(productMediaInput),
   createProduct: z.toJSONSchema(productInput),
   createOrder: z.toJSONSchema(checkoutInput),
   createAccountaddresses: z.toJSONSchema(addressInput),
