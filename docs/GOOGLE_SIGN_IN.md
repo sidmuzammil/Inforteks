@@ -34,4 +34,14 @@ Better Auth owns OAuth code exchange, PKCE, state-cookie binding, replay prevent
 
 The user reported connecting Firebase, but this cloud task exposes no Firebase connector tools. The CLI has no signed-in account, and neither Railway environment's web service contains Google/Firebase variables. Official Firebase CLI 15.32.1 is installed privately at `.data/firebase-cli`; its login request to `auth.firebase.tools/attest` was blocked by the cloud proxy with CONNECT 403. Required Firebase/Google network domains were saved in the cloud configuration draft; saving does not apply that policy or authorize a Google account. Live Google sign-in remains unverified and disabled until provider access/configuration is available.
 
+## Production activation on 3 October 2026
+
+The user's Cloud Shell identified the Firebase project `inforteks-3da17`. Its Google OAuth web-client credentials were saved directly on the Railway **production web** service through standard input without putting them in source files, command-line arguments or deployment logs. The web service was redeployed. Staging remains unconfigured; workers do not need Google credentials.
+
+Live checks confirmed customer login/registration show **Continue with Google**, staff login does not, and the OAuth start endpoint returns the exact production callback, S256 PKCE and only `openid`, `email` and `profile`. Google accepted the authorization URL and returned its sign-in page without a client or redirect error. Cancellation returned to the store login without creating a customer session. Actual customer consent, token exchange and returning Google sign-in still need a customer to complete Google's interactive flow; reaching Google's sign-in page alone does not prove these steps.
+
+The HTTP checks found that Next.js's global `Referrer-Policy` overrode the route handler's stricter header. The configuration now sets `no-referrer` and `no-store` explicitly for `/api/auth/:path*`. A browser regression checks actual HTTP responses for session retrieval, a rejected cross-origin request and an OAuth error redirect; calling the route handler directly would miss this configuration interaction. The regression, type check and lint passed locally; GitHub Actions run `37108933300` passed. Production deployment `a4466fe7-30ac-4199-ae95-db35696f35dc` succeeded, and the live OAuth checks passed with the correct privacy headers.
+
+Preserve the production web service's two direct OAuth variables when applying infrastructure changes. Never copy production credentials into development fixtures or staging. Before changing the canonical domain, add its exact Google callback, verify DNS/HTTPS and deliberately update the store's canonical origin.
+
 References: [Better Auth Google provider](https://www.better-auth.com/docs/authentication/google), [account linking](https://www.better-auth.com/docs/concepts/users-accounts).
