@@ -231,7 +231,14 @@ test("owner creates two-SKU product, uploads image, adjusts stock and publishes"
     .getByLabel("Alternative text")
     .fill("Development test laptop illustration");
   await page.getByRole("button", { name: "Upload image" }).click();
-  await expect(page.locator(".thumbnails img")).toHaveCount(1);
+  await expect(page.getByRole("status")).toContainText(
+    "Image uploaded at the end",
+  );
+  await expect(
+    page
+      .getByRole("listitem", { name: "Image 1", exact: true })
+      .getByRole("img"),
+  ).toHaveCount(1);
   const adjustment = page.locator("#inventory form").first();
   await adjustment.getByLabel("Quantity adjustment").fill("3");
   await adjustment
