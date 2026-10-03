@@ -7,6 +7,7 @@
 - Existing customer checkout, stock approval, comparison, location, keyboard/hover navigation, recovery, wishlist and representative accessibility checks passed. Google consent handoff uses local test-only configuration; this does not establish live provider availability.
 - The production build passed with deliberately unreachable database URLs and no Google credentials. OpenAPI validates 98 operations. Six migrations apply to the isolated database; migration six adds section settings/version/media relations and editable homepage templates without inserting products or customer records.
 - An old test initially matched both the current and previous price inputs (and both variant buttons); it now uses exact accessible names. An immediate retry hit the real login rate limit, and a simultaneous Prisma generation briefly invalidated test imports. Checks were rerun without disabling security controls or generation races.
+- Fresh CI exposed a PostgreSQL initialization race: `pg_isready` accepted the temporary init socket before the application database existed. Setup now waits for a successful TCP query to the actual database; a fresh network-isolated disposable PostgreSQL container and the existing development database both passed.
 - Testing is scoped to implemented workflows; live payments, Google consent, email delivery, custom-domain DNS and recovery drills remain separately unverified where provider setup is incomplete.
 
 Verified in the development cloud environment on **2 October 2026**. This records completed checks, not a production certification.
