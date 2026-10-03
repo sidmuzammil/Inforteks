@@ -57,7 +57,14 @@ jobs:
             sleep 1
           done
           curl --fail --silent http://localhost:8081/health > /dev/null
-          pnpm test:e2e
+          set +e
+          PLAYWRIGHT_JSON_OUTPUT_FILE=.data/ci-browser-results.json pnpm exec playwright test --reporter=list,json
+          browser_ci_status=$?
+          set -e
+          if [ "$browser_ci_status" -ne 0 ]; then
+            python3 scripts/report-browser-failures.py .data/ci-browser-results.json
+          fi
+          exit "$browser_ci_status"
       - name: Production build without a live database
         env:
           DATABASE_URL: postgresql://build:build@127.0.0.1:1/no_database
