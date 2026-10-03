@@ -1,5 +1,13 @@
 # Verification report
 
+## Product image editing — 3 October 2026
+
+- 68 unit/integration tests passed across 15 files. Five new tests cover persistent ordering/descriptions, unchanged original files and visibility, shared storefront/cart/admin order, staff permissions, complete image-set validation, stale/competing saves and concurrent upload appends. All 70 documented staff operations deny anonymous/customer access.
+- All 20 browser journeys passed together in GitHub Actions [run 37112237288](https://github.com/sidmuzammil/Inforteks/actions/runs/37112237288) on `8903687ee908e725d81cd64e07ebe20b05c9e1f3`. The expanded merchant journey changes the main image, edits its description, saves/reloads, discards unsaved reordering, appends an upload, publishes, then reorders live images and checks the product page, offers card and cart. Mobile editor controls fit at 390 pixels without horizontal overflow.
+- Local regression initially passed 19 of 20 journeys; the remaining legacy upload check still targeted the removed thumbnail strip. It now waits for upload success and checks the accessible image card, and its targeted rerun passed before the successful full CI run. CI failure annotations now expose only test titles/status and source locations, without raw browser errors or traces.
+- Type checking, lint, formatting, OpenAPI validation for 99 operations and the production build with an unreachable database passed. No dependency or schema changes were required.
+- Staging and production web deployed source `0e99f5afad5eaf607867897564e7268ea32d914a` successfully. Staging readiness, public pages and access/provider gates passed. On production, the existing Owner opened the actual five-image product editor; all original assets and eleven referenced editor scripts loaded, controls were present and public/admin ordering agreed. The Owner signed out, and no production product or image was changed. Tests that mutate products ran only against local data.
+
 ## Merchant editors — 3 October 2026
 
 - 63 tests passed across 14 unit/integration files in `inforteks_test`. Coverage adds first-category creation, complete sale-product metadata, independent featured/offer selections, exact decimal-to-fils conversion, invalid discounts, sanitized HTML, preview without persistence, stale-edit rejection, customer denial and publication-aware HTML image access. All 69 documented staff API operations deny anonymous and customer access.

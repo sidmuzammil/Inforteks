@@ -6,7 +6,7 @@ Verified on 3 October 2026 UTC. This records observed deployment state, not a co
 - Production: <https://web-production-b6327.up.railway.app>
 - Staging: <https://web-staging-4569.up.railway.app>
 - Staff sign-in: <https://web-production-b6327.up.railway.app/admin/login>
-- Production web source: `b0d3ddfc4587792f32ff1ee1ee00431f81defdc9` (OAuth privacy headers). Staging web and both workers retain `43ae21b469bf6a59e92c4d4d9bbc1c64f53f39c7`. GitHub repository: `sidmuzammil/Inforteks`, branch `main`. Later documentation-only commits do not change the deployed application.
+- Production and staging web source: `0e99f5afad5eaf607867897564e7268ea32d914a` (product image ordering, including the earlier OAuth privacy headers). Both workers retain `43ae21b469bf6a59e92c4d4d9bbc1c64f53f39c7`. GitHub repository: `sidmuzammil/Inforteks`, branch `main`. Later CI, test and documentation commits do not change the deployed application.
 
 ## Verified
 
@@ -14,10 +14,12 @@ Both environments have separate PostgreSQL data, database credentials, authentic
 
 | Environment | Service | Successful deployment                  |
 | ----------- | ------- | -------------------------------------- |
-| Staging     | Web     | `db2f59bc-3092-4e83-902d-14b71286db08` |
+| Staging     | Web     | `d1bbc112-76da-4013-a071-a2134c3fc5e3` |
 | Staging     | Worker  | `27f1b0ff-ab10-41d4-ae24-8d349d4f2d04` |
-| Production  | Web     | `a4466fe7-30ac-4199-ae95-db35696f35dc` |
+| Production  | Web     | `bfefb282-f86d-4234-a242-0086feabd198` |
 | Production  | Worker  | `2057a653-7530-4450-81a6-da68af6c4503` |
+
+The product image editor now supports selecting the main image, moving existing images earlier/later and editing their descriptions without re-uploading. Saves check permissions and product versions, preserve original objects and publication flags, and update the storefront, offers and cart consistently. Concurrent uploads append under the product lock. The existing Owner opened the live five-image product editor: all controls, five original assets and eleven editor scripts were accessible, and public/admin image order agreed. Verification was read-only for products and media; the session was signed out. No migration or worker deployment was needed. GitHub Actions [run 37112237288](https://github.com/sidmuzammil/Inforteks/actions/runs/37112237288) passed setup, static/database checks, all 20 browser journeys and the production build on `8903687ee908e725d81cd64e07ebe20b05c9e1f3`, which adds only CI diagnostics and test updates after the deployed application source.
 
 The merchant editor release removes the language control, fixes first-category creation, supports initial product image uploads and AED current/previous prices, and exposes featured selection and product organization/SEO fields. Full hero/side banners, CTA and sanitized HTML sections share the exact storefront renderer with isolated desktop/mobile previews. Four editable production homepage templates are present; empty product sections stay hidden. No production catalogue seed or dummy product was created.
 
