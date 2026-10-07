@@ -127,3 +127,10 @@ Fresh published cloud restoration, live payment/refund/courier transactions, liv
 - The ERP browser journey created a temporary office contact/opportunity, recorded and completed a UAE-time call, placed a four-unit direct order from CRM, approved a two-unit shipment, verified an AED receipt proposal's integer-fils payload, and checked the contact's order history and Won link. It left payment pending. Fixtures were removed from local databases.
 - The CRM pipeline passed its WCAG 2 A/AA automated check after correcting low-contrast text. Board/list navigation and opportunity screens fit 768, 390 and 320px viewports. Existing Direct Sales tests also passed the revised app navigation.
 - Business mutations were tested only in isolated/local databases. Production verification passed using the existing Owner for read-only ERP page, API, schema and asset checks, followed by sign-out. Both Railway environments and their workers passed deployment health checks. No production dummy products, contacts, opportunities, activities or orders are required.
+
+## Independent sales modules — 7 October 2026
+
+- Direct Sales and Online Store are independent top-level apps; Online Store includes website content. CRM, Contacts, products, inventory and all-channel Operations remain shared, with existing server permissions.
+- The six local Direct Sales/ERP journeys passed: office order creation, CRM-to-order conversion and shipment proposals, Owner switching, source-filtered online orders, canonical detail routes and legacy redirects, wrong-channel denial, Sales-role boundaries, desktop layouts at 1440/1260/1024px and mobile layouts at 768/390/320px. The app shell and CRM pipeline passed automated WCAG 2 A/AA checks.
+- The content-staff browser journey also passed through Online Store to banner creation, upload, isolated preview and publication, while retaining denied product/staff access.
+- Type checking, lint and repository formatting passed. The release has no new database migration or worker logic. Full CI and remote rollout results are recorded in `RAILWAY_STATUS.md` after deployment.

@@ -1,3 +1,4 @@
+import { adminOrderHref } from "@/lib/admin-routes";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -60,47 +61,6 @@ export function SalesHeading({
     </div>
   );
 }
-export function ChannelCards({ actor }: { actor: Actor }) {
-  return (
-    <div className="sales-channel-grid">
-      {actor.scopes.includes("direct_sales:read") && (
-        <Link className="sales-channel-card direct" href="/admin/direct-sales">
-          <span className="channel-icon">
-            <Building2 />
-          </span>
-          <div>
-            <span className="eyebrow">OFFICE VISITS & STAFF ORDERS</span>
-            <h2>Direct Sales</h2>
-            <p>
-              Office customers, visits, follow-ups and orders taken by your
-              team.
-            </p>
-            <b>
-              Open Direct Sales <ArrowRight size={17} />
-            </b>
-          </div>
-        </Link>
-      )}
-      {actor.scopes.some((s) =>
-        ["orders:read", "content:read", "customers:read"].includes(s),
-      ) && (
-        <Link className="sales-channel-card online" href="/admin/online-store">
-          <span className="channel-icon">
-            <Globe />
-          </span>
-          <div>
-            <span className="eyebrow">YOUR WEBSITE</span>
-            <h2>Online Store</h2>
-            <p>Website orders, customer accounts, banners and promotions.</p>
-            <b>
-              Open Online Store <ArrowRight size={17} />
-            </b>
-          </div>
-        </Link>
-      )}
-    </div>
-  );
-}
 export function SalesPagination({
   total,
   page,
@@ -145,7 +105,9 @@ export function SalesOrderTable({
           {rows.map((o) => (
             <tr key={o.id}>
               <td>
-                <Link href={`/admin/orders/${o.id}`}>{o.reference}</Link>
+                <Link href={adminOrderHref(o.id, o.channel)}>
+                  {o.reference}
+                </Link>
                 <small>
                   {o.channel === "DIRECT"
                     ? (o.businessSnapshot as { company?: string })?.company
@@ -222,12 +184,16 @@ export async function SalesOrdersPage({
               : "ONLINE STORE"
         }
       >
-        {actor.scopes.includes("direct_sales:write") && (
-          <Link className="button primary" href="/admin/direct-sales/new-order">
-            <Plus size={16} />
-            Take an order
-          </Link>
-        )}
+        {channel !== "ONLINE" &&
+          actor.scopes.includes("direct_sales:write") && (
+            <Link
+              className="button primary"
+              href="/admin/direct-sales/new-order"
+            >
+              <Plus size={16} />
+              Take an order
+            </Link>
+          )}
       </SalesHeading>
       <div className="panel">
         <form className="sales-filters">
@@ -706,7 +672,7 @@ export async function SalesWorkspace({
           icon: Globe,
         },
         {
-          href: "/admin/customers",
+          href: "/admin/contacts?kind=account",
           title: "Website customers",
           description: "Registered customer accounts and contact information.",
           scope: "customers:read",
@@ -769,7 +735,9 @@ export async function SalesWorkspace({
             {
               label: direct ? "Active office customers" : "Website accounts",
               value: stats.customers,
-              href: direct ? `${base}/customers` : "/admin/customers",
+              href: direct
+                ? `${base}/customers`
+                : "/admin/contacts?kind=account",
               icon: Users,
             },
             {

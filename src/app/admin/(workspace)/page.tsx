@@ -3,7 +3,6 @@ import { ArrowRight, Plus } from "lucide-react";
 import { staffPageActor } from "@/lib/session";
 import { availableAdminApps } from "@/lib/admin-apps";
 import { AdminAppTiles } from "@/components/admin-navigation";
-import { ChannelCards } from "@/components/sales-workspace";
 export default async function Workspace() {
   const actor = await staffPageActor();
   const apps = availableAdminApps(actor.scopes);
@@ -13,7 +12,10 @@ export default async function Workspace() {
         <div>
           <div className="eyebrow">INFORTEKS WORKSPACE</div>
           <h1>Your business. One workspace.</h1>
-          <p>Open an app to continue your day.</p>
+          <p>
+            Choose Direct Sales or Online Store. CRM, Contacts, products and
+            stock are shared.
+          </p>
         </div>
         {actor.scopes.includes("direct_sales:write") && (
           <Link href="/admin/direct-sales/new-order" className="button primary">
@@ -23,13 +25,6 @@ export default async function Workspace() {
         )}
       </div>
       <AdminAppTiles apps={apps} />
-      <div className="erp-home-section">
-        <h2>Two ways to sell. One operation.</h2>
-        <p>
-          Keep each sales channel clear, with shared products and inventory.
-        </p>
-        <ChannelCards actor={actor} />
-      </div>
       <section className="panel erp-start-guide">
         <h2>A simple daily workflow</h2>
         <div>

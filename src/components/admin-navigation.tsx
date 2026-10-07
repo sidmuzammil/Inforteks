@@ -6,7 +6,7 @@ import {
   LayoutGrid,
   Target,
   Users,
-  ShoppingBag,
+  Building2,
   Package,
   Boxes,
   Globe,
@@ -20,10 +20,10 @@ import { availableAdminApps, type AdminApp } from "@/lib/admin-apps";
 const icons = {
   crm: Target,
   contacts: Users,
-  sales: ShoppingBag,
+  "direct-sales": Building2,
   products: Package,
   inventory: Boxes,
-  website: Globe,
+  "online-store": Globe,
   operations: ChartNoAxesCombined,
   settings: Settings,
 };
@@ -38,6 +38,7 @@ export function AdminAppTiles({ apps }: { apps: AdminApp[] }) {
         <Link
           key={app.id}
           href={app.links[0].href}
+          aria-label={`Open ${app.label}`}
           className={`erp-app-tile erp-app-${app.id}`}
         >
           <span>
@@ -60,8 +61,14 @@ export function AdminNav({ scopes }: { scopes: string[] }) {
   const apps = availableAdminApps(scopes);
   const app = apps.find((a) => a.match.includes(path.split("/")[2]));
   const results = apps
-    .flatMap((a) => a.links)
-    .filter((l) => l.label.toLowerCase().includes(search.toLowerCase()));
+    .flatMap((a) => a.links.map((link) => ({ ...link, app: a.label })))
+    .filter(
+      (link, index, links) =>
+        links.findIndex((l) => l.href === link.href) === index,
+    )
+    .filter((l) =>
+      `${l.app} ${l.label}`.toLowerCase().includes(search.toLowerCase()),
+    );
   function close() {
     setOpenedAt(null);
     setSearch("");
@@ -136,7 +143,7 @@ export function AdminNav({ scopes }: { scopes: string[] }) {
               {results.length ? (
                 results.map((l) => (
                   <Link key={l.href} href={l.href} onClick={close}>
-                    {l.label}
+                    {l.label === "Overview" ? `${l.app} overview` : l.label}
                   </Link>
                 ))
               ) : (
@@ -153,7 +160,14 @@ export function AdminNav({ scopes }: { scopes: string[] }) {
             <Link
               key={l.href}
               href={l.href}
-              aria-current={path === l.href ? "page" : undefined}
+              aria-current={
+                path === l.href
+                  ? "page"
+                  : l.href !== app.links[0].href &&
+                      path.startsWith(`${l.href}/`)
+                    ? "location"
+                    : undefined
+              }
               onClick={close}
             >
               {l.label}

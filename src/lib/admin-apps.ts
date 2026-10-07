@@ -14,6 +14,89 @@ export type AdminApp = {
 };
 export const adminApps: AdminApp[] = [
   {
+    id: "direct-sales",
+    label: "Direct Sales",
+    icon: "direct-sales",
+    description: "Office visits, follow-ups and orders taken by your team.",
+    match: ["direct-sales"],
+    links: [
+      {
+        href: "/admin/direct-sales",
+        label: "Overview",
+        scope: "direct_sales:read",
+      },
+      {
+        href: "/admin/direct-sales/orders",
+        label: "Direct orders",
+        scope: "direct_sales:read",
+      },
+      {
+        href: "/admin/direct-sales/new-order",
+        label: "New sales order",
+        scope: "direct_sales:write",
+      },
+      {
+        href: "/admin/direct-sales/customers",
+        label: "Office customers",
+        scope: "direct_sales:read",
+      },
+      {
+        href: "/admin/direct-sales/follow-ups",
+        label: "Visits & follow-ups",
+        scope: "direct_sales:read",
+      },
+    ],
+  },
+  {
+    id: "online-store",
+    label: "Online Store",
+    icon: "online-store",
+    description: "Website orders, customers, banners and promotions.",
+    match: [
+      "online-store",
+      "home-sections",
+      "content",
+      "promotions",
+      "reviews",
+      "inquiries",
+    ],
+    links: [
+      {
+        href: "/admin/online-store",
+        label: "Overview",
+        any: ["orders:read", "content:read", "customers:read"],
+      },
+      {
+        href: "/admin/online-store/orders",
+        label: "Online orders",
+        scope: "orders:read",
+      },
+      {
+        href: "/admin/contacts?kind=account",
+        label: "Website accounts",
+        scope: "customers:read",
+      },
+      {
+        href: "/admin/contacts?kind=guest",
+        label: "Guest contacts",
+        scope: "customers:read",
+      },
+      {
+        href: "/admin/home-sections",
+        label: "Homepage & banners",
+        scope: "content:read",
+      },
+      { href: "/admin/content", label: "Pages", scope: "content:read" },
+      {
+        href: "/admin/promotions",
+        label: "Promotions",
+        scope: "promotions:write",
+      },
+      { href: "/admin/reviews", label: "Reviews", scope: "content:write" },
+      { href: "/admin/inquiries", label: "Inquiries", scope: "customers:read" },
+    ],
+  },
+  {
     id: "crm",
     label: "CRM",
     icon: "crm",
@@ -56,43 +139,6 @@ export const adminApps: AdminApp[] = [
         label: "Guest contacts",
         scope: "customers:read",
       },
-    ],
-  },
-  {
-    id: "sales",
-    label: "Sales",
-    icon: "sales",
-    description: "Direct Sales and Online Store orders in one place.",
-    match: ["orders", "direct-sales", "online-store", "returns", "inquiries"],
-    links: [
-      { href: "/admin/orders", label: "All orders", scope: "orders:read" },
-      {
-        href: "/admin/direct-sales/orders",
-        label: "Direct orders",
-        scope: "direct_sales:read",
-      },
-      {
-        href: "/admin/online-store/orders",
-        label: "Online orders",
-        scope: "orders:read",
-      },
-      {
-        href: "/admin/direct-sales/new-order",
-        label: "New sales order",
-        scope: "direct_sales:write",
-      },
-      {
-        href: "/admin/direct-sales",
-        label: "Direct Sales",
-        scope: "direct_sales:read",
-      },
-      {
-        href: "/admin/online-store",
-        label: "Online Store",
-        any: ["orders:read", "content:read", "customers:read"],
-      },
-      { href: "/admin/returns", label: "Returns", scope: "returns:write" },
-      { href: "/admin/inquiries", label: "Inquiries", scope: "customers:read" },
     ],
   },
   {
@@ -146,33 +192,14 @@ export const adminApps: AdminApp[] = [
     ],
   },
   {
-    id: "website",
-    label: "Website",
-    icon: "website",
-    description: "Homepage, banners, pages and promotions.",
-    match: ["home-sections", "content", "promotions", "reviews"],
-    links: [
-      {
-        href: "/admin/home-sections",
-        label: "Homepage & banners",
-        scope: "content:read",
-      },
-      { href: "/admin/content", label: "Pages", scope: "content:read" },
-      {
-        href: "/admin/promotions",
-        label: "Promotions",
-        scope: "promotions:write",
-      },
-      { href: "/admin/reviews", label: "Reviews", scope: "content:write" },
-    ],
-  },
-  {
     id: "operations",
     label: "Operations",
     icon: "operations",
-    description: "Reports, approvals and your operations assistant.",
-    match: ["reports", "proposals", "assistant", "jobs"],
+    description: "All orders, returns, reports and shared approvals.",
+    match: ["orders", "returns", "reports", "proposals", "assistant", "jobs"],
     links: [
+      { href: "/admin/orders", label: "All orders", scope: "orders:read" },
+      { href: "/admin/returns", label: "Returns", scope: "returns:write" },
       { href: "/admin/reports", label: "Reports", scope: "reports:read" },
       { href: "/admin/proposals", label: "Approvals", scope: "ai:use" },
       { href: "/admin/assistant", label: "AI assistant", scope: "ai:use" },

@@ -206,6 +206,17 @@ test("content staff can maintain banners but cannot open products or staff manag
   ).toHaveCount(0);
   expect((await page.request.get("/api/v1/admin/staff")).status()).toBe(403);
   expect((await page.request.get("/api/v1/admin/products")).status()).toBe(403);
+  await page.getByRole("link", { name: "Open Online Store" }).click();
+  const onlineNav = page.getByRole("navigation", {
+    name: "Online Store navigation",
+  });
+  await expect(
+    onlineNav.getByRole("link", { name: "Online orders", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Direct Sales", exact: true }),
+  ).toHaveCount(0);
+  await onlineNav.getByRole("link", { name: "Homepage & banners" }).click();
   await page.goto("/admin/home-sections/new");
   await expect(
     page.getByRole("heading", { name: "Hero banner image" }),

@@ -168,7 +168,7 @@ test("ERP apps, contact history, CRM activity and a four-unit opportunity-to-ord
   await page
     .getByRole("button", { name: "Confirm direct order", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/admin\/orders\//);
+  await expect(page).toHaveURL(/\/admin\/direct-sales\/orders\//);
   const orderId = page.url().split("/").at(-1)!;
   const order = await db.order.findUniqueOrThrow({ where: { id: orderId } });
   await expect(

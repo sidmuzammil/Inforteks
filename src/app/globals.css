@@ -4991,7 +4991,7 @@ summary {
   background: #e8f3f3;
   color: #2c7c84;
 }
-.erp-app-sales > span {
+.erp-app-direct-sales > span {
   background: #edf1fe;
   color: #4967bd;
 }
@@ -4999,7 +4999,7 @@ summary {
   background: #fff2df;
   color: #ad781f;
 }
-.erp-app-website > span {
+.erp-app-online-store > span {
   background: #e8f3ec;
   color: #3c7d58;
 }
@@ -5036,6 +5036,9 @@ summary {
 .erp-content .sales-channel-card .channel-icon {
   width: 44px;
   height: 44px;
+}
+.erp-start-guide {
+  margin-top: 24px;
 }
 .erp-start-guide > div {
   display: grid;

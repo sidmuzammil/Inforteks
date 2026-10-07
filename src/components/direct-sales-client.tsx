@@ -357,7 +357,7 @@ export function DirectOrderBuilder({
         "POST",
         { "Idempotency-Key": key.current },
       );
-      router.push(`/admin/orders/${order.id}`);
+      router.push(`/admin/direct-sales/orders/${order.id}`);
       router.refresh();
     } catch (e) {
       setError((e as Error).message);

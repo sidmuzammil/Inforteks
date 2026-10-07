@@ -4,7 +4,7 @@ This file distinguishes the supplied brief's broad target from the working imple
 
 ## Implemented
 
-- ERP-style app launcher and context menus for CRM, Contacts, Sales, Products, Inventory, Website, Operations and Settings. Unified, source-labelled contacts and purchase history; versioned CRM opportunities, forecasts, staff assignment, UAE-time activities, audited stages and explicit order conversion/linking. Shipment quantity controls, AED payment/refund inputs and readable sales-operation approvals. See ERP_WORKSPACE.md.
+- ERP-style app launcher and context menus for Direct Sales, Online Store, CRM, Contacts, Products, Inventory, Operations and Settings. Unified, source-labelled contacts and purchase history; versioned CRM opportunities, forecasts, staff assignment, UAE-time activities, audited stages and explicit order conversion/linking. Shipment quantity controls, AED payment/refund inputs and readable sales-operation approvals. See ERP_WORKSPACE.md.
 
 - Two sales workspaces: Direct Sales for office visits and staff-entered orders, and Online Store for website orders/content. ERP app navigation, page search and a mobile workspace menu.
 - Versioned office contact profiles without logins, visit notes, UAE-time follow-up tasks, repeat orders, channel filtering/work queues and immutable company/address snapshots. Direct order entry reuses server quotes, inventory locks and idempotency; payment remains pending. Sales representative permissions exclude online orders and financial/settings mutations. See DIRECT_SALES.md for limits.

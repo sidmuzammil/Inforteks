@@ -1,3 +1,4 @@
+import { adminOrderHref } from "@/lib/admin-routes";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -586,7 +587,10 @@ export async function CrmWorkspace({
             {opportunityName(o)}
           </Link>
           {o.order && (
-            <Link className="button" href={`/admin/orders/${o.order.id}`}>
+            <Link
+              className="button"
+              href={adminOrderHref(o.order.id, o.channel)}
+            >
               Sales order · {o.order.reference}
             </Link>
           )}

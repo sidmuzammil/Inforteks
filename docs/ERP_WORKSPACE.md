@@ -1,19 +1,21 @@
 # ERP workspace
 
-The staff workspace uses an app launcher, a persistent app menu and a short menu for the current app. It follows familiar ERP patterns while keeping Inforteks' Direct Sales and Online Store channels. This is the commerce and CRM workspace; it is not a replacement for a financial accounting or payroll system.
+The staff workspace uses an app launcher, a persistent app menu and a short menu for the current app. It follows familiar ERP patterns with Direct Sales and Online Store as independent top-level modules. This is the commerce and CRM workspace; it is not a replacement for a financial accounting or payroll system.
 
 ## Find your work
 
-| App        | Daily work                                                                         |
-| ---------- | ---------------------------------------------------------------------------------- |
-| CRM        | Pipeline, opportunities, salesperson assignment and activities                     |
-| Contacts   | Office contacts, website accounts and guest order contacts                         |
-| Sales      | All orders, direct orders, online orders, new office orders, returns and inquiries |
-| Products   | Products, pricing, images, categories, brands and specifications                   |
-| Inventory  | Shared stock and reasoned adjustments                                              |
-| Website    | Homepage, banners, pages, promotions and reviews                                   |
-| Operations | Reports, exact-change approvals, assistant and jobs                                |
-| Settings   | Named staff, access roles, integrations and audit history                          |
+| App          | Daily work                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------ |
+| Direct Sales | Overview, direct orders, new office orders, office customers, visits and follow-ups                          |
+| Online Store | Overview, online orders, website/guest contacts, homepage, banners, pages, promotions, reviews and inquiries |
+| CRM          | Shared pipeline, opportunities, salesperson assignment and activities                                        |
+| Contacts     | Shared office contacts, website accounts and guest order contacts                                            |
+| Products     | Shared products, pricing, images, categories, brands and specifications                                      |
+| Inventory    | Shared stock and reasoned adjustments                                                                        |
+| Operations   | All orders across channels, returns, reports, exact-change approvals, assistant and jobs                     |
+| Settings     | Named staff, access roles, integrations and audit history                                                    |
+
+Direct Sales and Online Store open directly from the launcher and app menu; there is no Sales parent menu. Website content lives in Online Store. Each module's orders and order detail pages retain that module's navigation. Old `/admin/orders/:id` bookmarks redirect to the stored order's module after authorization; using the wrong module never reveals a different channel's order. The Contacts shortcuts open the shared directory, with the relevant source filter. Products, stock, CRM and customer records are not copied between modules.
 
 The menu only shows apps and actions permitted for the current staff member. **Find a page** searches available administration pages. On a phone, open **Workspace menu** to switch apps. Existing bookmarked administration routes remain supported.
 

@@ -1,6 +1,7 @@
 import { submitEmailSignIn } from "./sign-in";
 import "dotenv/config";
 import { test, expect } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 import { randomUUID } from "node:crypto";
 import { auth } from "../../src/lib/auth";
 import { db } from "../../src/lib/db";
@@ -10,7 +11,8 @@ const email = `${key}@example.test`,
 let userId = "",
   skuId = "",
   categoryId = "",
-  brandId = "";
+  brandId = "",
+  onlineOrderId = "";
 test.beforeAll(async () => {
   const url = new URL(process.env.DATABASE_URL ?? "");
   if (
@@ -39,10 +41,44 @@ test.beforeAll(async () => {
     include: { skus: true },
   });
   skuId = product.skus[0].id;
+  const online = await db.order.create({
+    data: {
+      reference: `${key}-online`,
+      guestTokenHash: randomUUID(),
+      email,
+      address: {
+        name: "Online buyer",
+        phone: "+971501234567",
+        emirate: "Dubai",
+        city: "Dubai",
+        area: "Business Bay",
+        line1: "Test office",
+      },
+      paymentMethod: "bank_transfer",
+      subtotal: 14900,
+      discount: 0,
+      tax: 745,
+      shipping: 0,
+      total: 15645,
+      shippingSnapshot: {},
+      termsSnapshot: {},
+      demo: true,
+      items: {
+        create: {
+          skuId,
+          snapshot: { name: product.name, sku: key, options: {} },
+          quantity: 1,
+          unitPrice: 14900,
+          total: 14900,
+        },
+      },
+    },
+  });
+  onlineOrderId = online.id;
 });
 test.afterAll(async () => {
   const orders = await db.order.findMany({
-    where: { salesActorId: userId },
+    where: { OR: [{ salesActorId: userId }, { id: onlineOrderId }] },
     select: { id: true },
   });
   const orderId = { in: orders.map((o) => o.id) };
@@ -129,9 +165,13 @@ test("sales staff records an office visit and takes four toners through review a
   await page.screenshot({
     path: ".data/direct-order-desktop.png",
     fullPage: true,
+    caret: "initial",
   });
   await page.getByRole("button", { name: "Confirm direct order" }).click();
-  await expect(page).toHaveURL(/\/admin\/orders\/[^/]+$/);
+  await expect(page).toHaveURL(/\/admin\/direct-sales\/orders\/[^/]+$/);
+  await expect(
+    page.getByRole("navigation", { name: "Direct Sales navigation" }),
+  ).toBeVisible();
   await expect(
     page.getByText("Customer confirmed four units in person."),
   ).toBeVisible();
@@ -176,10 +216,6 @@ test("mobile navigation remains usable and sales cannot open website orders or s
   ).toBeVisible();
   await page
     .getByRole("navigation", { name: "Admin workspace" })
-    .getByRole("link", { name: "Sales", exact: true })
-    .click();
-  await page
-    .getByRole("navigation", { name: "Sales navigation" })
     .getByRole("link", { name: "Direct Sales", exact: true })
     .click();
   await expect(page).toHaveURL(/\/admin\/direct-sales$/);
@@ -196,12 +232,24 @@ test("mobile navigation remains usable and sales cannot open website orders or s
   await page.screenshot({
     path: ".data/direct-order-mobile.png",
     fullPage: true,
+    caret: "initial",
   });
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+  await expect(
+    page.getByRole("link", { name: "Online Store", exact: true }),
+  ).toHaveCount(0);
+  await page.goto(`/admin/online-store/orders/${onlineOrderId}`);
+  await expect(
+    page.getByRole("heading", { name: "Permission required." }),
+  ).toBeVisible();
+  await page.goto(`/admin/direct-sales/orders/${onlineOrderId}`);
+  await expect(
+    page.getByRole("heading", { name: "Permission required." }),
+  ).toBeVisible();
   await page.goto("/admin/online-store/orders");
   await expect(
     page.getByRole("heading", { name: "Permission required." }),
@@ -229,9 +277,68 @@ test("Owner sees both sales channels and can find shared administration pages", 
   await page.screenshot({
     path: ".data/admin-channels-desktop.png",
     fullPage: true,
+    caret: "initial",
   });
+  const appNav = page.getByRole("navigation", {
+    name: "Admin workspace",
+    exact: true,
+  });
+  await expect(
+    appNav.getByRole("link", { name: "Sales", exact: true }),
+  ).toHaveCount(0);
+  for (const width of [1440, 1260, 1024]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await expect(
+      appNav.getByRole("link", { name: "Direct Sales", exact: true }),
+    ).toBeVisible();
+    await expect(
+      appNav.getByRole("link", { name: "Online Store", exact: true }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const a11y = await new AxeBuilder({ page })
+    .include(".erp-shell")
+    .withTags(["wcag2a", "wcag2aa"])
+    .analyze();
+  expect(a11y.violations).toEqual([]);
   await page.getByRole("link", { name: "Open Online Store" }).click();
-  await page.getByRole("link", { name: "Homepage & banners Edit" }).click();
+  await page
+    .getByRole("navigation", { name: "Online Store navigation" })
+    .getByRole("link", { name: "Online orders", exact: true })
+    .click();
+  await page.getByLabel("Find an order").fill(`${key}-online`);
+  await page.getByRole("button", { name: "Apply filters" }).click();
+  await page.getByRole("link", { name: `${key}-online`, exact: true }).click();
+  await expect(page).toHaveURL(`/admin/online-store/orders/${onlineOrderId}`);
+  await expect(
+    page.getByRole("navigation", { name: "Online Store navigation" }),
+  ).toBeVisible();
+  await page.goto(`/admin/orders/${onlineOrderId}`);
+  await expect(page).toHaveURL(`/admin/online-store/orders/${onlineOrderId}`);
+  const wrongChannel = await page.goto(
+    `/admin/direct-sales/orders/${onlineOrderId}`,
+  );
+  // App Router can stream a not-found boundary with HTTP 200; assert its UI.
+  expect(wrongChannel?.ok() || wrongChannel?.status() === 404).toBe(true);
+  await expect(
+    page.getByRole("heading", { name: "Let’s find your way back." }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: `${key}-online`, exact: true }),
+  ).toHaveCount(0);
+  await page.goto("/admin/online-store");
+  await page
+    .getByRole("navigation", { name: "Online Store navigation" })
+    .getByRole("link", { name: "Homepage & banners" })
+    .click();
+  await expect(
+    page.getByRole("navigation", { name: "Online Store navigation" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Homepage sections" }),
   ).toBeVisible();
@@ -247,10 +354,6 @@ test("Owner sees both sales channels and can find shared administration pages", 
   await page.getByRole("button", { name: "Workspace menu" }).click();
   await page
     .getByRole("navigation", { name: "Admin workspace" })
-    .getByRole("link", { name: "Sales", exact: true })
-    .click();
-  await page
-    .getByRole("navigation", { name: "Sales navigation" })
     .getByRole("link", { name: "Direct Sales", exact: true })
     .click();
   await expect(page).toHaveURL(/\/admin\/direct-sales$/);
@@ -262,5 +365,6 @@ test("Owner sees both sales channels and can find shared administration pages", 
   await page.screenshot({
     path: ".data/admin-channel-mobile.png",
     fullPage: true,
+    caret: "initial",
   });
 });

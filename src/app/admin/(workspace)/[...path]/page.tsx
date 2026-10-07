@@ -1,3 +1,4 @@
+import { adminOrderHref } from "@/lib/admin-routes";
 import { OrderProposalSummary } from "@/components/order-proposal-summary";
 import { OrderFulfilment } from "@/components/order-fulfilment";
 import { SalesWorkspace, SalesOrdersPage } from "@/components/sales-workspace";
@@ -6,7 +7,7 @@ import { requireOrderRead } from "@/domains/direct-sales";
 import { AddressSummary } from "@/components/address-summary";
 import { emailDeliveryEnabled } from "@/lib/email-policy";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Plus, ArrowUpRight, FileText, ShieldCheck } from "lucide-react";
 import { staffPageActor } from "@/lib/session";
 import { db } from "@/lib/db";
@@ -69,7 +70,15 @@ export default async function AdminPage({
 }) {
   const actor = await staffPageActor();
   const { path } = await params;
-  const [resource, id, action] = path;
+  const orderModule =
+    ["direct-sales", "online-store"].includes(path[0]) &&
+    path[1] === "orders" &&
+    path[2]
+      ? path[0]
+      : null;
+  const [resource, id, action] = orderModule
+    ? ["orders", path[2], path[3]]
+    : path;
   const query = await searchParams;
   async function renderPage() {
     if (resource === "contacts")
@@ -480,6 +489,15 @@ export default async function AdminPage({
       });
       if (!o) notFound();
       requireOrderRead(actor, o.channel);
+      const orderHref = adminOrderHref(o.id, o.channel);
+      // Old bookmarks still resolve, but never select a channel from user input.
+      if (!orderModule) redirect(orderHref);
+      if (
+        action ||
+        path.length !== 3 ||
+        `/admin/${path.join("/")}` !== orderHref
+      )
+        notFound();
       return (
         <>
           <Heading
