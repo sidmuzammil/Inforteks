@@ -1,3 +1,4 @@
+import { isOnlineProduct } from "@/lib/product-visibility";
 import { z } from "zod";
 import { db, type Tx } from "@/lib/db";
 import { invariant } from "@/lib/errors";
@@ -34,6 +35,7 @@ export async function getCart(token: string | undefined, userId?: string) {
           include: {
             product: {
               include: {
+                category: true,
                 media: { where: { public: true }, orderBy: productMediaOrder },
               },
             },
@@ -56,6 +58,32 @@ export async function getCart(token: string | undefined, userId?: string) {
         orderBy: { updatedAt: "desc" },
       })
     : null;
+}
+export function publicCart(cart: Awaited<ReturnType<typeof getCart>>) {
+  return cart
+    ? {
+        id: cart.id,
+        items: cart.items.map((l) => {
+          const visible = isOnlineProduct(l.sku.product);
+          const media = visible ? l.sku.product.media[0] : undefined;
+          return {
+            id: l.id,
+            skuId: l.skuId,
+            quantity: l.quantity,
+            name: visible ? l.sku.product.name : "Unavailable item",
+            slug: visible ? l.sku.product.slug : null,
+            code: visible ? l.sku.code : null,
+            price: visible ? l.sku.price : null,
+            available: visible ? Math.max(0, l.sku.onHand - l.sku.reserved) : 0,
+            image: media
+              ? media.key.startsWith("illustrations/")
+                ? `/${media.key}`
+                : `/media/${media.id}`
+              : null,
+          };
+        }),
+      }
+    : { items: [] };
 }
 export async function ensureCart(token?: string, userId?: string) {
   const current = await getCart(token, userId);
@@ -112,6 +140,7 @@ export async function ensureCart(token?: string, userId?: string) {
             include: {
               product: {
                 include: {
+                  category: true,
                   media: {
                     where: { public: true },
                     orderBy: productMediaOrder,
@@ -150,11 +179,7 @@ export async function setCartItem(cartId: string, raw: unknown) {
       include: { product: { include: { category: true } } },
     });
     invariant(
-      sku &&
-        sku.active &&
-        sku.product.status === "PUBLISHED" &&
-        sku.product.category.visible &&
-        sku.price !== null,
+      sku && sku.active && isOnlineProduct(sku.product) && sku.price !== null,
       404,
       "This item is no longer available.",
     );
@@ -190,7 +215,11 @@ export async function quoteTx(
   cartId: string,
   emirate: string,
   couponCode?: string,
+  channel: "ONLINE" | "DIRECT" = "ONLINE",
 ) {
+  // Serialize visibility changes with online checkout; a hidden product cannot
+  // be purchased from an old cart after the visibility change has committed.
+  await tx.$queryRaw`SELECT p.id FROM "Product" p JOIN "Sku" s ON s."productId"=p.id JOIN "CartItem" ci ON ci."skuId"=s.id WHERE ci."cartId"=${cartId} ORDER BY p.id FOR SHARE OF p`;
   const cart = await tx.cart.findUnique({
     where: { id: cartId },
     include: {
@@ -207,11 +236,12 @@ export async function quoteTx(
     invariant(
       sku.active &&
         sku.product.status === "PUBLISHED" &&
+        (channel === "DIRECT" || sku.product.store) &&
         sku.product.category.visible &&
         sku.price !== null &&
         sku.onHand - sku.reserved >= quantity,
       409,
-      `${sku.product.name} is unavailable in the requested quantity.`,
+      "An item is unavailable. Remove it or review the quantity.",
     );
   const zone = await tx.shippingZone.findFirst({
     where: { active: true, emirates: { has: emirate } },
@@ -346,6 +376,7 @@ export async function completeCheckout(
     cartId,
     data.address.emirate,
     data.coupon,
+    direct ? "DIRECT" : "ONLINE",
   );
   if (direct)
     invariant(

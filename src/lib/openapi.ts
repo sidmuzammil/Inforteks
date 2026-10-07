@@ -464,7 +464,7 @@ export const apiOperations: OperationDoc[] = [
     id: "createProduct",
     scope: "catalog:write",
     summary:
-      "Create a draft. Supplied prices additionally require pricing:write.",
+      "Create a draft with store=true for online eligibility or false for Direct Sales only. Supplied prices additionally require pricing:write.",
   },
   {
     method: "get",

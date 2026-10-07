@@ -1,3 +1,4 @@
+import { onlineProductWhere, isOnlineProduct } from "@/lib/product-visibility";
 import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import { db, type Tx } from "@/lib/db";
@@ -42,6 +43,7 @@ export const productInput = z
     brandId: z.string().min(1, "Choose or create a brand."),
     categoryId: z.string().min(1, "Choose or create a category."),
     featured: z.boolean().default(false),
+    store: z.boolean().default(true),
     seoTitle: z.string().max(180).optional(),
     seoDescription: z.string().max(300).optional(),
     model: z.string().max(100).optional(),
@@ -66,6 +68,7 @@ export type FullProduct = Prisma.ProductGetPayload<{
   include: typeof includeProduct;
 }>;
 export function publicProduct(p: FullProduct, preview = false) {
+  invariant(preview || isOnlineProduct(p), 404, "Product not found.");
   return {
     id: p.id,
     name: p.name,
@@ -107,7 +110,7 @@ export type PublicProduct = ReturnType<typeof publicProduct>;
 export async function getProduct(slug: string, preview?: Actor) {
   if (preview) requireScope(preview, "catalog:read");
   const p = await db.product.findFirst({
-    where: { slug, ...(preview ? {} : { status: "PUBLISHED" }) },
+    where: { slug, ...(preview ? {} : onlineProductWhere) },
     include: includeProduct,
   });
   return p ? publicProduct(p, Boolean(preview)) : null;
@@ -134,6 +137,7 @@ export async function catalogue(input: Record<string, unknown> = {}) {
   const f = searchInput.parse(input);
   const conditions: Prisma.Sql[] = [
     Prisma.sql`p.status = 'PUBLISHED'`,
+    Prisma.sql`p.store = true`,
     Prisma.sql`s.active = true`,
     Prisma.sql`s.price IS NOT NULL`,
     Prisma.sql`c.visible = true`,
@@ -185,11 +189,13 @@ export async function catalogue(input: Record<string, unknown> = {}) {
     ),
   ]);
   const records = await db.product.findMany({
-    where: { id: { in: ids.map((r) => r.id) } },
+    where: { id: { in: ids.map((r) => r.id) }, ...onlineProductWhere },
     include: includeProduct,
   });
-  const products = ids.map(({ id, matched }) => {
-    const p = publicProduct(records.find((p) => p.id === id)!);
+  const products = ids.flatMap(({ id, matched }) => {
+    const record = records.find((p) => p.id === id);
+    if (!record) return []; // Visibility may change between the two queries.
+    const p = publicProduct(record);
     p.skus.sort(
       (a, b) => Number(matched.includes(b.id)) - Number(matched.includes(a.id)),
     );
@@ -238,6 +244,7 @@ export async function createProduct(actor: Actor, raw: unknown, tx?: Tx) {
     await audit(conn, actor, "product.create", p.id, undefined, {
       name: p.name,
       status: p.status,
+      store: p.store,
     });
     return p;
   };

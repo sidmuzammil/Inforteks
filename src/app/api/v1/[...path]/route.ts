@@ -1,3 +1,5 @@
+import { onlineProductWhere } from "@/lib/product-visibility";
+import { publicCart } from "@/domains/commerce";
 import { listContacts, getContact } from "@/domains/contacts";
 import {
   listOpportunities,
@@ -157,28 +159,7 @@ async function dispatch(
       if (resource === "payment-methods") return ok(paymentMethods());
       if (resource === "carts") {
         const cart = await getCart(req.cookies.get("ift-cart")?.value, userId);
-        return ok(
-          cart
-            ? {
-                id: cart.id,
-                items: cart.items.map((l) => ({
-                  id: l.id,
-                  skuId: l.skuId,
-                  quantity: l.quantity,
-                  name: l.sku.product.name,
-                  slug: l.sku.product.slug,
-                  code: l.sku.code,
-                  price: l.sku.price,
-                  available: Math.max(0, l.sku.onHand - l.sku.reserved),
-                  image: l.sku.product.media[0]?.key.startsWith(
-                    "illustrations/",
-                  )
-                    ? `/${l.sku.product.media[0].key}`
-                    : `/media/${l.sku.product.media[0]?.id}`,
-                })),
-              }
-            : { items: [] },
-        );
+        return ok(publicCart(cart));
       }
     }
     if (["carts", "checkout"].includes(resource)) {
@@ -341,7 +322,7 @@ async function dispatch(
     if (resource === "wishlist") {
       if (method === "GET") {
         const items = await db.wishlistItem.findMany({
-          where: { userId, sku: { product: { status: "PUBLISHED" } } },
+          where: { userId, sku: { product: onlineProductWhere } },
           include: {
             sku: { include: { product: { include: includeProduct } } },
           },
@@ -366,7 +347,7 @@ async function dispatch(
             where: {
               id: skuId,
               active: true,
-              product: { status: "PUBLISHED" },
+              product: onlineProductWhere,
             },
           }),
           404,
@@ -390,7 +371,7 @@ async function dispatch(
         .strict()
         .parse(await body());
       const skus = await db.sku.findMany({
-        where: { productId: d.productId },
+        where: { productId: d.productId, product: onlineProductWhere },
         select: { id: true },
       });
       const purchased = await db.orderItem.findFirst({
@@ -607,6 +588,7 @@ async function dispatch(
             name: p.name + " copy",
             slug: p.slug + "-" + Date.now(),
             description: p.description,
+            store: p.store,
             brandId: p.brandId,
             categoryId: p.categoryId,
             specs: p.specs,

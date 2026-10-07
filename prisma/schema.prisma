@@ -117,6 +117,7 @@ model Product {
   category    Category @relation(fields: [categoryId], references: [id])
   specs       Json @default("{}")
   featured    Boolean @default(false)
+  store       Boolean @default(true)
   demo        Boolean @default(false)
   seoTitle    String?
   seoDescription String?

@@ -10743,7 +10743,7 @@
       },
       "post": {
         "operationId": "createProduct",
-        "summary": "Create a draft. Supplied prices additionally require pricing:write.",
+        "summary": "Create a draft with store=true for online eligibility or false for Direct Sales only. Supplied prices additionally require pricing:write.",
         "x-required-scope": "catalog:write",
         "parameters": [],
         "security": [
@@ -10796,6 +10796,10 @@
                   },
                   "featured": {
                     "default": false,
+                    "type": "boolean"
+                  },
+                  "store": {
+                    "default": true,
                     "type": "boolean"
                   },
                   "seoTitle": {
@@ -10947,6 +10951,7 @@
                   "brandId",
                   "categoryId",
                   "featured",
+                  "store",
                   "specs",
                   "skus"
                 ],

@@ -40,6 +40,11 @@ const policy = {
       .strict(),
     kind: "sku",
   },
+  "product.store": {
+    scope: "catalog:publish",
+    schema: z.object({ store: z.boolean() }).strict(),
+    kind: "product",
+  },
   "product.publish": {
     scope: "catalog:publish",
     schema: z.object({}).strict(),
@@ -171,6 +176,7 @@ async function snapshot(tx: Tx, op: Operation, id: string) {
         id: true,
         name: true,
         status: true,
+        store: true,
         version: true,
         description: true,
         slug: true,
@@ -358,6 +364,16 @@ async function execute(
         data: { version: { increment: 1 } },
       });
       return { id: sku.id, code: sku.code };
+    }
+    case "product.store": {
+      const data = policy[op].schema.parse(raw);
+      const product = await tx.product.findUniqueOrThrow({ where: { id } });
+      if (data.store && product.status === "PUBLISHED")
+        await validatePublication(tx, id);
+      return tx.product.update({
+        where: { id },
+        data: { store: data.store, version: { increment: 1 } },
+      });
     }
     case "product.publish":
       await validatePublication(tx, id);

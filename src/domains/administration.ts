@@ -23,7 +23,7 @@ export const modules = [
     slug: "products",
     label: "Products",
     scope: "catalog:read",
-    description: "Draft, refine and publish your catalogue.",
+    description: "Manage products for Online Store and Direct Sales.",
   },
   {
     slug: "categories",
@@ -219,8 +219,8 @@ export async function adminList(
         ...range,
         include: { _count: { select: { products: true } } },
       });
-    case "inventory":
-      return db.sku.findMany({
+    case "inventory": {
+      const rows = await db.sku.findMany({
         ...range,
         select: {
           id: true,
@@ -228,10 +228,12 @@ export async function adminList(
           onHand: true,
           reserved: true,
           version: true,
-          product: { select: { name: true } },
+          product: { select: { name: true, store: true } },
         },
         orderBy: { onHand: "asc" },
       });
+      return rows.map((row) => ({ ...row, store: row.product.store }));
+    }
     case "orders":
       return db.order.findMany({
         ...range,
@@ -799,7 +801,12 @@ export async function importPreview(actor: Actor, raw: unknown) {
   return db.importBatch.create({
     data: {
       actorId: actor.id,
-      rows: json<Prisma.InputJsonValue>(rows),
+      // This CSV template has no store column. Keep its legacy job payload
+      // compatible while web and worker versions roll independently; both
+      // versions default imported drafts to store=true.
+      rows: json<Prisma.InputJsonValue>(
+        rows.map((row) => ({ ...row, store: undefined })),
+      ),
       errors,
     },
   });

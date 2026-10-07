@@ -347,3 +347,82 @@ test("full hero preview includes editable side banners without changing the stor
     0,
   );
 });
+
+test("merchant keeps a product offline, enables the store from inventory, then hides it with approval", async ({
+  page,
+  request,
+}) => {
+  const name = `${key}-offline`;
+  await page.goto("/admin/products/new");
+  await page.getByLabel("Product name", { exact: true }).fill(name);
+  await page
+    .getByLabel("Product description", { exact: true })
+    .fill("Office-only product verification");
+  await page.getByLabel("Show in online store", { exact: true }).uncheck();
+  await page.getByLabel("Brand", { exact: true }).selectOption({ index: 1 });
+  await page.getByLabel("Category", { exact: true }).selectOption({ index: 1 });
+  await page.getByLabel("SKU code", { exact: true }).fill(name);
+  await page.getByLabel("Price (AED)", { exact: true }).fill("125.00");
+  await page
+    .getByLabel("Choose product images")
+    .setInputFiles("public/brand/inforteks.png");
+  await page.getByRole("button", { name: "Create product draft" }).click();
+  await expect(page).toHaveURL(/\/admin\/products\/(?!new)[^/]+$/);
+  const p = await db.product.findUniqueOrThrow({
+    where: { slug: name },
+    include: { skus: true, media: true },
+  });
+  expect(p.store).toBe(false);
+  // Seed categories can require specs; this fixture uses a dedicated simple category.
+  const category = await db.category.create({ data: { name, slug: name } });
+  await db.product.update({
+    where: { id: p.id },
+    data: { categoryId: category.id },
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Activate for Direct Sales" }).click();
+  await page.getByRole("button", { name: "Approve & apply change" }).click();
+  await expect(page.getByText(/Status: APPROVED/)).toBeVisible();
+  expect(
+    (await request.get(`/api/v1/storefront/products/${name}`)).status(),
+  ).toBe(404);
+  expect((await request.get(`/media/${p.media[0].id}`)).status()).toBe(404);
+  await page.goto(`/admin/products?q=${name}`);
+  await expect(page.getByRole("row").filter({ hasText: name })).toContainText(
+    "Direct only",
+  );
+  await page.goto(`/admin/inventory/${p.skus[0].id}`);
+  await page.getByLabel("Show in online store", { exact: true }).check();
+  await page.getByRole("button", { name: "Review store visibility" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Change online store visibility" }),
+  ).toBeVisible();
+  // A proposal alone must not publish the offline product.
+  expect(
+    (await request.get(`/api/v1/storefront/products/${name}`)).status(),
+  ).toBe(404);
+  await page.getByRole("button", { name: "Approve & apply change" }).click();
+  await expect(page.getByText(/Status: APPROVED/)).toBeVisible();
+  await page.goto(`/product/${name}`);
+  await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
+  expect((await request.get(`/media/${p.media[0].id}`)).status()).toBe(200);
+  await page.goto(`/admin/products/${p.id}`);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByLabel("Show in online store", { exact: true }).uncheck();
+  await page.getByRole("button", { name: "Review store visibility" }).click();
+  await page.getByRole("button", { name: "Approve & apply change" }).click();
+  await expect(page.getByText(/Status: APPROVED/)).toBeVisible();
+  await page.goto(`/product/${name}`);
+  await expect(
+    page.getByRole("heading", { name: "Let’s find your way back." }),
+  ).toBeVisible();
+  await page.goto(`/admin/inventory/${p.skus[0].id}`);
+  await expect(
+    page.getByLabel("Show in online store", { exact: true }),
+  ).not.toBeChecked();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});

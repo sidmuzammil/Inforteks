@@ -1,3 +1,4 @@
+import { onlineProductWhere } from "@/lib/product-visibility";
 import OpenAI from "openai";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -101,8 +102,7 @@ export async function compareProducts(raw: unknown) {
   const ids = [...new Set(skuIds)];
   const records = await db.product.findMany({
     where: {
-      status: "PUBLISHED",
-      category: { visible: true },
+      ...onlineProductWhere,
       skus: { some: { id: { in: ids }, active: true, price: { not: null } } },
     },
     include: includeProduct,

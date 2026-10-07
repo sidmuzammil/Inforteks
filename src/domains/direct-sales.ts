@@ -328,6 +328,7 @@ export async function quoteDirectOrder(actor: Actor, raw: unknown) {
       cart.id,
       address.emirate,
       data.coupon || undefined,
+      "DIRECT",
     );
     const result = {
       totals: q.totals,

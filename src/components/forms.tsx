@@ -205,11 +205,11 @@ type CartLine = {
   skuId: string;
   quantity: number;
   name: string;
-  slug: string;
-  code: string;
-  price: number;
+  slug: string | null;
+  code: string | null;
+  price: number | null;
   available: number;
-  image: string;
+  image: string | null;
 };
 type Cart = { id?: string; items: CartLine[] };
 type Quote = {
@@ -454,13 +454,23 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
             <div>
               {cart.items.map((l) => (
                 <article key={l.id} className="cart-item">
-                  <Link href={`/product/${l.slug}`}>
-                    <img src={l.image} alt={l.name} />
-                  </Link>
-                  <div>
+                  {l.slug && l.image ? (
                     <Link href={`/product/${l.slug}`}>
-                      <h3>{l.name}</h3>
+                      <img src={l.image} alt={l.name} />
                     </Link>
+                  ) : (
+                    <span aria-hidden="true">
+                      <ShoppingBag />
+                    </span>
+                  )}
+                  <div>
+                    {l.slug ? (
+                      <Link href={`/product/${l.slug}`}>
+                        <h3>{l.name}</h3>
+                      </Link>
+                    ) : (
+                      <h3>{l.name}</h3>
+                    )}
                     <p>{l.code}</p>
                     <button
                       className="remove"
@@ -472,7 +482,7 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
                   </div>
                   <div className="quantity">
                     <button
-                      disabled={busy || l.quantity <= 1}
+                      disabled={busy || l.price === null || l.quantity <= 1}
                       aria-label={`Decrease ${l.name} quantity`}
                       onClick={() => void update(l.skuId, l.quantity - 1)}
                     >
@@ -487,7 +497,11 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
                       <Plus size={13} />
                     </button>
                   </div>
-                  <b className="price">{money(l.price * l.quantity)}</b>
+                  <b className="price">
+                    {l.price === null
+                      ? "Unavailable"
+                      : money(l.price * l.quantity)}
+                  </b>
                 </article>
               ))}
               <Link
@@ -509,7 +523,11 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
                 <span>
                   {l.quantity} × {l.name}
                 </span>
-                <b>{money(l.price * l.quantity)}</b>
+                <b>
+                  {l.price === null
+                    ? "Unavailable"
+                    : money(l.price * l.quantity)}
+                </b>
               </div>
             ))}
           <label>

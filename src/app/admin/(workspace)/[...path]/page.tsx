@@ -24,6 +24,7 @@ import { AppError } from "@/lib/errors";
 import { json, money, date } from "@/lib/utils";
 import {
   ProductEditor,
+  StoreVisibility,
   ActionButton,
   ProposalForm,
   ApiKeyForm,
@@ -266,6 +267,7 @@ export default async function AdminPage({
           <div className="proposal-card">
             <h3>
               {{
+                "product.store": "Change online store visibility",
                 "order.fulfil": "Prepare shipment",
                 "order.cancel": "Cancel order",
                 "payment.record": "Record verified payment",
@@ -281,7 +283,30 @@ export default async function AdminPage({
                 timeZone: "Asia/Dubai",
               }).format(p.expiresAt)}
             </p>
-            {orderProposal ? (
+            {p.operation === "product.store" ? (
+              <div className="proposal-diff">
+                <div>
+                  <b>Current channels</b>
+                  <p>
+                    {(p.before as { store: boolean }).store
+                      ? "Online Store & Direct Sales"
+                      : "Direct Sales only"}
+                  </p>
+                </div>
+                <div>
+                  <b>After approval</b>
+                  <p>
+                    {(p.payload as { store: boolean }).store
+                      ? "Online Store & Direct Sales"
+                      : "Direct Sales only"}
+                  </p>
+                  <p className="form-help">
+                    Stock and existing orders stay unchanged. Draft products
+                    still need activation.
+                  </p>
+                </div>
+              </div>
+            ) : orderProposal ? (
               <>
                 <OrderProposalSummary
                   operation={p.operation}
@@ -344,7 +369,7 @@ export default async function AdminPage({
       const sku = await db.sku.findUnique({
         where: { id },
         include: {
-          product: { select: { name: true } },
+          product: { select: { name: true, store: true } },
           movements: { take: 30, orderBy: { createdAt: "desc" } },
         },
       });
@@ -352,6 +377,11 @@ export default async function AdminPage({
       return (
         <>
           <Heading title={sku.code} description={sku.product.name} />
+          <StoreVisibility
+            productId={sku.productId}
+            store={sku.product.store}
+            canEdit={actor.scopes.includes("catalog:publish")}
+          />
           <div className="metric-grid">
             {[
               ["On hand", sku.onHand],
@@ -1234,12 +1264,12 @@ export default async function AdminPage({
     )) as Record<string, unknown>[];
     const rows = Array.isArray(records) ? records : [];
     const columns: Record<string, string[]> = {
-      products: ["name", "status", "category", "updatedAt"],
+      products: ["name", "status", "store", "category", "updatedAt"],
       categories: ["name", "slug", "visible", "position"],
       brands: ["name", "slug"],
       attributes: ["label", "key", "scope", "required"],
       collections: ["name", "slug"],
-      inventory: ["code", "onHand", "reserved"],
+      inventory: ["code", "store", "onHand", "reserved"],
       orders: ["reference", "email", "status", "paymentStatus", "total"],
       returns: ["id", "reason", "status", "createdAt"],
       customers: ["name", "email", "createdAt"],
@@ -1278,6 +1308,12 @@ export default async function AdminPage({
     function render(value: unknown, key: string): React.ReactNode {
       if (value === null || value === undefined)
         return <span className="muted">—</span>;
+      if (key === "store")
+        return (
+          <span className={`badge ${value ? "green" : ""}`}>
+            {value ? "Online & Direct" : "Direct only"}
+          </span>
+        );
       if (key.endsWith("At")) return date(String(value));
       if (key === "total") return money(Number(value));
       if (key === "status" || key === "paymentStatus" || key === "role")
@@ -1332,9 +1368,11 @@ export default async function AdminPage({
                   <tr>
                     {cols.map((c) => (
                       <th key={c}>
-                        {c
-                          .replace(/([A-Z])/g, " $1")
-                          .replace(/^./, (s) => s.toUpperCase())}
+                        {c === "store"
+                          ? "Sales channels"
+                          : c
+                              .replace(/([A-Z])/g, " $1")
+                              .replace(/^./, (s) => s.toUpperCase())}
                       </th>
                     ))}
                     <th>Actions</th>

@@ -36,6 +36,7 @@ test.beforeAll(async () => {
       brandId,
       categoryId,
       status: "PUBLISHED",
+      store: false,
       skus: { create: { code: key, price: 14900, onHand: 20 } },
     },
     include: { skus: true },

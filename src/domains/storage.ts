@@ -137,7 +137,7 @@ export async function readImage(id: string, actor?: Actor) {
   const m = await db.media.findUnique({
     where: { id },
     include: {
-      product: { select: { status: true } },
+      product: { select: { status: true, store: true } },
       homeSections: {
         where: {
           visible: true,
@@ -164,7 +164,7 @@ export async function readImage(id: string, actor?: Actor) {
   });
   invariant(m, 404, "Image not found.");
   const published = m.productId
-    ? m.public && m.product?.status === "PUBLISHED"
+    ? m.public && m.product?.store && m.product.status === "PUBLISHED"
     : m.homeSections.length > 0 || m.sectionAssets.length > 0;
   if (!published) {
     invariant(actor, 404, "Image not found.");

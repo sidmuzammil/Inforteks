@@ -65,6 +65,7 @@ export function ActionButton({
 type ProductEdit = {
   version: number;
   featured: boolean;
+  store: boolean;
   model?: string | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
@@ -120,6 +121,17 @@ export function ProductEditor({
   }, [dirty]);
   const overview: Field[] = [
     { name: "name", label: "Product name", value: product?.name },
+    ...(!product
+      ? [
+          {
+            name: "store",
+            label: "Show in online store",
+            type: "checkbox",
+            value: true,
+            help: "Turn off for Direct Sales only. This applies to all variants; stock stays shared. Drafts stay private until activated.",
+          },
+        ]
+      : []),
     { name: "model", label: "Model", value: product?.model, required: false },
     {
       name: "featured",
@@ -233,6 +245,7 @@ export function ProductEditor({
       <nav className="admin-tabs">
         {[
           "Overview",
+          ...(product ? ["Channels"] : []),
           "Media",
           "Pricing",
           "Inventory",
@@ -387,6 +400,11 @@ export function ProductEditor({
       </form>
       {product && (
         <>
+          <StoreVisibility
+            productId={product.id}
+            store={product.store}
+            canEdit={scopes.includes("catalog:publish")}
+          />
           <ProductMediaEditor
             key={product.id}
             productId={product.id}
@@ -497,9 +515,11 @@ export function ProductEditor({
           <section id="publishing" className="editor-section panel">
             <h2>Publishing</h2>
             <p className="notice">
-              Current status: <b>{product.status}</b>. Publishing validates
-              active SKU prices and required specifications. Uploaded images are
-              staged until publication is approved.
+              Current status: <b>{product.status}</b>. Activation validates
+              active SKU prices, images and required specifications.
+              {product.store
+                ? " This product is enabled for the online store."
+                : " This product is for Direct Sales only and stays hidden from the website."}
             </p>
             <div className="inline-form">
               <Link
@@ -515,7 +535,9 @@ export function ProductEditor({
                     label={
                       product.status === "PUBLISHED"
                         ? "Review publication"
-                        : "Publish product"
+                        : product.store
+                          ? "Publish product"
+                          : "Activate for Direct Sales"
                     }
                     endpoint={`admin/products/${product.id}/publish`}
                     proposal
@@ -539,6 +561,47 @@ export function ProductEditor({
         </>
       )}
     </div>
+  );
+}
+export function StoreVisibility({
+  productId,
+  store,
+  canEdit,
+}: {
+  productId: string;
+  store: boolean;
+  canEdit: boolean;
+}) {
+  return (
+    <section id="channels" className="editor-section panel">
+      <h2>Sales channels</h2>
+      <p className="notice">
+        {store ? "Online Store & Direct Sales" : "Direct Sales only"}. Products
+        must also be active to sell. This setting applies to every variant and
+        does not change stock or existing orders.
+      </p>
+      {canEdit ? (
+        <ProposalForm
+          key={`${productId}-${store}`}
+          operation="product.store"
+          targetId={productId}
+          fields={[
+            {
+              name: "store",
+              label: "Show in online store",
+              type: "checkbox",
+              value: store,
+              help: "Off: hidden from website listings, search and online checkout. Your team can still take Direct Sales orders.",
+            },
+          ]}
+          label="Review store visibility"
+        />
+      ) : (
+        <p className="form-help">
+          A colleague with publishing access can change store visibility.
+        </p>
+      )}
+    </section>
   );
 }
 export function ProposalForm({
