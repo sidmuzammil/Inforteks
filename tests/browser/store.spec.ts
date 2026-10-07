@@ -1,3 +1,4 @@
+import { submitEmailSignIn } from "./sign-in";
 import "dotenv/config";
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
@@ -153,11 +154,9 @@ test("owner creates two-SKU product, uploads image, adjusts stock and publishes"
   await page.goto("/admin/login");
   await page.getByLabel("Email address").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
-  await page
-    .getByRole("button", { name: "Sign in to workspace", exact: true })
-    .click();
+  await submitEmailSignIn(page);
   await expect(
-    page.getByRole("heading", { name: "Your store, at a glance." }),
+    page.getByRole("heading", { name: "Your business, at a glance." }),
   ).toBeVisible();
   await expect(page.locator(".metric-card").first()).not.toContainText(
     "Restricted",

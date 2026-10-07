@@ -645,6 +645,7 @@ export async function createStaff(actor: Actor, raw: unknown) {
         "EDITOR",
         "INVENTORY",
         "SUPPORT",
+        "SALES",
         "ANALYST",
       ]),
     })
@@ -689,6 +690,7 @@ export async function updateStaffAccess(
         "EDITOR",
         "INVENTORY",
         "SUPPORT",
+        "SALES",
         "ANALYST",
         "STAFF_DISABLED",
       ]),

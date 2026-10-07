@@ -4,7 +4,7 @@ import { ArrowUpRight } from "lucide-react";
 import { getSession } from "@/lib/session";
 import { actorForUser } from "@/domains/identity";
 import { modules } from "@/domains/administration";
-import { AdminNav } from "@/components/admin-client";
+import { AdminNav, AdminBreadcrumb } from "@/components/admin-navigation";
 import { SignOut } from "@/components/forms";
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -45,9 +45,13 @@ export default async function AdminLayout({
             alt="inforteks"
           />
         </Link>
-        <div className="admin-label">Store workspace</div>
+        <div className="admin-label">Commerce workspace</div>
         <AdminNav
           modules={modules.filter((m) => actor.scopes.includes(m.scope))}
+          direct={actor.scopes.includes("direct_sales:read")}
+          online={actor.scopes.some((s) =>
+            ["orders:read", "content:read", "customers:read"].includes(s),
+          )}
         />
         <Link href="/" className="admin-back">
           View storefront
@@ -56,9 +60,7 @@ export default async function AdminLayout({
       </aside>
       <div className="admin-main">
         <header className="admin-topbar">
-          <span>
-            Workspace <span style={{ marginInline: 9 }}>/</span> Inforteks UAE
-          </span>
+          <AdminBreadcrumb />
           <div className="admin-user">
             <span className="admin-avatar">
               {session.user.name[0].toUpperCase()}

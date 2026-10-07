@@ -1,3 +1,4 @@
+import { submitEmailSignIn } from "./sign-in";
 import "dotenv/config";
 import { test, expect } from "@playwright/test";
 import { randomBytes } from "node:crypto";
@@ -62,7 +63,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/admin/login");
   await page.getByLabel("Email address", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Sign in to workspace" }).click();
+  await submitEmailSignIn(page);
   await expect(page).toHaveURL(/\/admin$/);
 });
 test("merchant creates taxonomy, uploads images in the new product form, and publishes a featured sale product", async ({
@@ -321,7 +322,10 @@ test("full hero preview includes editable side banners without changing the stor
   await page
     .getByLabel("Eyebrow text", { exact: true })
     .fill("AN EDITABLE HERO");
-  await page.locator("details").first().locator("summary").click();
+  await page
+    .locator("main summary")
+    .filter({ hasText: /^Side banner 1/ })
+    .click();
   await page
     .getByLabel("Side banner 1 headline", { exact: true })
     .fill("My side campaign");

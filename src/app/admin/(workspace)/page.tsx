@@ -1,3 +1,4 @@
+import { ChannelCards } from "@/components/sales-workspace";
 import Link from "next/link";
 import {
   Package,
@@ -16,8 +17,14 @@ export default async function Dashboard() {
   const actor = await staffPageActor();
   if (!actor.scopes.includes("reports:read"))
     return (
-      <div className="panel">
-        <h1>Welcome to your workspace.</h1>
+      <div>
+        <div className="admin-page-heading">
+          <div>
+            <div className="eyebrow">INFORTEKS COMMERCE</div>
+            <h1>Welcome to your workspace.</h1>
+          </div>
+        </div>
+        <ChannelCards actor={actor} />
         <p className="notice">
           Use the sidebar to open the modules available to your staff role. Your
           permissions are checked for every operation.
@@ -51,7 +58,7 @@ export default async function Dashboard() {
       <div className="admin-page-heading">
         <div>
           <div className="eyebrow">A CLEAR VIEW OF YOUR BUSINESS</div>
-          <h1>Your store, at a glance.</h1>
+          <h1>Your business, at a glance.</h1>
           <p>What’s happening, what needs attention, and what comes next.</p>
         </div>
         {actor.scopes.includes("catalog:write") && (
@@ -61,6 +68,7 @@ export default async function Dashboard() {
           </Link>
         )}
       </div>
+      <ChannelCards actor={actor} />
       <section className="panel workspace-start">
         <div className="panel-title">
           <h2>
@@ -166,6 +174,7 @@ export default async function Dashboard() {
               <thead>
                 <tr>
                   <th>Order</th>
+                  <th>Channel</th>
                   <th>Date</th>
                   <th>Total</th>
                   <th>Status</th>
@@ -176,6 +185,13 @@ export default async function Dashboard() {
                   <tr key={o.id}>
                     <td>
                       <Link href={`/admin/orders/${o.id}`}>{o.reference}</Link>
+                    </td>
+                    <td>
+                      <span className="badge">
+                        {o.channel === "DIRECT"
+                          ? "Direct Sales"
+                          : "Online Store"}
+                      </span>
                     </td>
                     <td>{date(o.createdAt)}</td>
                     <td>{money(o.total)}</td>
@@ -237,11 +253,10 @@ export default async function Dashboard() {
           </ul>
         </section>
       </div>
-      <div className="notice" style={{ marginTop: 25 }}>
-        Your development catalogue is separate from genuine trading activity.
-        Connect operational providers and approve your business policies before
-        launch.
-      </div>
+      <p className="sales-shared-note">
+        One catalogue and stock balance for both channels. Reports exclude test
+        orders.
+      </p>
     </>
   );
 }

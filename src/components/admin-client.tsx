@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, type FormEvent } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   PriceFields,
   PriceEditor,
@@ -12,86 +12,9 @@ import {
 import { readPrices } from "@/lib/merchant-pricing";
 import { MAX_IMAGE_BYTES } from "@/lib/uploads";
 import { ProductMediaEditor } from "./product-media-editor";
-import {
-  Package,
-  LayoutDashboard,
-  Layers,
-  Boxes,
-  ShoppingBag,
-  RotateCcw,
-  Users,
-  Tag,
-  FileText,
-  Image,
-  MessageSquare,
-  Upload,
-  BarChart3,
-  Key,
-  Shield,
-  Settings,
-  Activity,
-  Sparkles,
-  CheckCircle,
-  Plus,
-  ArrowRight,
-  ExternalLink,
-} from "lucide-react";
+import { Sparkles, Plus, ArrowRight, ExternalLink } from "lucide-react";
 import { api } from "./store-client";
 import { Fields, MutationForm, readFields, type Field } from "./forms";
-const icons: Record<string, React.ElementType> = {
-  products: Package,
-  categories: Layers,
-  brands: Tag,
-  attributes: Layers,
-  collections: Layers,
-  inventory: Boxes,
-  orders: ShoppingBag,
-  returns: RotateCcw,
-  customers: Users,
-  promotions: Tag,
-  content: FileText,
-  "home-sections": LayoutDashboard,
-  media: Image,
-  reviews: MessageSquare,
-  inquiries: MessageSquare,
-  imports: Upload,
-  reports: BarChart3,
-  staff: Shield,
-  "api-access": Key,
-  assistant: Sparkles,
-  proposals: CheckCircle,
-  jobs: Activity,
-  settings: Settings,
-  "audit-events": Activity,
-};
-export function AdminNav({
-  modules,
-}: {
-  modules: { slug: string; label: string }[];
-}) {
-  const path = usePathname();
-  return (
-    <nav aria-label="Admin workspace">
-      <Link href="/admin" className={path === "/admin" ? "active" : ""}>
-        <LayoutDashboard />
-        Overview
-      </Link>
-      {modules.map((m) => {
-        const Icon = icons[m.slug] ?? Package;
-        return (
-          <Link
-            key={m.slug}
-            href={`/admin/${m.slug}`}
-            className={path.startsWith(`/admin/${m.slug}`) ? "active" : ""}
-          >
-            <Icon />
-            {m.label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
 export function ActionButton({
   endpoint,
   payload = {},

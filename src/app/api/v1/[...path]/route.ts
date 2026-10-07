@@ -1,3 +1,17 @@
+import {
+  listBusinessCustomers,
+  getBusinessCustomer,
+  saveBusinessCustomer,
+  recordVisit,
+  completeFollowUp,
+  salesFollowUps,
+  salesProducts,
+  quoteDirectOrder,
+  createDirectOrder,
+  listSalesOrders,
+  salesOverview,
+  requireOrderRead,
+} from "@/domains/direct-sales";
 import { previewHomeSection } from "@/domains/home-sections";
 import { emailDeliveryEnabled } from "@/lib/email-policy";
 import { NextRequest, NextResponse } from "next/server";
@@ -388,6 +402,70 @@ async function dispatch(
       403,
       "Staff access is required.",
     );
+    if (resource === "direct-sales") {
+      if (id === "customers") {
+        if (method === "GET")
+          return ok(
+            action
+              ? await getBusinessCustomer(actor, action)
+              : await listBusinessCustomers(actor, query),
+          );
+        if (method === "POST" && !action)
+          return ok(await saveBusinessCustomer(actor, await body()), 201);
+        if (method === "PATCH" && action)
+          return ok(await saveBusinessCustomer(actor, await body(), action));
+      }
+      if (id === "visits" && method === "POST" && action)
+        return ok(
+          await recordVisit(
+            actor,
+            action,
+            await body(),
+            req.headers.get("Idempotency-Key") ?? "",
+          ),
+          201,
+        );
+      if (id === "follow-ups") {
+        if (method === "GET" && !action)
+          return ok(await salesFollowUps(actor, Number(query.page ?? 1)));
+        if (method === "PATCH" && action) {
+          z.object({ completed: z.literal(true) })
+            .strict()
+            .parse(await body());
+          return ok(await completeFollowUp(actor, action));
+        }
+      }
+      if (id === "products" && method === "GET" && !action)
+        return ok(await salesProducts(actor, query.q ?? ""));
+      if (id === "quote" && method === "POST" && !action) {
+        await rateLimit(`direct-quote:${actor.id}`, 60);
+        return ok(await quoteDirectOrder(actor, await body()));
+      }
+      if (id === "orders" && !action) {
+        if (method === "POST") {
+          await rateLimit(`direct-order:${actor.id}`, 20);
+          return ok(
+            await createDirectOrder(
+              actor,
+              await body(),
+              req.headers.get("Idempotency-Key") ?? "",
+            ),
+            201,
+          );
+        }
+        if (method === "GET")
+          return ok(
+            await listSalesOrders(actor, { ...query, channel: "DIRECT" }),
+          );
+      }
+      if (id === "overview" && method === "GET" && !action) {
+        requireScope(actor, "direct_sales:read");
+        return ok(await salesOverview(actor, "DIRECT"));
+      }
+      throw new AppError(404, "Endpoint not found.");
+    }
+    if (resource === "sales-orders" && method === "GET" && !id)
+      return ok(await listSalesOrders(actor, query));
     if (resource === "returns" && id && method === "PATCH")
       return ok(await reviewReturn(actor, id, await body()));
     if (resource === "refund-requests" && action === "execute") {
@@ -593,7 +671,6 @@ async function dispatch(
       );
     }
     if (resource === "orders" && id && method === "GET") {
-      requireScope(actor, "orders:read");
       const order = await db.order.findUnique({
         where: { id },
         include: {
@@ -605,7 +682,10 @@ async function dispatch(
         },
       });
       invariant(order, 404, "Order not found.");
-      return ok(order);
+      requireOrderRead(actor, order.channel);
+      const { guestTokenHash: _token, ...safeOrder } = order;
+      void _token;
+      return ok(safeOrder);
     }
     if (resource === "reviews" && id && method === "PATCH") {
       requireScope(actor, "content:write");

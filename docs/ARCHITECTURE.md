@@ -29,6 +29,12 @@ flowchart LR
 - Fulfilment decreases both physical and reserved stock. Unpaid, unfulfilled orders expire after 24 hours; maintenance releases reservations once. Cancellation cannot silently unwind shipped stock. A return must be approved and explicitly received as damaged or restockable; refunds remain a separate financial operation.
 - Job claims use PostgreSQL `FOR UPDATE SKIP LOCKED`. Imports commit all rows and job completion together. External email uses a provider idempotency key. Abandoned jobs are marked for review; AI writes are not blindly replayed.
 
+## Sales channels
+
+`ONLINE` and `DIRECT` orders share the same table, immutable line snapshots, quote calculation, stock locking, reservation writer and fulfilment/payment approval rules. Direct Sales stores office contacts separately from authenticated users; a contact never creates a login or grants staff access. The direct-sales domain checks scoped permissions, office versions and an authoritative reviewed-quote fingerprint before using the shared transaction. Staff idempotency encloses both temporary cart construction and order placement. A direct order remains unpaid until an authorised payment operation records a verified receipt. Public payment-method enablement is independent of private staff order entry.
+
+Office edits serialize with order creation; snapshots preserve what was agreed. Visits are append-only; completing a follow-up records an audited state change. Role `SALES` reads/writes direct-sales contacts and orders, with no implicit access to online orders, price changes, payment recording or fulfilment. No tenant, marketplace seller or duplicate inventory system is introduced. See [workflow details](DIRECT_SALES.md).
+
 ## Growth path
 
 Keep new capabilities inside the existing domain boundary until measured load justifies a separate service. Add a real payment adapter with signed webhook ingestion and a unique provider-event ledger before accepting card payments. Add shipping providers behind server-validated rate quotes. Preserve the immutable order snapshot when changing catalogue data.

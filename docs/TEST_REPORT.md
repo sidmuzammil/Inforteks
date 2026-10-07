@@ -1,5 +1,13 @@
 # Verification report
 
+## Direct Sales workspaces — 7 October 2026
+
+- 81 unit/integration tests passed across 18 files. New coverage checks office contacts without logins, scoped product/office access, reviewed prices, immutable snapshots, idempotent confirmation, concurrent online/direct and cross-office stock reservations, follow-up completion, archived-customer denial and existing manager fulfilment approvals. Anonymous/customer denial also covers the new API registry entries.
+- All 25 browser journeys passed across local regression and targeted corrected reruns. New journeys take a four-toner office order, verify reserved stock and pending payment, record/complete a visit follow-up, deny a Sales representative online-order/settings access, exclude internal notes from print, navigate both Owner workspaces and check mobile layouts at 390/320px. Existing product/image/price/publishing, banner, customer, checkout and comparison journeys remain covered.
+- The expanded suite exposed the shared-IP sign-in rate limit in older staff-login fixtures. A shared test helper now honors actual HTTP 429 retry headers without changing authentication policy. The hero test now selects the named Side banner disclosure inside main content instead of the first disclosure anywhere, since navigation groups also use disclosures.
+- Type checking, lint, formatting, a production build without a live database, and OpenAPI validation for 115 operations passed. Migration eight is additive and gives existing orders the ONLINE channel.
+- Provider payments, courier/email activation and real Google address lookup were not tested by this release. Direct orders are staff-recorded, unpaid orders and do not enable public checkout payments. No production business records were created for local verification. Deployment evidence is recorded in RAILWAY_STATUS.md after rollout.
+
 ## Delivery addresses — 3 October 2026
 
 - 74 unit/integration tests passed across 17 files. Coverage includes separated area/zone/postal fields, customer-confirmed pin validation, private address ownership, removing a pin, optional postal codes, legacy addresses and immutable checkout snapshots. Geocoding tests cover explicit consent, missing configuration, missing provider components, UAE-only results, bounded calls and sanitized failures. Provider responses in these tests are fixtures.

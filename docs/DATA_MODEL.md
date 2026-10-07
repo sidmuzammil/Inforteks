@@ -25,3 +25,7 @@ Product and SKU versions prevent stale proposal application. Publication require
 Guest cart and order tokens are stored as hashes for lookup. The guest order token is also part of the private idempotency response so a checkout retry can recover the same receipt; database backups must therefore be treated as sensitive. Auth credentials, sessions, customer addresses, job payloads and local recovery mailboxes also require private access and a defined retention policy before launch.
 
 Database snapshots and media form one backup set. Restore into a separate database first, run migrations, verify representative products/orders and uploaded media, then plan any production cutover. A schema migration succeeding is not proof that a backup contains the associated media objects.
+
+## Direct Sales
+
+`BusinessCustomer` holds a versioned office contact and delivery address, independent of `User`. `SalesVisit` records a conversation and an optional UAE-time follow-up represented as UTC in storage. Archiving a contact retains visit/order history. `Order.channel` is `ONLINE` by default and `DIRECT` for staff-entered orders. Direct orders refer to the business customer and retain immutable company/staff attribution and delivery snapshots. Existing order lines, reservations, payment and shipment relations serve both channels. Channel/date and business-customer/date indexes support filtered operations.

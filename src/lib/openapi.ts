@@ -1,3 +1,10 @@
+import {
+  businessCustomerInput,
+  businessCustomerUpdate,
+  visitInput,
+  directOrderInput,
+  directOrderConfirmation,
+} from "@/domains/direct-sales";
 import { z } from "zod";
 import { productInput } from "@/domains/catalogue";
 import { addressInput, checkoutInput } from "@/domains/commerce";
@@ -11,6 +18,106 @@ type OperationDoc = {
   summary: string;
 };
 export const apiOperations: OperationDoc[] = [
+  {
+    method: "get",
+    path: "/admin/direct-sales/customers",
+    id: "listBusinessCustomers",
+    scope: "direct_sales:read",
+    summary:
+      "Search office customers by company, email, phone or contact; q and page.",
+  },
+  {
+    method: "post",
+    path: "/admin/direct-sales/customers",
+    id: "createBusinessCustomer",
+    scope: "direct_sales:write",
+    summary: "Create an office contact without a login or staff access.",
+  },
+  {
+    method: "get",
+    path: "/admin/direct-sales/customers/{id}",
+    id: "getBusinessCustomer",
+    scope: "direct_sales:read",
+    summary: "Office profile and latest 30 visits.",
+  },
+  {
+    method: "patch",
+    path: "/admin/direct-sales/customers/{id}",
+    id: "updateBusinessCustomer",
+    scope: "direct_sales:write",
+    summary:
+      "Version-checked office update; archived contacts cannot take new orders. Purchased snapshots remain unchanged.",
+  },
+  {
+    method: "post",
+    path: "/admin/direct-sales/visits/{id}",
+    id: "createSalesVisit",
+    scope: "direct_sales:write",
+    summary:
+      "Record a visit for this customer and optional UTC follow-up time. Idempotency-Key required.",
+  },
+  {
+    method: "get",
+    path: "/admin/direct-sales/follow-ups",
+    id: "listSalesFollowUps",
+    scope: "direct_sales:read",
+    summary: "Outstanding follow-ups for active offices; paginated.",
+  },
+  {
+    method: "patch",
+    path: "/admin/direct-sales/follow-ups/{id}",
+    id: "completeSalesFollowUp",
+    scope: "direct_sales:write",
+    summary: "Mark follow-up complete; body completed: true.",
+  },
+  {
+    method: "get",
+    path: "/admin/direct-sales/products",
+    id: "searchSalesProducts",
+    scope: "direct_sales:write",
+    summary:
+      "Search published, active priced SKUs. At most 20, excludes private costs.",
+  },
+  {
+    method: "post",
+    path: "/admin/direct-sales/quote",
+    id: "quoteDirectOrder",
+    scope: "direct_sales:write",
+    summary:
+      "Calculate authoritative stock, catalogue prices, coupon, delivery and tax. No reservation. Returns fingerprint for confirmation.",
+  },
+  {
+    method: "post",
+    path: "/admin/direct-sales/orders",
+    id: "createDirectOrder",
+    scope: "direct_sales:write",
+    summary:
+      "Confirm a reviewed office order; atomic shared inventory and idempotency. Offline payment remains pending. No public token or login created.",
+  },
+  {
+    method: "get",
+    path: "/admin/direct-sales/orders",
+    id: "listDirectOrders",
+    scope: "direct_sales:read",
+    summary:
+      "Search direct orders with status, payment, customerId and page filters.",
+  },
+  {
+    method: "get",
+    path: "/admin/direct-sales/overview",
+    id: "getDirectSalesOverview",
+    scope: "direct_sales:read",
+    summary:
+      "Direct-sales order counts and due follow-ups; paid value requires reports:financial.",
+  },
+  {
+    method: "get",
+    path: "/admin/sales-orders",
+    id: "listSalesOrders",
+    scope: "orders:read",
+    summary:
+      "Search orders; channel ONLINE, DIRECT or ALL. Direct-only staff may query DIRECT only. q, status, payment, customerId and page.",
+  },
   {
     method: "get",
     path: "/storefront/location",
@@ -210,7 +317,8 @@ export const apiOperations: OperationDoc[] = [
     path: "/admin/orders/{id}",
     id: "getAdminOrder",
     scope: "orders:read",
-    summary: "Order with payments, shipments, returns and refund requests.",
+    summary:
+      "Order with payments, shipments, returns and refund requests. General orders:read permits both channels; direct_sales:read permits DIRECT orders only. Guest token hashes are omitted.",
   },
   {
     method: "patch",
@@ -456,6 +564,17 @@ const requestSchemas: Record<string, unknown> = {
   lookupDeliveryAddress: z.toJSONSchema(locationLookupInput),
   updateProductMedia: z.toJSONSchema(productMediaInput),
   createProduct: z.toJSONSchema(productInput),
+  createBusinessCustomer: z.toJSONSchema(businessCustomerInput),
+  updateBusinessCustomer: z.toJSONSchema(businessCustomerUpdate),
+  createSalesVisit: z.toJSONSchema(visitInput),
+  quoteDirectOrder: z.toJSONSchema(directOrderInput),
+  createDirectOrder: z.toJSONSchema(directOrderConfirmation),
+  completeSalesFollowUp: {
+    type: "object",
+    required: ["completed"],
+    additionalProperties: false,
+    properties: { completed: { const: true } },
+  },
   createOrder: z.toJSONSchema(checkoutInput),
   createAccountaddresses: z.toJSONSchema(addressInput),
   setCartItem: {
@@ -552,7 +671,7 @@ for (const o of apiOperations) {
     required: true,
     schema: { type: "string" },
   }));
-  if (o.id === "createOrder")
+  if (["createOrder", "createDirectOrder", "createSalesVisit"].includes(o.id))
     parameters.push({
       name: "Idempotency-Key",
       in: "header",
@@ -560,6 +679,66 @@ for (const o of apiOperations) {
       schema: { type: "string", minLength: 8, maxLength: 128 },
       description:
         "Reuse exactly for a retried checkout. A changed payload requires a new key.",
+    });
+  if (
+    [
+      "listBusinessCustomers",
+      "listDirectOrders",
+      "listSalesOrders",
+      "searchSalesProducts",
+    ].includes(o.id)
+  )
+    parameters.push({
+      name: "q",
+      in: "query",
+      schema: { type: "string", maxLength: 160 },
+    });
+  if (
+    [
+      "listBusinessCustomers",
+      "listDirectOrders",
+      "listSalesOrders",
+      "listSalesFollowUps",
+    ].includes(o.id)
+  )
+    parameters.push({
+      name: "page",
+      in: "query",
+      schema: { type: "integer", minimum: 1, maximum: 1000, default: 1 },
+    });
+  if (["listDirectOrders", "listSalesOrders"].includes(o.id)) {
+    for (const [name, values] of Object.entries({
+      status: [
+        "ALL",
+        "PLACED",
+        "PROCESSING",
+        "COMPLETED",
+        "CANCELLED",
+        "EXPIRED",
+      ],
+      payment: ["ALL", "PENDING", "PAID", "PARTIALLY_REFUNDED", "REFUNDED"],
+      queue: ["ALL", "TO_FULFIL", "PAYMENT_PENDING"],
+    }))
+      parameters.push({
+        name,
+        in: "query",
+        schema: { type: "string", enum: values, default: "ALL" },
+      });
+    parameters.push({
+      name: "customerId",
+      in: "query",
+      schema: { type: "string", maxLength: 100 },
+    });
+  }
+  if (o.id === "listSalesOrders")
+    parameters.push({
+      name: "channel",
+      in: "query",
+      schema: {
+        type: "string",
+        enum: ["ALL", "ONLINE", "DIRECT"],
+        default: "ALL",
+      },
     });
   if (o.id === "listProducts" || o.id === "searchProducts")
     for (const key of [

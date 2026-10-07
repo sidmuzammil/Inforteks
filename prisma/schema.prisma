@@ -236,11 +236,52 @@ model Address {
   postalCode String?
   location  Json?
 }
+enum SalesChannel {
+  ONLINE
+  DIRECT
+}
+
+model BusinessCustomer {
+  id        String @id @default(cuid())
+  company   String
+  email     String @default("")
+  address   Json
+  notes     String @default("")
+  active    Boolean @default(true)
+  version   Int @default(1)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+  visits    SalesVisit[]
+  @@index([active, company])
+}
+
+model SalesVisit {
+  id          String @id @default(cuid())
+  customerId  String
+  customer    BusinessCustomer @relation(fields: [customerId], references: [id])
+  actorId     String
+  outcome     String
+  notes       String
+  followUpAt  DateTime?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  @@index([customerId, createdAt])
+  @@index([completedAt, followUpAt])
+}
+
 model Order {
   id              String @id @default(cuid())
   reference       String @unique
   userId          String?
   user            User? @relation(fields: [userId], references: [id])
+  channel         SalesChannel @default(ONLINE)
+  businessCustomerId String?
+  businessCustomer BusinessCustomer? @relation(fields: [businessCustomerId], references: [id])
+  businessSnapshot Json?
+  salesActorId    String?
+  salesNote       String?
   guestTokenHash  String @unique
   email           String
   address         Json
@@ -266,6 +307,8 @@ model Order {
   payments        Payment[]
   refunds         RefundRequest[]
   @@index([userId, createdAt])
+  @@index([channel, createdAt])
+  @@index([businessCustomerId, createdAt])
   @@index([status, createdAt])
 }
 model OrderItem {

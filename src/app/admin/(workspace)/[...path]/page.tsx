@@ -1,3 +1,5 @@
+import { SalesWorkspace, SalesOrdersPage } from "@/components/sales-workspace";
+import { requireOrderRead } from "@/domains/direct-sales";
 import { AddressSummary } from "@/components/address-summary";
 import { emailDeliveryEnabled } from "@/lib/email-policy";
 import Link from "next/link";
@@ -67,6 +69,10 @@ export default async function AdminPage({
   const [resource, id, action] = path;
   const query = await searchParams;
   async function renderPage() {
+    if (["direct-sales", "online-store"].includes(resource))
+      return await SalesWorkspace({ actor, path, query });
+    if (resource === "orders" && !id)
+      return await SalesOrdersPage({ actor, query });
     if (resource === "api-docs") {
       requireScope(actor, "api_keys:manage");
       return (
@@ -122,7 +128,14 @@ export default async function AdminPage({
     }
     const mod = modules.find((m) => m.slug === resource);
     if (!mod) notFound();
-    requireScope(actor, mod.scope as Permission);
+    if (
+      !(
+        resource === "orders" &&
+        id &&
+        actor.scopes.includes("direct_sales:read")
+      )
+    )
+      requireScope(actor, mod.scope as Permission);
     if (resource === "products" && id) {
       const [categories, brands] = await Promise.all([
         db.category.findMany({ orderBy: { name: "asc" } }),
@@ -420,15 +433,53 @@ export default async function AdminPage({
         },
       });
       if (!o) notFound();
+      requireOrderRead(actor, o.channel);
       return (
         <>
           <Heading
             title={o.reference}
-            description={`${date(o.createdAt)} · ${o.email} · ${o.demo ? "Development order" : "Customer order"}`}
+            description={`${date(o.createdAt)} · ${o.channel === "DIRECT" ? "Direct Sales" : "Online Store"} · ${o.email || "Phone contact"}${o.demo ? " · Test order" : ""}`}
           >
             <PrintButton />
           </Heading>
+          <Link
+            className="text-button sales-back-link"
+            href={
+              o.channel === "DIRECT"
+                ? "/admin/direct-sales/orders"
+                : "/admin/online-store/orders"
+            }
+          >
+            ← Back to {o.channel === "DIRECT" ? "direct" : "online"} orders
+          </Link>
           <div className="panel">
+            {o.channel === "DIRECT" && (
+              <div className="sales-order-context">
+                <span className="badge channel-direct">Direct Sales</span>
+                <h2>
+                  {(o.businessSnapshot as { company?: string } | null)?.company}
+                </h2>
+                {actor.scopes.includes("direct_sales:read") &&
+                  o.businessCustomerId && (
+                    <Link
+                      href={`/admin/direct-sales/customers/${o.businessCustomerId}`}
+                    >
+                      Office profile →
+                    </Link>
+                  )}
+                {o.salesNote && (
+                  <p className="sales-notes sales-internal-note">
+                    {o.salesNote}
+                  </p>
+                )}
+                <p className="form-help">
+                  Taken by{" "}
+                  {(o.businessSnapshot as { takenBy?: string } | null)
+                    ?.takenBy ?? "a staff member"}
+                  . Payment and fulfilment are tracked separately.
+                </p>
+              </div>
+            )}
             <div className="order-timeline">
               <span>{o.status}</span>
               <span>{o.paymentStatus}</span>
@@ -446,13 +497,29 @@ export default async function AdminPage({
                 <b>{money(i.total)}</b>
               </div>
             ))}
+            <div className="summary-line">
+              <span>Delivery</span>
+              <b>{money(o.shipping)}</b>
+            </div>
+            <div className="summary-line">
+              <span>
+                VAT
+                {(o.termsSnapshot as { taxInclusive?: boolean }).taxInclusive
+                  ? " (included)"
+                  : ""}
+              </span>
+              <b>{money(o.tax)}</b>
+            </div>
             <div className="summary-line total">
               <b>Order total</b>
               <b>{money(o.total)}</b>
             </div>
             <AddressSummary address={o.address} />
           </div>
-          <div className="integration-grid" style={{ marginTop: 24 }}>
+          <div
+            className="integration-grid admin-order-actions"
+            style={{ marginTop: 24 }}
+          >
             {actor.scopes.includes("fulfillments:write") &&
               o.status !== "CANCELLED" &&
               o.fulfillmentStatus !== "FULFILLED" && (
@@ -1326,6 +1393,7 @@ export default async function AdminPage({
   try {
     return await renderPage();
   } catch (e) {
+    if (e instanceof AppError && e.status === 404) notFound();
     if (e instanceof AppError && e.status === 403)
       return (
         <div className="empty-state">

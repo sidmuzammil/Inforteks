@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { db, type Tx } from "@/lib/db";
 import { invariant } from "@/lib/errors";
-import { hash, secret, idempotent, audit, type Actor } from "./identity";
+import {
+  hash,
+  secret,
+  idempotent,
+  audit,
+  canonical,
+  type Actor,
+} from "./identity";
 import { calculate } from "./pricing";
 import { json } from "@/lib/utils";
 import type { Prisma } from "@/generated/prisma/client";
@@ -178,7 +185,7 @@ export async function setCartItem(cartId: string, raw: unknown) {
     });
   });
 }
-async function quoteTx(
+export async function quoteTx(
   tx: Tx,
   cartId: string,
   emirate: string,
@@ -191,7 +198,7 @@ async function quoteTx(
         include: {
           sku: { include: { product: { include: { category: true } } } },
         },
-        orderBy: { id: "asc" },
+        orderBy: { skuId: "asc" },
       },
     },
   });
@@ -291,114 +298,182 @@ export async function checkout(
   return db.$transaction(
     async (tx) =>
       idempotent(tx, userId ?? cartId, "checkout", key, data, async () => {
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${cartId},1))`;
-        await tx.$queryRaw`SELECT s.id FROM "Sku" s JOIN "CartItem" ci ON ci."skuId"=s.id WHERE ci."cartId"=${cartId} ORDER BY s.id FOR UPDATE OF s`;
-        const { cart, zone, coupon, totals, tax } = await quoteTx(
-          tx,
-          cartId,
-          data.address.emirate,
-          data.coupon,
-        );
-        invariant(
-          process.env.NODE_ENV !== "production" ||
-            cart.items.every((i) => !i.sku.product.demo),
-          422,
-          "Development products cannot be ordered in production.",
-        );
-        invariant(
-          !cart.userId || cart.userId === userId,
-          403,
-          "This cart belongs to another customer.",
-        );
-        for (const item of [...cart.items].sort((a, b) =>
-          a.skuId.localeCompare(b.skuId),
-        )) {
-          const updated =
-            await tx.$executeRaw`UPDATE "Sku" SET reserved=reserved+${item.quantity},version=version+1 WHERE id=${item.skuId} AND "onHand"-reserved>=${item.quantity}`;
-          invariant(
-            updated === 1,
-            409,
-            "Stock changed. Please review your cart.",
-          );
-        }
-        if (coupon) {
-          const used =
-            await tx.$executeRaw`UPDATE "Coupon" SET uses=uses+1 WHERE id=${coupon.id} AND uses<"maxUses"`;
-          invariant(used === 1, 409, "Coupon redemption limit reached.");
-        }
-        const guestToken = secret();
-        const order = await tx.order.create({
-          data: {
-            reference: `IFT-${new Date().getUTCFullYear()}-${secret().slice(0, 8).toUpperCase()}`,
-            userId,
-            email: data.email,
-            address: data.address,
-            guestTokenHash: hash(guestToken),
-            paymentMethod: data.paymentMethod,
-            subtotal: totals.subtotal,
-            discount: totals.discount,
-            tax: totals.tax,
-            shipping: totals.shipping,
-            total: totals.total,
-            shippingSnapshot: {
-              name: zone.name,
-              estimate: zone.estimate,
-              rate: totals.shipping,
-            },
-            termsSnapshot: {
-              taxRegistered: tax.registered,
-              taxInclusive: tax.inclusive,
-              taxBps: tax.bps,
-              coupon: coupon?.code ?? null,
-            },
-            demo: data.paymentMethod === "SIMULATOR",
-            expiresAt: new Date(Date.now() + 86400000),
-            items: {
-              create: cart.items.map((l, i) => ({
-                skuId: l.skuId,
-                quantity: l.quantity,
-                unitPrice: l.sku.price!,
-                discount: totals.discounts[i],
-                total: l.sku.price! * l.quantity - totals.discounts[i],
-                snapshot: {
-                  name: l.sku.product.name,
-                  code: l.sku.code,
-                  options: l.sku.options,
-                  specs: l.sku.specs,
-                  warranty: l.sku.warranty,
-                  slug: l.sku.product.slug,
-                },
-              })),
-            },
-            reservations: {
-              create: cart.items.map((l) => ({
-                skuId: l.skuId,
-                quantity: l.quantity,
-              })),
-            },
-          },
-        });
-        await tx.cartItem.deleteMany({ where: { cartId } });
-        await audit(
-          tx,
-          { id: userId ?? cartId, source: "customer", human: true, scopes: [] },
-          "order.create",
-          order.id,
-          undefined,
-          { reference: order.reference, total: order.total, demo: order.demo },
-        );
-        await tx.job.create({
-          data: {
-            type: "ORDER_NOTIFICATION",
-            actorId: userId ?? cartId,
-            payload: { orderId: order.id },
-            dedupeKey: `order-notification:${order.id}`,
-          },
-        });
-        return { id: order.id, reference: order.reference, guestToken };
+        return completeCheckout(tx, cartId, userId, data);
       }),
     { timeout: 15000 },
   );
+}
+export type DirectOrderContext = {
+  actor: Actor;
+  customer: { id: string; version: number; company: string };
+  note: string;
+  reviewedQuote: string;
+};
+export function quoteFingerprint(
+  q: Awaited<ReturnType<typeof quoteTx>>,
+  customer?: { id: string; version: number },
+) {
+  return hash(
+    canonical({
+      customer,
+      lines: q.cart.items
+        .map((l) => ({
+          skuId: l.skuId,
+          quantity: l.quantity,
+          price: l.sku.price,
+          productVersion: l.sku.product.version,
+        }))
+        .sort((a, b) => a.skuId.localeCompare(b.skuId)),
+      totals: q.totals,
+      tax: q.tax,
+      zone: q.zone,
+      coupon: q.coupon?.code ?? null,
+    }),
+  );
+}
+// One stock/order writer for storefront checkout and authorized staff sales.
+export async function completeCheckout(
+  tx: Tx,
+  cartId: string,
+  userId: string | undefined,
+  data: CheckoutInput,
+  direct?: DirectOrderContext,
+) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${cartId},1))`;
+  await tx.$queryRaw`SELECT s.id FROM "Sku" s JOIN "CartItem" ci ON ci."skuId"=s.id WHERE ci."cartId"=${cartId} ORDER BY s.id FOR UPDATE OF s`;
+  const { cart, zone, coupon, totals, tax } = await quoteTx(
+    tx,
+    cartId,
+    data.address.emirate,
+    data.coupon,
+  );
+  if (direct)
+    invariant(
+      quoteFingerprint(
+        { cart, zone, coupon, totals, tax },
+        { id: direct.customer.id, version: direct.customer.version },
+      ) === direct.reviewedQuote,
+      409,
+      "The customer, price or delivery quote changed. Review the total again.",
+    );
+  invariant(
+    process.env.NODE_ENV !== "production" ||
+      cart.items.every((i) => !i.sku.product.demo),
+    422,
+    "Development products cannot be ordered in production.",
+  );
+  invariant(
+    !cart.userId || cart.userId === userId,
+    403,
+    "This cart belongs to another customer.",
+  );
+  for (const item of [...cart.items].sort((a, b) =>
+    a.skuId.localeCompare(b.skuId),
+  )) {
+    const updated =
+      await tx.$executeRaw`UPDATE "Sku" SET reserved=reserved+${item.quantity},version=version+1 WHERE id=${item.skuId} AND "onHand"-reserved>=${item.quantity}`;
+    invariant(updated === 1, 409, "Stock changed. Please review your cart.");
+  }
+  if (coupon) {
+    const used =
+      await tx.$executeRaw`UPDATE "Coupon" SET uses=uses+1 WHERE id=${coupon.id} AND uses<"maxUses"`;
+    invariant(used === 1, 409, "Coupon redemption limit reached.");
+  }
+  const guestToken = secret();
+  const takenBy = direct?.actor.human
+    ? ((
+        await tx.user.findUnique({
+          where: { id: direct.actor.id },
+          select: { name: true },
+        })
+      )?.name ?? "Staff member")
+    : "Integration";
+  const order = await tx.order.create({
+    data: {
+      reference: `IFT-${new Date().getUTCFullYear()}-${secret().slice(0, 8).toUpperCase()}`,
+      userId,
+      ...(direct
+        ? {
+            channel: "DIRECT" as const,
+            businessCustomerId: direct.customer.id,
+            businessSnapshot: { company: direct.customer.company, takenBy },
+            salesActorId: direct.actor.id,
+            salesNote: direct.note,
+          }
+        : {}),
+      email: data.email,
+      address: data.address,
+      guestTokenHash: hash(guestToken),
+      paymentMethod: data.paymentMethod,
+      subtotal: totals.subtotal,
+      discount: totals.discount,
+      tax: totals.tax,
+      shipping: totals.shipping,
+      total: totals.total,
+      shippingSnapshot: {
+        name: zone.name,
+        estimate: zone.estimate,
+        rate: totals.shipping,
+      },
+      termsSnapshot: {
+        taxRegistered: tax.registered,
+        taxInclusive: tax.inclusive,
+        taxBps: tax.bps,
+        coupon: coupon?.code ?? null,
+      },
+      demo: direct
+        ? cart.items.some((l) => l.sku.product.demo)
+        : data.paymentMethod === "SIMULATOR",
+      expiresAt: new Date(Date.now() + 86400000),
+      items: {
+        create: cart.items.map((l, i) => ({
+          skuId: l.skuId,
+          quantity: l.quantity,
+          unitPrice: l.sku.price!,
+          discount: totals.discounts[i],
+          total: l.sku.price! * l.quantity - totals.discounts[i],
+          snapshot: {
+            name: l.sku.product.name,
+            code: l.sku.code,
+            options: l.sku.options,
+            specs: l.sku.specs,
+            warranty: l.sku.warranty,
+            slug: l.sku.product.slug,
+          },
+        })),
+      },
+      reservations: {
+        create: cart.items.map((l) => ({
+          skuId: l.skuId,
+          quantity: l.quantity,
+        })),
+      },
+    },
+  });
+  await tx.cartItem.deleteMany({ where: { cartId } });
+  await audit(
+    tx,
+    direct?.actor ?? {
+      id: userId ?? cartId,
+      source: "customer",
+      human: true,
+      scopes: [],
+    },
+    direct ? "direct_order.create" : "order.create",
+    order.id,
+    undefined,
+    { reference: order.reference, total: order.total, demo: order.demo },
+  );
+  if (!direct)
+    await tx.job.create({
+      data: {
+        type: "ORDER_NOTIFICATION",
+        actorId: userId ?? cartId,
+        payload: { orderId: order.id },
+        dedupeKey: `order-notification:${order.id}`,
+      },
+    });
+  return { id: order.id, reference: order.reference, guestToken };
 }
 export async function ownedOrder(
   idOrReference: string,

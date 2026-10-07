@@ -1,3 +1,4 @@
+import { submitEmailSignIn } from "./sign-in";
 import "dotenv/config";
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
@@ -198,7 +199,7 @@ test("content staff can maintain banners but cannot open products or staff manag
   await page.goto("/admin/login");
   await page.getByLabel("Email address", { exact: true }).fill(staffEmail);
   await page.getByLabel("Password", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "Sign in to workspace" }).click();
+  await submitEmailSignIn(page);
   await expect(page).toHaveURL(/\/admin$/);
   await expect(
     page.getByRole("link", { name: "Staff & access", exact: true }),

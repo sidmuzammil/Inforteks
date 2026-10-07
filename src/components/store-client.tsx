@@ -32,6 +32,7 @@ export async function api<T = unknown>(
   path: string,
   body?: unknown,
   method?: string,
+  headers?: Record<string, string>,
 ): Promise<T> {
   const response = await fetch(
     path.startsWith("/api/") ? path : `/api/v1/${path}`,
@@ -39,8 +40,8 @@ export async function api<T = unknown>(
       method: method ?? (body === undefined ? "GET" : "POST"),
       headers:
         body instanceof FormData
-          ? undefined
-          : { "Content-Type": "application/json" },
+          ? headers
+          : { "Content-Type": "application/json", ...headers },
       body:
         body === undefined
           ? undefined

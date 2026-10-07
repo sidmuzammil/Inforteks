@@ -4,6 +4,9 @@ This file distinguishes the supplied brief's broad target from the working imple
 
 ## Implemented
 
+- Two sales workspaces: Direct Sales for office visits and staff-entered orders, and Online Store for website orders/content. Grouped shared navigation, page search and a mobile workspace menu.
+- Versioned office contact profiles without logins, visit notes, UAE-time follow-up tasks, repeat orders, channel filtering/work queues and immutable company/address snapshots. Direct order entry reuses server quotes, inventory locks and idempotency; payment remains pending. Sales representative permissions exclude online orders and financial/settings mutations. See DIRECT_SALES.md for limits.
+
 - English-only header without a language control. Product creation supports inline brand/category creation, initial image uploads with resumable partial failure, structured specifications, AED current/previous prices, featured selection, model and search-engine fields.
 - Database-managed full hero, side banners and CTA, optional sanitized HTML banners, exact section-only desktop/mobile previews, ordering, visibility, Dubai-time schedules and optimistic edit conflicts. Featured selections and sale-price selections are separate.
 
@@ -16,7 +19,7 @@ This file distinguishes the supplied brief's broad target from the working imple
 - Separate customer accounts and private staff sign-in; Better Auth password changes, session revocation, expiring recovery and optional email verification; first-Owner bootstrap and named staff creation.
 - Permission-filtered administration for catalogue, inventory, orders, returns, content, promotions, imports, keys, jobs, audit and assistant conversations.
 - Owner-controlled staff role changes and access revocation; product and content roles; homepage banner uploads with publication-aware image access.
-- Google customer sign-in and explicit same-email account connection, guarded by provider configuration; Google/Firebase authorization is still unavailable, so live Google consent remains unverified.
+- Google customer sign-in and explicit same-email account connection, guarded by provider configuration; production OAuth is configured, while a complete real customer consent/returning sign-in remains unverified.
 - Shared operation scopes, one-time hashed integration keys, rate limits, version-bound approvals and transactional audit/stock ledgers.
 - Quantity-aware fulfilment, cancellation restrictions, received-return disposition/restocking and expired reservation release.
 - Validated image re-encoding, private draft media and adapters for S3-compatible storage and private Vercel Blob.
@@ -29,7 +32,7 @@ This file distinguishes the supplied brief's broad target from the working imple
 - Full CSV quoting/mapping, supplier imports, updating existing products and inventory imports.
 - Full response/request schemas for every OpenAPI operation and broader integration contract coverage.
 - Dedicated shipping-zone administration, custom-grant editing, API key rotation UI, customer detail workflows and date-filtered financial reporting.
-- Media removal/reordering, orphan cleanup and responsive image delivery optimization.
+- Media removal, orphan cleanup and responsive image delivery optimization. Image reordering and main-image selection are implemented.
 - Arbitrary category-driven catalogue facets; translation and RTL would be a separately requested expansion (the current store is English only).
 - Streaming assistant responses, attachment workflows, spending ledger and broader operation coverage.
 - Payment webhooks/reconciliation, executed refunds, courier automation, order email delivery and broader remote workflow testing.

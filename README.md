@@ -77,6 +77,7 @@ The production build does not require a reachable database. Production readiness
 
 - [Research and reference audit](docs/REFERENCE_AUDIT.md)
 - [Administrator guide](docs/ADMIN_GUIDE.md)
+- [Direct Sales and Online Store](docs/DIRECT_SALES.md)
 - [Google customer sign-in](docs/GOOGLE_SIGN_IN.md)
 - [Delivery addresses and location setup](docs/DELIVERY_LOCATION.md)
 - [REST API guide](docs/API_GUIDE.md), [OpenAPI](docs/openapi.json) and [operation matrix](docs/OPERATION_MATRIX.md)
