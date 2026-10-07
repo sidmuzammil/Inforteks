@@ -6,7 +6,17 @@ Verified on 7 October 2026 UTC. This records observed deployment state, not a co
 - Production: <https://web-production-b6327.up.railway.app>
 - Staging: <https://web-staging-4569.up.railway.app>
 - Staff sign-in: <https://web-production-b6327.up.railway.app/admin/login>
-- Production and staging web source: `2fd63de3083449f4d6f920b3cf9ab63b49b66ee5` (independent Direct Sales and Online Store modules). Workers remain on `d9be54838edcea8fdc8ee8edfc42f61d7bd0e708`; this web-only update changes no jobs or schema. GitHub repository: `sidmuzammil/Inforteks`, branch `main`. Later test/documentation changes do not require application redeployment.
+- Production and staging web/worker source: `19224b3ce239dd42554fa20fd1e48155ee245da8` (per-product online-store visibility). GitHub repository: `sidmuzammil/Inforteks`, branch `main`. Later documentation changes do not require application redeployment.
+
+## Product online-store visibility rollout — 7 October 2026
+
+Every product now has **Show in online store** (`store`), shared by its variants. Turning it off keeps an active product available to Direct Sales with the same stock, while excluding it from public discovery, product/media access and online purchasing. Existing products default to true. Products and Inventory display the sales channels; changes to existing products require publishing permission and a version-bound approval. Historic order snapshots are preserved. Previously cached product images can remain cached for up to five minutes.
+
+GitHub Actions [37609187078](https://github.com/sidmuzammil/Inforteks/actions/runs/37609187078) passed fresh setup, 94 unit/integration tests, all 29 browser journeys, static checks, API documentation validation and the database-independent production build on the deployed source. Both web pre-deploy logs confirm all ten migrations succeeded, including `20261007150000_product_store_visibility`. Each web service passed readiness before its matching worker was deployed; all four deployments passed Railway health checks.
+
+Public readiness, storefront, sitemap and anonymous admin-denial checks passed in both environments. The existing production Owner verified product creation, product/Inventory channel controls, persisted boolean fields, the one existing public product's online eligibility and all eleven referenced editor scripts, then signed out. No production business records were changed. Production had no existing offline products for read-only hidden-product checks; local/CI fixtures verified offline ordering, public exclusion, stale-cart denial and approved re-enablement.
+
+The retained backup list was checked again; its newest production snapshot is still `before-direct-sales-release`, recorded below. No fresh snapshot or restore rehearsal is claimed. Once a merchant uses `store=false`, a rollback must preserve the visibility checks: older application code can expose active offline products. See OPERATIONS.md for the rollback restriction. Existing provider/domain launch limitations remain unchanged.
 
 ## Independent sales modules rollout — 7 October 2026
 
@@ -24,14 +34,14 @@ Application source `d9be54838edcea8fdc8ee8edfc42f61d7bd0e708` adds the ERP works
 
 ## Verified
 
-Both environments have separate PostgreSQL data, database credentials, authentication secrets, and private media buckets. Web, worker and PostgreSQL deployments passed Railway health checks. All nine application migrations succeeded in both environments, including the additive homepage-banner migration, unique provider/account identity index, merchant section settings/media relations nullable delivery-address fields, Direct Sales customer/visit/channel fields and the additive CRM opportunity/activity tables. Only web has public HTTPS hostnames; worker and PostgreSQL use private networking. Application placement is one replica per service in Amsterdam.
+Both environments have separate PostgreSQL data, database credentials, authentication secrets, and private media buckets. Web, worker and PostgreSQL deployments passed Railway health checks. All ten application migrations succeeded in both environments, including the additive homepage-banner migration, unique provider/account identity index, merchant section settings/media relations, nullable delivery-address fields, Direct Sales customer/visit/channel fields, additive CRM opportunity/activity tables and product store-visibility flag. Only web has public HTTPS hostnames; worker and PostgreSQL use private networking. Application placement is one replica per service in Amsterdam.
 
 | Environment | Service | Successful deployment                  |
 | ----------- | ------- | -------------------------------------- |
-| Staging     | Web     | `d6baa93f-48d1-43e0-b738-6e53d154bc33` |
-| Staging     | Worker  | `0b661f13-0d42-425a-957a-ac53995e209c` |
-| Production  | Web     | `e55966f9-05df-4817-a447-941e45b3a2e7` |
-| Production  | Worker  | `3b429ea7-cf7f-47f3-bba2-b59642c25a95` |
+| Staging     | Web     | `b375563d-ecdd-458b-9b30-a824cfceeb0f` |
+| Staging     | Worker  | `91a2f3a2-5635-4d2a-aa2f-97703f33aba0` |
+| Production  | Web     | `7dca78c7-396d-4d2f-badb-a7ca93fe2890` |
+| Production  | Worker  | `cd16e247-8e27-48d7-bf73-efb70a778d83` |
 
 The delivery-address release adds separate city, area, optional zone/postal code and landmark fields, owned address-book editing/deletion, saved-address selection at checkout and a customer-confirmed GPS pin. The written address and optional pin are preserved in each order snapshot and displayed to authorized staff. Existing orders are not changed by address edits. The live Owner opened the new address editor and its scripts, queried the migrated address schema, checked staff pages and signed out; no production customer, address, pin or order was created or changed by verification. Both web deployments passed readiness and access/provider-gate checks. Browser and unit/integration verification used local data; optional Google responses were fixtures. Google Geocoding remains disabled because no key is connected. The user reports enabling Google billing, but this session cannot inspect that billing account. Activation instructions are in DELIVERY_LOCATION.md.
 
