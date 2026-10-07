@@ -100,7 +100,11 @@ test("sales staff records an office visit and takes four toners through review a
     .fill("Customer needs four toners during this visit.");
   await page
     .getByLabel("Next follow-up", { exact: false })
-    .fill("2027-01-10T10:30");
+    .fill(
+      new Date(Date.now() + 2 * 86400000 + 4 * 3600000)
+        .toISOString()
+        .slice(0, 16),
+    );
   await page.getByRole("button", { name: "Record visit" }).click();
   await expect(page.getByRole("status")).toContainText("Visit recorded");
   await page

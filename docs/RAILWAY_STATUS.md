@@ -1,27 +1,27 @@
 # Railway deployment record
 
-Verified on 3 October 2026 UTC. This records observed deployment state, not a completed retail launch.
+Verified on 7 October 2026 UTC. This records observed deployment state, not a completed retail launch.
 
 - Project: [Inforteks](https://railway.com/project/6c12fe47-eca9-4d35-86b1-8e21e853b941), in the connected Pro workspace.
 - Production: <https://web-production-b6327.up.railway.app>
 - Staging: <https://web-staging-4569.up.railway.app>
 - Staff sign-in: <https://web-production-b6327.up.railway.app/admin/login>
-- Production and staging web source: `37446f82349b610a00ed7d2ab92f66582b45a513` (structured delivery addresses, confirmed GPS pins and mobile header correction). Both workers retain `43ae21b469bf6a59e92c4d4d9bbc1c64f53f39c7`. GitHub repository: `sidmuzammil/Inforteks`, branch `main`. Later CI, test and documentation commits do not change the deployed application.
+- Production and staging application source: `4e3b81d9368a422f016864612652ca9f3e956882` (Direct Sales and Online Store workspaces, office visits and shared-stock order entry). GitHub repository: `sidmuzammil/Inforteks`, branch `main`. Later test/documentation changes do not require application redeployment.
 
 ## Verified
 
-Both environments have separate PostgreSQL data, database credentials, authentication secrets, and private media buckets. Web, worker and PostgreSQL deployments passed Railway health checks. All seven application migrations succeeded in both environments, including the additive homepage-banner migration, unique provider/account identity index, merchant section settings/media relations and nullable delivery-address fields. Only web has public HTTPS hostnames; worker and PostgreSQL use private networking. Application placement is one replica per service in Amsterdam.
+Both environments have separate PostgreSQL data, database credentials, authentication secrets, and private media buckets. Web, worker and PostgreSQL deployments passed Railway health checks. All eight application migrations succeeded in both environments, including the additive homepage-banner migration, unique provider/account identity index, merchant section settings/media relations nullable delivery-address fields and Direct Sales customer/visit/channel fields. Only web has public HTTPS hostnames; worker and PostgreSQL use private networking. Application placement is one replica per service in Amsterdam.
 
 | Environment | Service | Successful deployment                  |
 | ----------- | ------- | -------------------------------------- |
-| Staging     | Web     | `fc050e43-2610-41fc-8e99-dc0e5655cbe2` |
-| Staging     | Worker  | `27f1b0ff-ab10-41d4-ae24-8d349d4f2d04` |
-| Production  | Web     | `311e6a0c-85fa-4798-b5a1-a862fce5bfa0` |
-| Production  | Worker  | `2057a653-7530-4450-81a6-da68af6c4503` |
+| Staging     | Web     | `03017de3-262f-4e90-90be-aaf065245915` |
+| Staging     | Worker  | `9fa58b7f-54a2-480f-abd8-1d704706456b` |
+| Production  | Web     | `3759d32f-7586-4b82-9ea2-95bdf773a5f9` |
+| Production  | Worker  | `2f969c1d-fd73-4db2-a9f0-098a98cf095f` |
 
 The delivery-address release adds separate city, area, optional zone/postal code and landmark fields, owned address-book editing/deletion, saved-address selection at checkout and a customer-confirmed GPS pin. The written address and optional pin are preserved in each order snapshot and displayed to authorized staff. Existing orders are not changed by address edits. The live Owner opened the new address editor and its scripts, queried the migrated address schema, checked staff pages and signed out; no production customer, address, pin or order was created or changed by verification. Both web deployments passed readiness and access/provider-gate checks. Browser and unit/integration verification used local data; optional Google responses were fixtures. Google Geocoding remains disabled because no key is connected. The user reports enabling Google billing, but this session cannot inspect that billing account. Activation instructions are in DELIVERY_LOCATION.md.
 
-GitHub Actions [run 37119151669](https://github.com/sidmuzammil/Inforteks/actions/runs/37119151669) passed setup, static/database checks, all 22 browser journeys and the production build on the current application source. The 74 unit/integration tests cover private address ownership, confirmation requirements, field persistence, checkout snapshots and optional provider failure paths. The longer suite respects the real sign-in rate limit by waiting for its retry window. No authentication limit was weakened.
+GitHub Actions [run 37119151669](https://github.com/sidmuzammil/Inforteks/actions/runs/37119151669) passed setup, static/database checks, all 22 browser journeys and the production build on the earlier delivery-address application source. The 74 unit/integration tests cover private address ownership, confirmation requirements, field persistence, checkout snapshots and optional provider failure paths. The longer suite respects the real sign-in rate limit by waiting for its retry window. No authentication limit was weakened.
 
 Before migration seven, production snapshot `before-delivery-address-release` (`281e27a6-5c29-4aac-b7b8-795e2b32ecdd`) was created and listed at `2026-10-03T11:00:57.225Z`. The migration adds only nullable columns; workers were not redeployed. A restore rehearsal remains unverified.
 
@@ -46,6 +46,16 @@ PITR configuration is enabled in both environments. Production has daily, weekly
 The merchant editor release passed 63 unit/integration tests and all 19 Chromium journeys against local data. All 69 documented staff API operations denied anonymous/customer access. Dummy product images, featured/discounted publication, stock approvals, checkout/replay, fulfillment, return/restocking and isolated HTML/hero previews were verified. Type checking, lint, formatting, the production build and OpenAPI validation for 98 operations passed.
 
 GitHub Actions [run 37102474211](https://github.com/sidmuzammil/Inforteks/actions/runs/37102474211) passed fresh setup, static/database checks, all browser journeys and the production build on the exact deployed application commit `43ae21b469bf6a59e92c4d4d9bbc1c64f53f39c7`. Fresh setup now waits for a real TCP query to the application database; this fixes the temporary PostgreSQL initialization-server race exposed by CI. Both a fresh isolated disposable database and the existing development database passed this readiness check.
+
+## Direct Sales release — 7 October
+
+The administrator now has Direct Sales and Online Store workspaces with shared products, prices and stock. Office contacts require no customer login. Staff can record visits/follow-ups and place reviewed, idempotent direct orders; payments remain pending until explicitly recorded by authorised staff. The Sales representative role cannot access website orders or financial/settings mutations.
+
+GitHub Actions [run 37585441869](https://github.com/sidmuzammil/Inforteks/actions/runs/37585441869) passed fresh setup, static/database checks, all 25 browser journeys and the production build on `4e3b81d9368a422f016864612652ca9f3e956882`. There are 81 unit/integration tests and 115 documented API operations. Browser fixtures respect the real shared-IP sign-in retry window; no authentication limits were changed.
+
+Before the production migration, snapshot `before-direct-sales-release` (`e3921fa8-b226-46b8-8de1-8c5b385036d9`) was created and listed at `2026-10-07T07:06:36.513Z`. This is a verified snapshot, not a restore rehearsal. Existing orders default to ONLINE; no historical orders were guessed to be direct sales.
+
+Staging readiness and private endpoint checks passed. The existing production Owner opened both channels, office/customer/order forms, follow-ups, filtered orders and the Sales representative option. All twelve referenced editor scripts loaded, and the migrated office/order endpoints answered authorised read requests. Anonymous requests were denied, the Owner signed out, and no production business records were created or changed by verification. Public offline checkout remains disabled; the private direct-order workflow does not charge money or activate a payment provider.
 
 ## Remaining launch steps
 
