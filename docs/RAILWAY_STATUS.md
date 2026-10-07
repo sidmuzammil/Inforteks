@@ -6,18 +6,24 @@ Verified on 7 October 2026 UTC. This records observed deployment state, not a co
 - Production: <https://web-production-b6327.up.railway.app>
 - Staging: <https://web-staging-4569.up.railway.app>
 - Staff sign-in: <https://web-production-b6327.up.railway.app/admin/login>
-- Production and staging application source: `4e3b81d9368a422f016864612652ca9f3e956882` (Direct Sales and Online Store workspaces, office visits and shared-stock order entry). GitHub repository: `sidmuzammil/Inforteks`, branch `main`. Later test/documentation changes do not require application redeployment.
+- Production and staging application source: `d9be54838edcea8fdc8ee8edfc42f61d7bd0e708` (ERP navigation, CRM, Contacts and simpler sales operations). GitHub repository: `sidmuzammil/Inforteks`, branch `main`. Later test/documentation changes do not require application redeployment.
+
+## ERP release rollout — 7 October 2026
+
+Application source `d9be54838edcea8fdc8ee8edfc42f61d7bd0e708` adds the ERP workspace, CRM and unified Contacts. GitHub Actions [37594805999](https://github.com/sidmuzammil/Inforteks/actions/runs/37594805999) passed all 89 unit/integration tests, 28 browser journeys, static checks and the production build. Staging web deployment `8f904eb4-8fc8-4922-8156-365e4303bef5` is healthy; anonymous CRM/Contacts endpoints reject access. The new migration is additive and preserves existing business records. Staging worker passed its deployment health check. Production web deployment `c454b8c3-4bf5-4f13-a249-59431b35b33c` also passed. The existing Owner opened ERP navigation, CRM pipeline/new opportunity/activity pages, unified Contacts, direct and online sales forms and staff settings; all new schema queries and 12 order-editor scripts loaded successfully. Anonymous new endpoints returned 401 before and after sign-out. No production business record was created or edited. Production worker deployment `3b429ea7-cf7f-47f3-bba2-b59642c25a95` passed its health check. All four application services now run this ERP source.
+
+**Backup limitation:** Railway rejected `before-erp-crm-release` on-demand snapshot requests with `GRAPHQL_ERROR: Failed to create a backup`. The fallback SSH export was unavailable because `ssh.railway.com` could not resolve from this cloud session. Temporary SSH authorization was revoked and its private key removed. No fresh snapshot or export is claimed. The latest listed production snapshot remains `before-direct-sales-release` (`e3921fa8-b226-46b8-8de1-8c5b385036d9`, `2026-10-07T07:06:36.513Z`); daily/weekly snapshots also remain. PITR reports enabled with its bucket wired, but live archive coverage and restore remain unverified. This limitation is independent of the application migration, which only creates CRM tables, indexes and relationships. Rolling application code back does not require dropping these new tables or changing historical orders.
 
 ## Verified
 
-Both environments have separate PostgreSQL data, database credentials, authentication secrets, and private media buckets. Web, worker and PostgreSQL deployments passed Railway health checks. All eight application migrations succeeded in both environments, including the additive homepage-banner migration, unique provider/account identity index, merchant section settings/media relations nullable delivery-address fields and Direct Sales customer/visit/channel fields. Only web has public HTTPS hostnames; worker and PostgreSQL use private networking. Application placement is one replica per service in Amsterdam.
+Both environments have separate PostgreSQL data, database credentials, authentication secrets, and private media buckets. Web, worker and PostgreSQL deployments passed Railway health checks. All nine application migrations succeeded in both environments, including the additive homepage-banner migration, unique provider/account identity index, merchant section settings/media relations nullable delivery-address fields, Direct Sales customer/visit/channel fields and the additive CRM opportunity/activity tables. Only web has public HTTPS hostnames; worker and PostgreSQL use private networking. Application placement is one replica per service in Amsterdam.
 
 | Environment | Service | Successful deployment                  |
 | ----------- | ------- | -------------------------------------- |
-| Staging     | Web     | `03017de3-262f-4e90-90be-aaf065245915` |
-| Staging     | Worker  | `9fa58b7f-54a2-480f-abd8-1d704706456b` |
-| Production  | Web     | `3759d32f-7586-4b82-9ea2-95bdf773a5f9` |
-| Production  | Worker  | `2f969c1d-fd73-4db2-a9f0-098a98cf095f` |
+| Staging     | Web     | `8f904eb4-8fc8-4922-8156-365e4303bef5` |
+| Staging     | Worker  | `0b661f13-0d42-425a-957a-ac53995e209c` |
+| Production  | Web     | `c454b8c3-4bf5-4f13-a249-59431b35b33c` |
+| Production  | Worker  | `3b429ea7-cf7f-47f3-bba2-b59642c25a95` |
 
 The delivery-address release adds separate city, area, optional zone/postal code and landmark fields, owned address-book editing/deletion, saved-address selection at checkout and a customer-confirmed GPS pin. The written address and optional pin are preserved in each order snapshot and displayed to authorized staff. Existing orders are not changed by address edits. The live Owner opened the new address editor and its scripts, queried the migrated address schema, checked staff pages and signed out; no production customer, address, pin or order was created or changed by verification. Both web deployments passed readiness and access/provider-gate checks. Browser and unit/integration verification used local data; optional Google responses were fixtures. Google Geocoding remains disabled because no key is connected. The user reports enabling Google billing, but this session cannot inspect that billing account. Activation instructions are in DELIVERY_LOCATION.md.
 
