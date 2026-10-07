@@ -12,6 +12,7 @@ import {
 } from "./identity";
 import { completeCheckout, quoteFingerprint, quoteTx } from "./commerce";
 import { Prisma } from "@/generated/prisma/client";
+import { prepareOpportunityOrder, attachOpportunityOrder } from "./crm";
 
 export const businessCustomerInput = z
   .object({
@@ -55,6 +56,13 @@ export const directOrderInput = z
       .max(50),
     coupon: z.string().trim().max(40).default(""),
     note: z.string().trim().max(1000).default(""),
+    opportunity: z
+      .object({
+        id: z.string().min(1).max(100),
+        version: z.number().int().positive(),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .refine((d) => new Set(d.lines.map((l) => l.skuId)).size === d.lines.length, {
@@ -306,6 +314,14 @@ export async function quoteDirectOrder(actor: Actor, raw: unknown) {
   requireScope(actor, "direct_sales:write");
   const data = directOrderInput.parse(raw);
   return db.$transaction(async (tx) => {
+    if (data.opportunity)
+      await prepareOpportunityOrder(
+        actor,
+        data.opportunity.id,
+        data.opportunity.version,
+        data.customerId,
+        tx,
+      );
     const { customer, cart, address } = await directCart(tx, data);
     const q = await quoteTx(
       tx,
@@ -353,6 +369,14 @@ export async function createDirectOrder(
         key,
         { ...data, reviewedQuote, confirmed },
         async () => {
+          if (data.opportunity)
+            await prepareOpportunityOrder(
+              actor,
+              data.opportunity.id,
+              data.opportunity.version,
+              data.customerId,
+              tx,
+            );
           const { customer, cart, address } = await directCart(tx, data);
           const order = await completeCheckout(
             tx,
@@ -368,6 +392,13 @@ export async function createDirectOrder(
             { actor, customer, note: data.note, reviewedQuote },
           );
           await tx.cart.delete({ where: { id: cart.id } });
+          if (data.opportunity)
+            await attachOpportunityOrder(
+              actor,
+              data.opportunity.id,
+              order.id,
+              tx,
+            );
           // No customer session or public order token is handed to a salesperson.
           return { id: order.id, reference: order.reference };
         },

@@ -29,3 +29,9 @@ Database snapshots and media form one backup set. Restore into a separate databa
 ## Direct Sales
 
 `BusinessCustomer` holds a versioned office contact and delivery address, independent of `User`. `SalesVisit` records a conversation and an optional UAE-time follow-up represented as UTC in storage. Archiving a contact retains visit/order history. `Order.channel` is `ONLINE` by default and `DIRECT` for staff-entered orders. Direct orders refer to the business customer and retain immutable company/staff attribution and delivery snapshots. Existing order lines, reservations, payment and shipment relations serve both channels. Channel/date and business-customer/date indexes support filtered operations.
+
+## CRM
+
+`CrmOpportunity` references exactly one office, website customer or guest order contact, with a channel constraint. Its optional unique order link establishes attribution without changing purchase snapshots. Expected values are integer fils, not collected revenue. Stages are NEW/QUALIFIED/PROPOSAL/WON/LOST; database checks enforce a linked order for WON and a reason for LOST. Versions prevent lost updates. Creator and assigned salesperson IDs are internal actor references; assignment is validated against current staff channel access. `CrmActivity` holds typed internal tasks, UTC due times and one completion record. Channel/stage, contact, assignee and due-date indexes support bounded directory/pipeline/history views.
+
+Migration `20261007140000_erp_crm` is additive and does not rewrite existing contacts, office visits, orders, stock or users. Contacts is a read model over existing records, not a fourth customer identity store.

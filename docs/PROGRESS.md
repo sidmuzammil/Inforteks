@@ -4,7 +4,9 @@ This file distinguishes the supplied brief's broad target from the working imple
 
 ## Implemented
 
-- Two sales workspaces: Direct Sales for office visits and staff-entered orders, and Online Store for website orders/content. Grouped shared navigation, page search and a mobile workspace menu.
+- ERP-style app launcher and context menus for CRM, Contacts, Sales, Products, Inventory, Website, Operations and Settings. Unified, source-labelled contacts and purchase history; versioned CRM opportunities, forecasts, staff assignment, UAE-time activities, audited stages and explicit order conversion/linking. Shipment quantity controls, AED payment/refund inputs and readable sales-operation approvals. See ERP_WORKSPACE.md.
+
+- Two sales workspaces: Direct Sales for office visits and staff-entered orders, and Online Store for website orders/content. ERP app navigation, page search and a mobile workspace menu.
 - Versioned office contact profiles without logins, visit notes, UAE-time follow-up tasks, repeat orders, channel filtering/work queues and immutable company/address snapshots. Direct order entry reuses server quotes, inventory locks and idempotency; payment remains pending. Sales representative permissions exclude online orders and financial/settings mutations. See DIRECT_SALES.md for limits.
 
 - English-only header without a language control. Product creation supports inline brand/category creation, initial image uploads with resumable partial failure, structured specifications, AED current/previous prices, featured selection, model and search-engine fields.
@@ -31,7 +33,7 @@ This file distinguishes the supplied brief's broad target from the working imple
 
 - Full CSV quoting/mapping, supplier imports, updating existing products and inventory imports.
 - Full response/request schemas for every OpenAPI operation and broader integration contract coverage.
-- Dedicated shipping-zone administration, custom-grant editing, API key rotation UI, customer detail workflows and date-filtered financial reporting.
+- Dedicated shipping-zone administration, custom-grant editing, API key rotation UI, customer profile mutation workflows and date-filtered financial reporting.
 - Media removal, orphan cleanup and responsive image delivery optimization. Image reordering and main-image selection are implemented.
 - Arbitrary category-driven catalogue facets; translation and RTL would be a separately requested expansion (the current store is English only).
 - Streaming assistant responses, attachment workflows, spending ledger and broader operation coverage.

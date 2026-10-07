@@ -28,6 +28,8 @@ import { ActionButton } from "./admin-client";
 import { AddressSummary } from "./address-summary";
 import { json, money, date } from "@/lib/utils";
 import { type DeliveryAddress } from "@/lib/address";
+import { getOpportunity } from "@/domains/crm";
+import { invariant } from "@/lib/errors";
 
 type Query = Record<string, string>;
 const when = (value: Date | string) =>
@@ -348,6 +350,18 @@ export async function SalesWorkspace({
     const customer = query.customer
       ? await getBusinessCustomer(actor, query.customer)
       : undefined;
+    const opportunity = query.opportunity
+      ? await getOpportunity(actor, query.opportunity)
+      : undefined;
+    if (opportunity)
+      invariant(
+        opportunity.channel === "DIRECT" &&
+          opportunity.businessCustomerId === customer?.id &&
+          !opportunity.orderId &&
+          !["WON", "LOST"].includes(opportunity.stage),
+        409,
+        "Choose an open opportunity for this office without a linked order.",
+      );
     return (
       <>
         <SalesHeading
@@ -356,6 +370,11 @@ export async function SalesWorkspace({
         />
         <DirectOrderBuilder
           initial={customer?.active ? json(customer) : undefined}
+          opportunity={
+            opportunity
+              ? { id: opportunity.id, version: opportunity.version }
+              : undefined
+          }
         />
       </>
     );

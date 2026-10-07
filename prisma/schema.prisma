@@ -22,6 +22,7 @@ model User {
   orders        Order[]
   wishlist      WishlistItem[]
   reviews       Review[]
+  opportunities CrmOpportunity[]
 }
 model Session {
   id        String   @id
@@ -254,6 +255,7 @@ model BusinessCustomer {
   updatedAt DateTime @updatedAt
   orders    Order[]
   visits    SalesVisit[]
+  opportunities CrmOpportunity[]
   @@index([active, company])
 }
 
@@ -269,6 +271,60 @@ model SalesVisit {
   createdAt   DateTime @default(now())
   @@index([customerId, createdAt])
   @@index([completedAt, followUpAt])
+}
+
+enum CrmStage {
+  NEW
+  QUALIFIED
+  PROPOSAL
+  WON
+  LOST
+}
+
+model CrmOpportunity {
+  id                 String @id @default(cuid())
+  title              String
+  stage              CrmStage @default(NEW)
+  channel            SalesChannel
+  businessCustomerId String?
+  businessCustomer   BusinessCustomer? @relation(fields: [businessCustomerId], references: [id], onDelete: Restrict)
+  userId             String?
+  user               User? @relation(fields: [userId], references: [id], onDelete: Restrict)
+  guestOrderId       String?
+  guestOrder         Order? @relation("GuestOpportunityContact", fields: [guestOrderId], references: [id], onDelete: Restrict)
+  orderId            String? @unique
+  order              Order? @relation("OpportunityOrder", fields: [orderId], references: [id], onDelete: Restrict)
+  expectedValue      Int @default(0)
+  expectedClose      DateTime?
+  assignedTo         String?
+  notes              String @default("")
+  lostReason         String @default("")
+  createdBy          String
+  version            Int @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  activities         CrmActivity[]
+  @@index([channel, stage, updatedAt])
+  @@index([businessCustomerId])
+  @@index([userId])
+  @@index([guestOrderId])
+  @@index([assignedTo, stage])
+}
+
+model CrmActivity {
+  id            String @id @default(cuid())
+  opportunityId String
+  opportunity   CrmOpportunity @relation(fields: [opportunityId], references: [id], onDelete: Restrict)
+  kind          String
+  title         String
+  notes         String @default("")
+  dueAt         DateTime
+  completedAt   DateTime?
+  completedBy   String?
+  createdBy     String
+  createdAt     DateTime @default(now())
+  @@index([opportunityId, createdAt])
+  @@index([completedAt, dueAt])
 }
 
 model Order {
@@ -306,6 +362,8 @@ model Order {
   returns         ReturnRequest[]
   payments        Payment[]
   refunds         RefundRequest[]
+  opportunity     CrmOpportunity? @relation("OpportunityOrder")
+  guestOpportunities CrmOpportunity[] @relation("GuestOpportunityContact")
   @@index([userId, createdAt])
   @@index([channel, createdAt])
   @@index([businessCustomerId, createdAt])

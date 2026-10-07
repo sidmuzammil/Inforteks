@@ -3,198 +3,164 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
-  LayoutDashboard,
-  Building2,
-  Globe,
-  Package,
+  LayoutGrid,
+  Target,
+  Users,
   ShoppingBag,
+  Package,
+  Boxes,
+  Globe,
+  ChartNoAxesCombined,
   Settings,
-  Menu,
-  ChevronDown,
   Search,
+  Menu,
   X,
 } from "lucide-react";
-
-type NavItem = { slug: string; label: string };
-const groups = [
-  {
-    title: "Products & stock",
-    icon: Package,
-    slugs: [
-      "products",
-      "categories",
-      "brands",
-      "attributes",
-      "collections",
-      "inventory",
-      "media",
-      "imports",
-    ],
-  },
-  {
-    title: "Orders & service",
-    icon: ShoppingBag,
-    slugs: ["orders", "returns", "inquiries"],
-  },
-  {
-    title: "Website & marketing",
-    icon: Globe,
-    slugs: ["home-sections", "content", "promotions", "reviews", "customers"],
-  },
-  {
-    title: "Business & access",
-    icon: Settings,
-    slugs: [
-      "reports",
-      "staff",
-      "proposals",
-      "assistant",
-      "api-access",
-      "jobs",
-      "settings",
-      "audit-events",
-    ],
-  },
-];
-const labels: Record<string, string> = {
-  orders: "All orders",
-  customers: "Website customers",
-  "home-sections": "Homepage & banners",
-  reports: "Business reports",
-  settings: "Store settings",
+import { availableAdminApps, type AdminApp } from "@/lib/admin-apps";
+const icons = {
+  crm: Target,
+  contacts: Users,
+  sales: ShoppingBag,
+  products: Package,
+  inventory: Boxes,
+  website: Globe,
+  operations: ChartNoAxesCombined,
+  settings: Settings,
 };
-export function AdminNav({
-  modules,
-  direct,
-  online,
-}: {
-  modules: NavItem[];
-  direct: boolean;
-  online: boolean;
-}) {
-  const path = usePathname();
-  const [openedAt, setOpenedAt] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const open = openedAt === path;
-  const active = (url: string) =>
-    path === url || (url !== "/admin" && path.startsWith(url + "/"));
-  const link = (href: string, label: string, icon?: React.ReactNode) => (
-    <Link
-      key={href}
-      href={href}
-      aria-current={path === href ? "page" : undefined}
-      className={active(href) ? "active" : ""}
-      onClick={() => {
-        setOpenedAt(null);
-        setSearch("");
-      }}
-    >
-      {icon}
-      {label}
-    </Link>
-  );
+export function AppIcon({ name, size = 22 }: { name: string; size?: number }) {
+  const Icon = icons[name as keyof typeof icons] ?? LayoutGrid;
+  return <Icon size={size} />;
+}
+export function AdminAppTiles({ apps }: { apps: AdminApp[] }) {
   return (
-    <div className="admin-navigation">
-      <button
-        className="admin-menu-button button"
-        aria-expanded={open}
-        aria-controls="admin-workspace-menu"
-        onClick={() => setOpenedAt(open ? null : path)}
-      >
-        {open ? <X size={18} /> : <Menu size={18} />}
-        {open ? "Close navigation" : "Workspace menu"}
-      </button>
-      <nav
-        id="admin-workspace-menu"
-        aria-label="Admin workspace"
-        className={open ? "menu-open" : ""}
-      >
-        {link("/admin", "Overview", <LayoutDashboard />)}
-        <div className="admin-nav-section-label">SALES CHANNELS</div>
-        {direct && link("/admin/direct-sales", "Direct Sales", <Building2 />)}
-        {direct && path.startsWith("/admin/direct-sales") && (
-          <div className="admin-channel-links">
-            {link("/admin/direct-sales/new-order", "Take an order")}
-            {link("/admin/direct-sales/customers", "Office customers")}
-            {link("/admin/direct-sales/orders", "Direct orders")}
-            {link("/admin/direct-sales/follow-ups", "Follow-ups")}
+    <div className="erp-app-tiles">
+      {apps.map((app) => (
+        <Link
+          key={app.id}
+          href={app.links[0].href}
+          className={`erp-app-tile erp-app-${app.id}`}
+        >
+          <span>
+            <AppIcon name={app.icon} size={28} />
+          </span>
+          <div>
+            <h2>{app.label}</h2>
+            <p>{app.description}</p>
           </div>
-        )}
-        {online && link("/admin/online-store", "Online Store", <Globe />)}
-        {online &&
-          path.startsWith("/admin/online-store") &&
-          modules.some((m) => m.slug === "orders") && (
-            <div className="admin-channel-links">
-              {link("/admin/online-store/orders", "Online orders")}
-            </div>
-          )}
-        <label className="admin-nav-search">
-          <Search size={15} />
-          <input
-            type="search"
-            aria-label="Find an admin page"
-            placeholder="Find a page…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </label>
-        <div className="admin-nav-section-label">SHARED WORKSPACE</div>
-        {groups.map((group) => {
-          const items = group.slugs
-            .flatMap((slug) => modules.filter((m) => m.slug === slug))
-            .filter((m) =>
-              `${m.label} ${labels[m.slug] ?? ""}`
-                .toLowerCase()
-                .includes(search.toLowerCase()),
-            );
-          if (!items.length) return null;
-          return (
-            <details
-              key={`${group.title}-${path}-${Boolean(search)}`}
-              className="admin-nav-group"
-              open={
-                !!search ||
-                items.some((m) => active(`/admin/${m.slug}`)) ||
-                group.title === "Products & stock"
-              }
-            >
-              <summary>
-                <group.icon size={16} />
-                {group.title}
-                <ChevronDown size={14} />
-              </summary>
-              <div>
-                {items.map((m) =>
-                  link(`/admin/${m.slug}`, labels[m.slug] ?? m.label),
-                )}
-              </div>
-            </details>
-          );
-        })}
-        {search &&
-          !modules.some((m) =>
-            `${m.label} ${labels[m.slug] ?? ""}`
-              .toLowerCase()
-              .includes(search.toLowerCase()),
-          ) && <p className="form-help">No pages match this search.</p>}
-      </nav>
+        </Link>
+      ))}
     </div>
   );
 }
-export function AdminBreadcrumb() {
+export function AdminNav({ scopes }: { scopes: string[] }) {
   const path = usePathname();
-  const parts = path.split("/").filter(Boolean);
-  const workspace =
-    parts[1] === "direct-sales"
-      ? "Direct Sales"
-      : parts[1] === "online-store"
-        ? "Online Store"
-        : "Shared workspace";
+  const [openedAt, setOpenedAt] = useState<string | null>(null),
+    [search, setSearch] = useState("");
+  const open = openedAt === path;
+  const apps = availableAdminApps(scopes);
+  const app = apps.find((a) => a.match.includes(path.split("/")[2]));
+  const results = apps
+    .flatMap((a) => a.links)
+    .filter((l) => l.label.toLowerCase().includes(search.toLowerCase()));
+  function close() {
+    setOpenedAt(null);
+    setSearch("");
+  }
   return (
-    <div className="admin-breadcrumb">
-      <Link href="/admin">Inforteks</Link>
-      <span>/</span>
-      <span>{parts.length === 1 ? "Overview" : workspace}</span>
+    <div className="erp-navigation">
+      <div className="erp-navigation-bar">
+        <button
+          className="erp-mobile-menu button"
+          aria-controls="admin-workspace-menu"
+          aria-expanded={open}
+          onClick={() => setOpenedAt(open ? null : path)}
+        >
+          {open ? <X size={18} /> : <Menu size={18} />}
+          {open ? "Close navigation" : "Workspace menu"}
+        </button>
+        <nav
+          aria-label="Admin workspace"
+          id="admin-workspace-menu"
+          className={`erp-app-nav ${open ? "menu-open" : ""}`}
+        >
+          <Link
+            href="/admin"
+            onClick={close}
+            aria-label="All apps"
+            aria-current={path === "/admin" ? "page" : undefined}
+          >
+            <LayoutGrid size={20} />
+            <span>Apps</span>
+          </Link>
+          {apps.map((a) => (
+            <Link
+              key={a.id}
+              href={a.links[0].href}
+              className={app?.id === a.id ? "active" : ""}
+              aria-current={app?.id === a.id ? "page" : undefined}
+              onClick={close}
+            >
+              <AppIcon name={a.icon} size={18} />
+              <span>{a.label}</span>
+            </Link>
+          ))}
+          {open && app && (
+            <div className="erp-mobile-links">
+              {app.links.map((l) => (
+                <Link key={l.href} href={l.href} onClick={close}>
+                  {l.label}
+                </Link>
+              ))}
+            </div>
+          )}
+        </nav>
+        <div className="erp-search">
+          <label>
+            <Search size={16} />
+            <input
+              type="search"
+              aria-label="Find an admin page"
+              placeholder="Find a page…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setSearch("");
+              }}
+            />
+          </label>
+          {search && (
+            <nav
+              aria-label="Page search results"
+              className="erp-search-results"
+            >
+              {results.length ? (
+                results.map((l) => (
+                  <Link key={l.href} href={l.href} onClick={close}>
+                    {l.label}
+                  </Link>
+                ))
+              ) : (
+                <p>No pages match this search.</p>
+              )}
+            </nav>
+          )}
+        </div>
+      </div>
+      {app && (
+        <nav className="erp-context-nav" aria-label={`${app.label} navigation`}>
+          <b>{app.label}</b>
+          {app.links.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              aria-current={path === l.href ? "page" : undefined}
+              onClick={close}
+            >
+              {l.label}
+            </Link>
+          ))}
+        </nav>
+      )}
     </div>
   );
 }

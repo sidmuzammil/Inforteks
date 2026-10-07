@@ -176,6 +176,10 @@ test("mobile navigation remains usable and sales cannot open website orders or s
   ).toBeVisible();
   await page
     .getByRole("navigation", { name: "Admin workspace" })
+    .getByRole("link", { name: "Sales", exact: true })
+    .click();
+  await page
+    .getByRole("navigation", { name: "Sales navigation" })
     .getByRole("link", { name: "Direct Sales", exact: true })
     .click();
   await expect(page).toHaveURL(/\/admin\/direct-sales$/);
@@ -214,7 +218,7 @@ test("Owner sees both sales channels and can find shared administration pages", 
   await db.user.update({ where: { id: userId }, data: { role: "OWNER" } });
   await page.goto("/admin");
   await expect(
-    page.getByRole("heading", { name: "Your business, at a glance." }),
+    page.getByRole("heading", { name: "Your business. One workspace." }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Open Direct Sales" }),
@@ -233,7 +237,7 @@ test("Owner sees both sales channels and can find shared administration pages", 
   ).toBeVisible();
   await page.getByLabel("Find an admin page").fill("staff");
   await page
-    .getByRole("navigation", { name: "Admin workspace" })
+    .getByRole("navigation", { name: "Page search results" })
     .getByRole("link", { name: "Staff & access" })
     .click();
   await expect(
@@ -243,6 +247,10 @@ test("Owner sees both sales channels and can find shared administration pages", 
   await page.getByRole("button", { name: "Workspace menu" }).click();
   await page
     .getByRole("navigation", { name: "Admin workspace" })
+    .getByRole("link", { name: "Sales", exact: true })
+    .click();
+  await page
+    .getByRole("navigation", { name: "Sales navigation" })
     .getByRole("link", { name: "Direct Sales", exact: true })
     .click();
   await expect(page).toHaveURL(/\/admin\/direct-sales$/);

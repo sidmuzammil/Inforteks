@@ -156,15 +156,16 @@ test("owner creates two-SKU product, uploads image, adjusts stock and publishes"
   await page.getByLabel("Password", { exact: true }).fill(password);
   await submitEmailSignIn(page);
   await expect(
-    page.getByRole("heading", { name: "Your business, at a glance." }),
+    page.getByRole("heading", { name: "Your business. One workspace." }),
   ).toBeVisible();
-  await expect(page.locator(".metric-card").first()).not.toContainText(
-    "Restricted",
-  );
   await page.screenshot({
     path: ".data/screenshots/admin-overview.png",
     fullPage: true,
   });
+  await page.goto("/admin/reports");
+  await expect(page.locator(".metric-card").first()).not.toContainText(
+    "Restricted",
+  );
   await page.goto("/admin/products/new");
   await page
     .getByLabel("Product name", { exact: true })

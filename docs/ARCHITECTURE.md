@@ -35,6 +35,10 @@ flowchart LR
 
 Office edits serialize with order creation; snapshots preserve what was agreed. Visits are append-only; completing a follow-up records an audited state change. Role `SALES` reads/writes direct-sales contacts and orders, with no implicit access to online orders, price changes, payment recording or fulfilment. No tenant, marketplace seller or duplicate inventory system is introduced. See [workflow details](DIRECT_SALES.md).
 
+## CRM and contact directory
+
+`contacts` provides a permission-filtered directory over office profiles, website customer accounts and order-specific guest records. It never merges identities by email. `crm` owns versioned opportunities and internal activities; contact/channel references are protected by foreign keys and a database check. Only one opportunity can link to an order. The direct-order transaction locks the opportunity before the customer and SKUs, checks its version/contact, then creates the order and records the Won link atomically. Explicit linking locks the opportunity then the existing order and verifies contact ownership, current status and unique attribution. Won estimates are not financial revenue. UI and REST share these services; online purchase details are separately permission checked.
+
 ## Growth path
 
 Keep new capabilities inside the existing domain boundary until measured load justifies a separate service. Add a real payment adapter with signed webhook ingestion and a unique provider-event ledger before accepting card payments. Add shipping providers behind server-validated rate quotes. Preserve the immutable order snapshot when changing catalogue data.

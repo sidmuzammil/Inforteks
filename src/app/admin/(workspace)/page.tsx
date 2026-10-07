@@ -1,262 +1,77 @@
-import { ChannelCards } from "@/components/sales-workspace";
 import Link from "next/link";
-import {
-  Package,
-  ShoppingBag,
-  BarChart3,
-  Boxes,
-  CheckCircle,
-  ArrowRight,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, Plus } from "lucide-react";
 import { staffPageActor } from "@/lib/session";
-import { dashboard, modules } from "@/domains/administration";
-import { db } from "@/lib/db";
-import { money, date } from "@/lib/utils";
-export default async function Dashboard() {
+import { availableAdminApps } from "@/lib/admin-apps";
+import { AdminAppTiles } from "@/components/admin-navigation";
+import { ChannelCards } from "@/components/sales-workspace";
+export default async function Workspace() {
   const actor = await staffPageActor();
-  if (!actor.scopes.includes("reports:read"))
-    return (
-      <div>
-        <div className="admin-page-heading">
-          <div>
-            <div className="eyebrow">INFORTEKS COMMERCE</div>
-            <h1>Welcome to your workspace.</h1>
-          </div>
-        </div>
-        <ChannelCards actor={actor} />
-        <p className="notice">
-          Use the sidebar to open the modules available to your staff role. Your
-          permissions are checked for every operation.
-        </p>
-        <div className="workspace-actions">
-          {modules
-            .filter((m) => actor.scopes.includes(m.scope))
-            .map((m) => (
-              <Link key={m.slug} href={`/admin/${m.slug}`}>
-                <b>
-                  {m.label} <ArrowRight size={16} />
-                </b>
-                <span>{m.description}</span>
-              </Link>
-            ))}
-        </div>
-      </div>
-    );
-  const [stats, orders] = await Promise.all([
-    dashboard(actor),
-    actor.scopes.includes("orders:read")
-      ? db.order.findMany({
-          where: { demo: false },
-          take: 6,
-          orderBy: { createdAt: "desc" },
-        })
-      : [],
-  ]);
+  const apps = availableAdminApps(actor.scopes);
   return (
     <>
       <div className="admin-page-heading">
         <div>
-          <div className="eyebrow">A CLEAR VIEW OF YOUR BUSINESS</div>
-          <h1>Your business, at a glance.</h1>
-          <p>What’s happening, what needs attention, and what comes next.</p>
+          <div className="eyebrow">INFORTEKS WORKSPACE</div>
+          <h1>Your business. One workspace.</h1>
+          <p>Open an app to continue your day.</p>
         </div>
-        {actor.scopes.includes("catalog:write") && (
-          <Link href="/admin/products/new" className="button primary">
-            Add product
-            <ArrowRight size={15} />
+        {actor.scopes.includes("direct_sales:write") && (
+          <Link href="/admin/direct-sales/new-order" className="button primary">
+            <Plus size={16} />
+            New sales order
           </Link>
         )}
       </div>
-      <ChannelCards actor={actor} />
-      <section className="panel workspace-start">
-        <div className="panel-title">
-          <h2>
-            {stats.products === 0
-              ? "Build your storefront"
-              : "Keep your store up to date"}
-          </h2>
-        </div>
-        <div className="workspace-actions">
+      <AdminAppTiles apps={apps} />
+      <div className="erp-home-section">
+        <h2>Two ways to sell. One operation.</h2>
+        <p>
+          Keep each sales channel clear, with shared products and inventory.
+        </p>
+        <ChannelCards actor={actor} />
+      </div>
+      <section className="panel erp-start-guide">
+        <h2>A simple daily workflow</h2>
+        <div>
           {[
             {
-              href: "/admin/categories",
-              title: "Organize categories",
-              text: "Create departments before adding your first products.",
-              scope: "catalog:write",
+              label: "Find your customer",
+              text: "Open Contacts for office and online customer details.",
+              href: "/admin/contacts",
+              show:
+                actor.scopes.includes("direct_sales:read") ||
+                actor.scopes.includes("customers:read"),
             },
             {
-              href: "/admin/brands",
-              title: "Add your brands",
-              text: "Keep brand names consistent across listings.",
-              scope: "catalog:write",
+              label: "Follow up on opportunities",
+              text: "Plan the next call or visit in CRM.",
+              href: "/admin/crm",
+              show: actor.scopes.includes("crm:read"),
             },
             {
-              href: "/admin/products/new",
-              title: "Add a product",
-              text: "Create a draft, add images, then review and publish.",
-              scope: "catalog:write",
-            },
-            {
-              href: "/admin/home-sections",
-              title: "Edit homepage & banners",
-              text: "Change images, headlines, buttons and section order.",
-              scope: "content:write",
-            },
-            {
-              href: "/admin/staff",
-              title: "Manage staff access",
-              text: "Give each colleague a named account and a specific role.",
-              scope: "staff:manage",
-            },
-            {
-              href: "/admin/content",
-              title: "Publish store information",
-              text: "Maintain your contact, privacy, delivery and returns pages.",
-              scope: "content:write",
+              label: "Manage sales orders",
+              text: "Check orders, payments and fulfilment separately.",
+              href: actor.scopes.includes("orders:read")
+                ? "/admin/orders"
+                : "/admin/direct-sales/orders",
+              show:
+                actor.scopes.includes("orders:read") ||
+                actor.scopes.includes("direct_sales:read"),
             },
           ]
-            .filter((item) => actor.scopes.includes(item.scope))
-            .map((item) => (
-              <Link key={item.href} href={item.href}>
-                <b>
-                  {item.title}
-                  <ArrowRight size={16} />
-                </b>
-                <span>{item.text}</span>
+            .filter((item) => item.show)
+            .map((item, i) => (
+              <Link href={item.href} key={item.href}>
+                <span>{i + 1}</span>
+                <div>
+                  <b>{item.label}</b>
+                  <p>{item.text}</p>
+                </div>
+                <ArrowRight size={18} />
               </Link>
             ))}
         </div>
       </section>
-      <div className="metric-grid">
-        {[
-          {
-            label: "Net paid order value",
-            value: stats.sales === null ? "Restricted" : money(stats.sales),
-            icon: BarChart3,
-            caption: "Excludes development orders",
-          },
-          {
-            label: "Live customer orders",
-            value: stats.orders,
-            icon: ShoppingBag,
-            caption: "Real orders, all statuses",
-          },
-          {
-            label: "Catalogue products",
-            value: stats.products,
-            icon: Package,
-            caption: "Across all publication states",
-          },
-          {
-            label: "Low-stock SKUs",
-            value: stats.lowStock,
-            icon: Boxes,
-            caption: "3 or fewer available units",
-          },
-        ].map((m) => (
-          <div className="metric-card" key={m.label}>
-            <m.icon />
-            <small>{m.label}</small>
-            <b>{m.value}</b>
-            <p>{m.caption}</p>
-          </div>
-        ))}
-      </div>
-      <div className="admin-columns">
-        <section className="panel">
-          <div className="panel-title">
-            <h2>Recent orders</h2>
-            <Link href="/admin/orders">View orders →</Link>
-          </div>
-          {orders.length ? (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Order</th>
-                  <th>Channel</th>
-                  <th>Date</th>
-                  <th>Total</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orders.map((o) => (
-                  <tr key={o.id}>
-                    <td>
-                      <Link href={`/admin/orders/${o.id}`}>{o.reference}</Link>
-                    </td>
-                    <td>
-                      <span className="badge">
-                        {o.channel === "DIRECT"
-                          ? "Direct Sales"
-                          : "Online Store"}
-                      </span>
-                    </td>
-                    <td>{date(o.createdAt)}</td>
-                    <td>{money(o.total)}</td>
-                    <td>
-                      <span className="badge">{o.status}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div
-              className="empty-state"
-              style={{ minHeight: 236, padding: 30 }}
-            >
-              <ShoppingBag size={32} />
-              <h3>Your first chapter starts here.</h3>
-              <p>
-                Real customer orders will appear here. Development orders are
-                excluded from business metrics.
-              </p>
-            </div>
-          )}
-        </section>
-        <section className="panel">
-          <div className="panel-title">
-            <h2>Needs your attention</h2>
-            <CheckCircle size={17} color="#8da6dd" />
-          </div>
-          <ul className="checklist">
-            <li>
-              <Boxes />
-              <Link href="/admin/inventory">
-                <b>{stats.lowStock} low-stock SKUs</b>
-                <small>Review availability and stock levels</small>
-              </Link>
-            </li>
-            <li>
-              <CheckCircle />
-              <Link href="/admin/proposals">
-                <b>{stats.pending} pending approvals</b>
-                <small>Exact changes waiting for a human review</small>
-              </Link>
-            </li>
-            <li>
-              <Package />
-              <Link href="/admin/jobs">
-                <b>{stats.failed} failed jobs</b>
-                <small>Inspect recorded background-work failures</small>
-              </Link>
-            </li>
-            <li>
-              <Sparkles />
-              <Link href="/admin/assistant">
-                <b>Meet your operations assistant</b>
-                <small>Prepare work within your existing permissions</small>
-              </Link>
-            </li>
-          </ul>
-        </section>
-      </div>
-      <p className="sales-shared-note">
-        One catalogue and stock balance for both channels. Reports exclude test
-        orders.
-      </p>
     </>
   );
 }

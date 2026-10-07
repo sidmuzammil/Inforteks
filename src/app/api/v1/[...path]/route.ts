@@ -1,3 +1,16 @@
+import { listContacts, getContact } from "@/domains/contacts";
+import {
+  listOpportunities,
+  getOpportunity,
+  createOpportunity,
+  updateOpportunity,
+  moveOpportunity,
+  linkOpportunityOrder,
+  createActivity,
+  completeActivity,
+  listActivities,
+  crmAssignees,
+} from "@/domains/crm";
 import {
   listBusinessCustomers,
   getBusinessCustomer,
@@ -82,7 +95,8 @@ async function dispatch(
   req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> },
 ) {
-  const [area, resource, id, action] = (await params).path;
+  const { path } = await params;
+  const [area, resource, id, action] = path;
   const method = req.method;
   const query = Object.fromEntries(req.nextUrl.searchParams);
   const session = await auth.api.getSession({ headers: req.headers });
@@ -402,6 +416,61 @@ async function dispatch(
       403,
       "Staff access is required.",
     );
+    if (resource === "contacts" && method === "GET") {
+      if (path.length > 4) throw new AppError(404, "Endpoint not found.");
+      if (!id) return ok(await listContacts(actor, query));
+      if (action)
+        return ok(await getContact(actor, id, action, query.page ?? 1));
+    }
+    if (resource === "crm") {
+      if (path.length > 5 || (id !== "opportunities" && path.length > 4))
+        throw new AppError(404, "Endpoint not found.");
+      if (id === "assignees" && method === "GET" && !action)
+        return ok(await crmAssignees(actor));
+      if (id === "activities") {
+        if (method === "GET" && !action)
+          return ok(await listActivities(actor, query, query.opportunity));
+        if (method === "PATCH" && action) {
+          z.object({ completed: z.literal(true) })
+            .strict()
+            .parse(await body());
+          return ok(await completeActivity(actor, action));
+        }
+      }
+      if (id === "opportunities") {
+        if (!action && method === "GET")
+          return ok(await listOpportunities(actor, query));
+        if (!action && method === "POST")
+          return ok(
+            await createOpportunity(
+              actor,
+              await body(),
+              req.headers.get("Idempotency-Key") ?? "",
+            ),
+            201,
+          );
+        if (action && !path[4]) {
+          if (method === "GET") return ok(await getOpportunity(actor, action));
+          if (method === "PATCH")
+            return ok(await updateOpportunity(actor, action, await body()));
+        }
+        if (action && path[4] === "stage" && method === "PATCH")
+          return ok(await moveOpportunity(actor, action, await body()));
+        if (action && path[4] === "order" && method === "POST")
+          return ok(await linkOpportunityOrder(actor, action, await body()));
+        if (action && path[4] === "activities" && method === "POST")
+          return ok(
+            await createActivity(
+              actor,
+              action,
+              await body(),
+              req.headers.get("Idempotency-Key") ?? "",
+            ),
+            201,
+          );
+      }
+      throw new AppError(404, "Endpoint not found.");
+    }
     if (resource === "direct-sales") {
       if (id === "customers") {
         if (method === "GET")

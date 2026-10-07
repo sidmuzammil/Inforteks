@@ -39,9 +39,11 @@ type Quote = Awaited<ReturnType<typeof quoteDirectOrder>>;
 export function OfficeEditor({
   customer,
   onSaved,
+  contacts = false,
 }: {
   customer?: Customer;
   onSaved?: (customer: Customer) => void;
+  contacts?: boolean;
 }) {
   const router = useRouter();
   const [emirate, setEmirate] = useState(customer?.address.emirate ?? "Dubai");
@@ -67,7 +69,11 @@ export function OfficeEditor({
       );
       if (onSaved) onSaved(saved);
       else {
-        router.push(`/admin/direct-sales/customers/${saved.id}`);
+        router.push(
+          contacts
+            ? `/admin/contacts/office/${saved.id}`
+            : `/admin/direct-sales/customers/${saved.id}`,
+        );
         router.refresh();
       }
     } catch (e) {
@@ -237,7 +243,13 @@ export function VisitForm({ customerId }: { customerId: string }) {
     </form>
   );
 }
-export function DirectOrderBuilder({ initial }: { initial?: Customer }) {
+export function DirectOrderBuilder({
+  initial,
+  opportunity,
+}: {
+  initial?: Customer;
+  opportunity?: { id: string; version: number };
+}) {
   const router = useRouter();
   const [customer, setCustomer] = useState<Customer | undefined>(initial);
   const [customers, setCustomers] = useState<Customer[]>([]),
@@ -262,6 +274,7 @@ export function DirectOrderBuilder({ initial }: { initial?: Customer }) {
     lines: lines.map((l) => ({ skuId: l.id, quantity: l.quantity })),
     coupon,
     note,
+    ...(opportunity ? { opportunity } : {}),
   };
   function invalidate() {
     setQuote(null);
@@ -371,7 +384,7 @@ export function DirectOrderBuilder({ initial }: { initial?: Customer }) {
               <h2>
                 <Building2 size={19} /> Office customer
               </h2>
-              {customer && (
+              {customer && !opportunity && (
                 <button
                   className="text-button"
                   disabled={busy}

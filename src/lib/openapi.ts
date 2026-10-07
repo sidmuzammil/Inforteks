@@ -10,6 +10,13 @@ import { productInput } from "@/domains/catalogue";
 import { addressInput, checkoutInput } from "@/domains/commerce";
 import { productMediaInput } from "@/lib/product-media";
 import { locationLookupInput } from "@/domains/geocoding";
+import {
+  opportunityInput,
+  opportunityUpdate,
+  stageInput,
+  activityInput,
+  orderLinkInput,
+} from "@/domains/crm";
 type OperationDoc = {
   method: "get" | "post" | "patch" | "delete";
   path: string;
@@ -18,6 +25,100 @@ type OperationDoc = {
   summary: string;
 };
 export const apiOperations: OperationDoc[] = [
+  {
+    method: "get",
+    path: "/admin/contacts",
+    id: "listContacts",
+    summary:
+      "Unified contact directory; filters q, kind ALL/office/account/guest and page. direct_sales:read permits offices; customers:read permits website accounts and order-specific guest contacts. Never merges by email.",
+  },
+  {
+    method: "get",
+    path: "/admin/contacts/{kind}/{id}",
+    id: "getContact",
+    summary:
+      "Contact details and paginated purchase history. Office access requires direct_sales:read; online contact access requires customers:read and order history additionally requires orders:read. CRM history requires crm:read.",
+  },
+  {
+    method: "get",
+    path: "/admin/crm/opportunities",
+    id: "listOpportunities",
+    scope: "crm:read",
+    summary:
+      "Channel-scoped pipeline/list. q, channel, stage, mine, view, page. Stage counts and expected-value totals cover all matching records; board cards capped at 12 per stage, list pages at 25. Also requires contact access for each channel.",
+  },
+  {
+    method: "post",
+    path: "/admin/crm/opportunities",
+    id: "createOpportunity",
+    scope: "crm:write",
+    summary:
+      "Create from an existing permitted contact. Idempotency-Key required; channel derives from contact. Does not create an account or order.",
+  },
+  {
+    method: "get",
+    path: "/admin/crm/opportunities/{id}",
+    id: "getOpportunity",
+    scope: "crm:read",
+    summary:
+      "Read a permitted opportunity; linked online order details additionally require orders:read.",
+  },
+  {
+    method: "patch",
+    path: "/admin/crm/opportunities/{id}",
+    id: "updateOpportunity",
+    scope: "crm:write",
+    summary:
+      "Version-checked title, estimate, expected close, salesperson and notes. Contact identity is immutable.",
+  },
+  {
+    method: "patch",
+    path: "/admin/crm/opportunities/{id}/stage",
+    id: "moveOpportunity",
+    scope: "crm:write",
+    summary:
+      "Version-checked stage change. Lost requires a reason; Won requires a linked active order. Audited.",
+  },
+  {
+    method: "post",
+    path: "/admin/crm/opportunities/{id}/order",
+    id: "linkOpportunityOrder",
+    scope: "crm:write",
+    summary:
+      "Link an existing order for the same contact and channel, then mark Won. One opportunity per order; version checked. Does not record payment. Online linking additionally requires orders:read.",
+  },
+  {
+    method: "post",
+    path: "/admin/crm/opportunities/{id}/activities",
+    id: "createCrmActivity",
+    scope: "crm:write",
+    summary:
+      "Schedule an internal activity with UTC dueAt. Idempotency-Key required. No email or notification is sent.",
+  },
+  {
+    method: "get",
+    path: "/admin/crm/activities",
+    id: "listCrmActivities",
+    scope: "crm:read",
+    summary:
+      "Paginated pending activities; filters channel and mine. Optional opportunity ID returns planned and completed history for that permitted opportunity.",
+  },
+  {
+    method: "patch",
+    path: "/admin/crm/activities/{id}",
+    id: "completeCrmActivity",
+    scope: "crm:write",
+    summary:
+      "Complete a permitted activity with completed:true. Repeat requests do not duplicate audit events.",
+  },
+  {
+    method: "get",
+    path: "/admin/crm/assignees",
+    id: "listCrmAssignees",
+    scope: "crm:read",
+    summary:
+      "Names, IDs and eligible sales channels of active CRM colleagues. No credentials or grants returned.",
+  },
   {
     method: "get",
     path: "/admin/direct-sales/customers",
@@ -560,6 +661,14 @@ export const apiOperations: OperationDoc[] = [
   },
 ];
 const requestSchemas: Record<string, unknown> = {
+  createOpportunity: z.toJSONSchema(opportunityInput),
+  updateOpportunity: z.toJSONSchema(opportunityUpdate),
+  moveOpportunity: z.toJSONSchema(stageInput),
+  linkOpportunityOrder: z.toJSONSchema(orderLinkInput),
+  createCrmActivity: z.toJSONSchema(activityInput),
+  completeCrmActivity: z.toJSONSchema(
+    z.object({ completed: z.literal(true) }).strict(),
+  ),
   updateDeliveryAddress: z.toJSONSchema(addressInput),
   lookupDeliveryAddress: z.toJSONSchema(locationLookupInput),
   updateProductMedia: z.toJSONSchema(productMediaInput),
@@ -671,7 +780,15 @@ for (const o of apiOperations) {
     required: true,
     schema: { type: "string" },
   }));
-  if (["createOrder", "createDirectOrder", "createSalesVisit"].includes(o.id))
+  if (
+    [
+      "createOrder",
+      "createDirectOrder",
+      "createSalesVisit",
+      "createOpportunity",
+      "createCrmActivity",
+    ].includes(o.id)
+  )
     parameters.push({
       name: "Idempotency-Key",
       in: "header",
@@ -682,6 +799,8 @@ for (const o of apiOperations) {
     });
   if (
     [
+      "listContacts",
+      "listOpportunities",
       "listBusinessCustomers",
       "listDirectOrders",
       "listSalesOrders",
@@ -695,6 +814,10 @@ for (const o of apiOperations) {
     });
   if (
     [
+      "listContacts",
+      "getContact",
+      "listOpportunities",
+      "listCrmActivities",
       "listBusinessCustomers",
       "listDirectOrders",
       "listSalesOrders",
@@ -729,6 +852,59 @@ for (const o of apiOperations) {
       in: "query",
       schema: { type: "string", maxLength: 100 },
     });
+  }
+  if (o.id === "listContacts")
+    parameters.push({
+      name: "kind",
+      in: "query",
+      schema: {
+        type: "string",
+        enum: ["ALL", "office", "account", "guest"],
+        default: "ALL",
+      },
+    });
+  if (["listOpportunities", "listCrmActivities"].includes(o.id)) {
+    parameters.push(
+      {
+        name: "channel",
+        in: "query",
+        schema: {
+          type: "string",
+          enum: ["ALL", "DIRECT", "ONLINE"],
+          default: "ALL",
+        },
+      },
+      {
+        name: "mine",
+        in: "query",
+        schema: { type: "string", enum: ["yes", "no"], default: "no" },
+      },
+    );
+    if (o.id === "listOpportunities")
+      parameters.push(
+        {
+          name: "stage",
+          in: "query",
+          schema: {
+            type: "string",
+            enum: ["ALL", "NEW", "QUALIFIED", "PROPOSAL", "WON", "LOST"],
+            default: "ALL",
+          },
+        },
+        {
+          name: "view",
+          in: "query",
+          schema: { type: "string", enum: ["board", "list"], default: "board" },
+        },
+      );
+    else
+      parameters.push({
+        name: "opportunity",
+        in: "query",
+        schema: { type: "string", maxLength: 100 },
+        description:
+          "Show planned and completed activities for one permitted opportunity.",
+      });
   }
   if (o.id === "listSalesOrders")
     parameters.push({

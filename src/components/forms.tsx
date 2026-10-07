@@ -18,6 +18,7 @@ import { useDeliveryLocation, saveDeliveryLocation } from "./delivery-location";
 import { comingSoon } from "@/lib/delivery-location";
 import { DeliveryAddressFields } from "./delivery-address";
 import { readDeliveryAddress, type DeliveryAddress } from "@/lib/address";
+import { aedToFils } from "@/lib/merchant-pricing";
 
 export type Field = {
   name: string;
@@ -80,8 +81,13 @@ export function Fields({
             <input
               aria-label={f.label}
               name={f.name}
-              type={f.type ?? "text"}
-              defaultValue={String(values?.[f.name] ?? f.value ?? "")}
+              type={f.type === "money" ? "text" : (f.type ?? "text")}
+              inputMode={f.type === "money" ? "decimal" : undefined}
+              defaultValue={
+                f.type === "money"
+                  ? (Number(values?.[f.name] ?? f.value ?? 0) / 100).toFixed(2)
+                  : String(values?.[f.name] ?? f.value ?? "")
+              }
               required={f.required !== false}
               min={f.min}
               max={f.max}
@@ -99,13 +105,15 @@ export function readFields(form: HTMLFormElement, fields: Field[]) {
   return Object.fromEntries(
     fields.map((f) => [
       f.name,
-      f.type === "number"
-        ? Number(fd.get(f.name))
-        : f.type === "checkbox"
-          ? fd.has(f.name)
-          : f.type === "json"
-            ? JSON.parse(String(fd.get(f.name)))
-            : String(fd.get(f.name) ?? ""),
+      f.type === "money"
+        ? aedToFils(fd.get(f.name))
+        : f.type === "number"
+          ? Number(fd.get(f.name))
+          : f.type === "checkbox"
+            ? fd.has(f.name)
+            : f.type === "json"
+              ? JSON.parse(String(fd.get(f.name)))
+              : String(fd.get(f.name) ?? ""),
     ]),
   );
 }

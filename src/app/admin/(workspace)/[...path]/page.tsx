@@ -1,4 +1,7 @@
+import { OrderProposalSummary } from "@/components/order-proposal-summary";
+import { OrderFulfilment } from "@/components/order-fulfilment";
 import { SalesWorkspace, SalesOrdersPage } from "@/components/sales-workspace";
+import { ContactsWorkspace, CrmWorkspace } from "@/components/erp-workspace";
 import { requireOrderRead } from "@/domains/direct-sales";
 import { AddressSummary } from "@/components/address-summary";
 import { emailDeliveryEnabled } from "@/lib/email-policy";
@@ -69,6 +72,9 @@ export default async function AdminPage({
   const [resource, id, action] = path;
   const query = await searchParams;
   async function renderPage() {
+    if (resource === "contacts")
+      return await ContactsWorkspace({ actor, path, query });
+    if (resource === "crm") return await CrmWorkspace({ actor, path, query });
     if (["direct-sales", "online-store"].includes(resource))
       return await SalesWorkspace({ actor, path, query });
     if (resource === "orders" && !id)
@@ -146,8 +152,8 @@ export default async function AdminPage({
         return (
           <>
             <Heading
-              title="Create something worth discovering."
-              description="Start with a draft. Bring it to life one detail at a time."
+              title="New product"
+              description="Add product details, prices and images. Review the draft before publishing."
             />
             <ProductEditor
               categories={categories}
@@ -236,14 +242,27 @@ export default async function AdminPage({
     if (resource === "proposals" && id) {
       const p = await db.proposal.findUnique({ where: { id } });
       if (!p || (p.actorId !== actor.id && actor.role !== "OWNER")) notFound();
+      const orderProposal = [
+        "order.fulfil",
+        "order.cancel",
+        "payment.record",
+        "refund.request",
+      ].includes(p.operation);
       return (
         <>
           <Heading
             title="Review the exact change."
-            description="One concrete preview. One authorized human decision."
+            description="Check the details below. Approval will apply this change."
           />
           <div className="proposal-card">
-            <h3>{p.operation}</h3>
+            <h3>
+              {{
+                "order.fulfil": "Prepare shipment",
+                "order.cancel": "Cancel order",
+                "payment.record": "Record verified payment",
+                "refund.request": "Request refund",
+              }[p.operation] ?? p.operation}
+            </h3>
             <p className="form-help">
               Record: {p.targetId} · Version: {p.version} · Status: {p.status} ·
               Expires:{" "}
@@ -253,16 +272,43 @@ export default async function AdminPage({
                 timeZone: "Asia/Dubai",
               }).format(p.expiresAt)}
             </p>
-            <div className="proposal-diff">
-              <div>
-                <b>Current record</b>
-                <pre>{JSON.stringify(p.before, null, 2)}</pre>
-              </div>
-              <div>
-                <b>Proposed change</b>
-                <pre>{JSON.stringify(p.payload, null, 2)}</pre>
-              </div>
-            </div>
+            {orderProposal ? (
+              <>
+                <OrderProposalSummary
+                  operation={p.operation}
+                  targetId={p.targetId}
+                  before={p.before}
+                  payload={p.payload}
+                />
+                <details className="erp-disclosure">
+                  <summary>Technical change details</summary>{" "}
+                  <div className="proposal-diff">
+                    <div>
+                      <b>Current record</b>
+                      <pre>{JSON.stringify(p.before, null, 2)}</pre>
+                    </div>
+                    <div>
+                      <b>Proposed change</b>
+                      <pre>{JSON.stringify(p.payload, null, 2)}</pre>
+                    </div>
+                  </div>
+                </details>
+              </>
+            ) : (
+              <>
+                {" "}
+                <div className="proposal-diff">
+                  <div>
+                    <b>Current record</b>
+                    <pre>{JSON.stringify(p.before, null, 2)}</pre>
+                  </div>
+                  <div>
+                    <b>Proposed change</b>
+                    <pre>{JSON.stringify(p.payload, null, 2)}</pre>
+                  </div>
+                </div>
+              </>
+            )}
             <p className="notice">
               Approval rechecks current permissions, record version and business
               rules. A changed, expired or already consumed proposal will be
@@ -462,9 +508,9 @@ export default async function AdminPage({
                 {actor.scopes.includes("direct_sales:read") &&
                   o.businessCustomerId && (
                     <Link
-                      href={`/admin/direct-sales/customers/${o.businessCustomerId}`}
+                      href={`/admin/contacts/office/${o.businessCustomerId}`}
                     >
-                      Office profile →
+                      Contact profile →
                     </Link>
                   )}
                 {o.salesNote && (
@@ -525,32 +571,15 @@ export default async function AdminPage({
               o.fulfillmentStatus !== "FULFILLED" && (
                 <div className="panel">
                   <h2 style={{ marginBottom: 18 }}>Prepare shipment</h2>
-                  <ProposalForm
-                    operation="order.fulfil"
-                    targetId={id}
-                    fields={[
-                      {
-                        name: "carrier",
-                        label: "Carrier / fulfillment method",
-                      },
-                      {
-                        name: "tracking",
-                        label: "Tracking reference",
-                        required: false,
-                      },
-                      {
-                        name: "items",
-                        label: "Item quantities (JSON)",
-                        type: "json",
-                        value: o.items
-                          .filter((i) => i.fulfilled < i.quantity)
-                          .map((i) => ({
-                            itemId: i.id,
-                            quantity: i.quantity - i.fulfilled,
-                          })),
-                      },
-                    ]}
-                    label="Review fulfillment"
+                  <OrderFulfilment
+                    id={id}
+                    items={o.items
+                      .filter((i) => i.fulfilled < i.quantity)
+                      .map((i) => ({
+                        id: i.id,
+                        name: (i.snapshot as { name: string }).name,
+                        remaining: i.quantity - i.fulfilled,
+                      }))}
                   />
                 </div>
               )}
@@ -582,8 +611,8 @@ export default async function AdminPage({
                       { name: "reference", label: "Bank / receipt reference" },
                       {
                         name: "amount",
-                        label: "Received amount (fils)",
-                        type: "number",
+                        label: "Received amount (AED)",
+                        type: "money",
                         value: o.total,
                       },
                     ]}
@@ -601,8 +630,8 @@ export default async function AdminPage({
                     fields={[
                       {
                         name: "amount",
-                        label: "Amount (fils)",
-                        type: "number",
+                        label: "Amount (AED)",
+                        type: "money",
                         value: o.total,
                       },
                       { name: "reason", label: "Reason" },
@@ -1401,6 +1430,16 @@ export default async function AdminPage({
           <h1>Permission required.</h1>
           <p>{e.message}</p>
           <Link className="button" href="/admin">
+            Back to workspace
+          </Link>
+        </div>
+      );
+    if (e instanceof AppError && e.status >= 400 && e.status < 500)
+      return (
+        <div className="empty-state">
+          <h1>This record needs attention.</h1>
+          <p>{e.message}</p>
+          <Link href="/admin" className="button">
             Back to workspace
           </Link>
         </div>
