@@ -7,9 +7,11 @@ import {
   sectionContent,
   sectionProductQuery,
   productSectionKinds,
+  type HomeSectionData,
 } from "@/lib/home-sections";
+import { onlineProductWhere } from "@/lib/product-visibility";
 import { requireScope, type Actor } from "./identity";
-import { catalogue } from "./catalogue";
+import { catalogue, includeProduct, publicProduct } from "./catalogue";
 const internalPath = z
   .string()
   .regex(/^\/(?!\/)[a-zA-Z0-9/?=&_#%-]*$/, "Use a path within this store.")
@@ -24,6 +26,26 @@ const card = z
     alt: z.string().max(250),
   })
   .strict();
+const heroSlide = z
+  .object({
+    title: z.string().trim().min(2).max(150),
+    subtitle: z.string().max(350),
+    eyebrow: z.string().max(100),
+    buttonLabel: z.string().trim().min(2).max(60),
+    href: internalPath,
+    mediaId: z.string().min(1).nullable(),
+    productId: z.string().min(1).nullable(),
+    alt: z.string().max(250),
+    tone: z.enum(["navy", "blue", "light"]),
+  })
+  .strict()
+  .refine((slide) => Boolean(slide.mediaId || slide.productId), {
+    message: "Choose a published product or upload a real product banner.",
+  })
+  .refine((slide) => !slide.mediaId || slide.alt.trim().length >= 3, {
+    message: "Describe the uploaded banner image.",
+    path: ["alt"],
+  });
 export const homeSectionInput = z
   .object({
     title: z.string().trim().min(2).max(150),
@@ -48,6 +70,9 @@ export const homeSectionInput = z
     version: z.number().int().positive().optional(),
     content: z
       .object({
+        heroSlides: z.array(heroSlide).max(6).default([]),
+        autoplay: z.boolean().default(false),
+        autoProductHero: z.boolean().default(true),
         eyebrow: z.string().max(100),
         footer: z.string().max(100),
         showSideCards: z.boolean(),
@@ -159,9 +184,29 @@ export async function prepareHomeSection(raw: unknown, conn: Tx = db) {
   );
   const content = sectionContent(d.content ?? defaultContent);
   content.html = cleanBannerHtml(content.html);
+  if (d.kind === "hero") {
+    const requestedProducts = new Set(
+      content.heroSlides.flatMap((slide) =>
+        slide.productId ? [slide.productId] : [],
+      ),
+    );
+    if (requestedProducts.size) {
+      const products = await resolveHeroProducts({ ...d, content }, conn);
+      invariant(
+        products.length === requestedProducts.size,
+        422,
+        "Choose published Online Store products with an active variant and a published product photo. Samples and private products cannot appear in banners.",
+      );
+    }
+  }
   const ids = [
     ...new Set([
       ...(d.bannerMediaId ? [d.bannerMediaId] : []),
+      ...(d.kind === "hero"
+        ? content.heroSlides.flatMap((slide) =>
+            slide.mediaId ? [slide.mediaId] : [],
+          )
+        : []),
       ...(d.kind === "hero" && content.showSideCards
         ? content.sideCards.flatMap((c) => (c.mediaId ? [c.mediaId] : []))
         : []),
@@ -187,10 +232,61 @@ export async function prepareHomeSection(raw: unknown, conn: Tx = db) {
   );
   return { ...d, content, mediaIds: ids };
 }
+// Resolve again on every public render and staff preview: a saved product
+// binding never grants access after its product, category or media is hidden.
+export async function resolveHeroProducts(
+  section: Pick<HomeSectionData, "kind" | "content"> & {
+    bannerMediaId?: string | null;
+  },
+  conn: Tx = db,
+) {
+  if (section.kind !== "hero") return [];
+  const ids = [
+    ...new Set(
+      section.content.heroSlides.flatMap((slide) =>
+        slide.productId ? [slide.productId] : [],
+      ),
+    ),
+  ];
+  const automatic =
+    !section.content.heroSlides.length &&
+    !section.bannerMediaId &&
+    section.content.autoProductHero;
+  if (!ids.length && !automatic) return [];
+  const records = await conn.product.findMany({
+    where: {
+      ...onlineProductWhere,
+      demo: false,
+      ...(ids.length ? { id: { in: ids } } : {}),
+      OR: [
+        { quoteOnly: true, skus: { some: { active: true } } },
+        {
+          quoteOnly: false,
+          skus: { some: { active: true, price: { not: null } } },
+        },
+      ],
+      media: {
+        some: { public: true, NOT: { key: { startsWith: "illustrations/" } } },
+      },
+    },
+    include: includeProduct,
+    orderBy: [{ featured: "desc" }, { updatedAt: "desc" }, { id: "asc" }],
+    take: 6,
+  });
+  return records
+    .map((record) => {
+      const product = publicProduct(record);
+      return {
+        ...product,
+        media: product.media.filter((media) => media.url.startsWith("/media/")),
+      };
+    })
+    .filter((product) => product.skus.length > 0 && product.media.length > 0);
+}
 export async function previewHomeSection(actor: Actor, raw: unknown) {
   requireScope(actor, "content:write");
   const section = await prepareHomeSection(raw);
-  const [products, categories] = await Promise.all([
+  const [products, categories, heroProducts] = await Promise.all([
     productSectionKinds.includes(section.kind)
       ? catalogue(sectionProductQuery(section))
       : null,
@@ -200,6 +296,12 @@ export async function previewHomeSection(actor: Actor, raw: unknown) {
           orderBy: { position: "asc" },
         })
       : [],
+    resolveHeroProducts(section),
   ]);
-  return { section, products: products?.products ?? [], categories };
+  return {
+    section,
+    products: products?.products ?? [],
+    categories,
+    heroProducts,
+  };
 }

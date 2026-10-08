@@ -1,5 +1,5 @@
 export const sectionTypes = {
-  hero: "Hero & side banners",
+  hero: "Hero carousel & side banners",
   cta: "Call to action banner",
   html: "Custom HTML banner",
   categories: "Departments",
@@ -16,7 +16,21 @@ export type BannerCard = {
   mediaId: string | null;
   alt: string;
 };
+export type HeroSlide = {
+  title: string;
+  subtitle: string;
+  eyebrow: string;
+  buttonLabel: string;
+  href: string;
+  mediaId: string | null;
+  productId: string | null;
+  alt: string;
+  tone: "navy" | "blue" | "light";
+};
 export type SectionContent = {
+  heroSlides: HeroSlide[];
+  autoplay: boolean;
+  autoProductHero: boolean;
   eyebrow: string;
   footer: string;
   showSideCards: boolean;
@@ -30,6 +44,9 @@ export type SectionContent = {
   collectionSlug: string;
 };
 export const defaultContent: SectionContent = {
+  heroSlides: [],
+  autoplay: false,
+  autoProductHero: true,
   tone: "navy",
   layout: "grid",
   productLimit: 5,
@@ -38,7 +55,7 @@ export const defaultContent: SectionContent = {
   eyebrow: "THE NEXT CHAPTER IN TECH",
   footer: "WORK. PLAY. CREATE.",
   showSideCards: true,
-  imageAlt: "Unbranded concept gaming laptop with an illuminated blue display",
+  imageAlt: "",
   html: "",
   sideCards: [
     {
@@ -47,7 +64,7 @@ export const defaultContent: SectionContent = {
       buttonLabel: "Explore workspaces",
       href: "/categories",
       mediaId: null,
-      alt: "Illustrative desktop monitor",
+      alt: "",
     },
     {
       eyebrow: "SMALL DETAILS. BIG DIFFERENCE.",
@@ -55,7 +72,7 @@ export const defaultContent: SectionContent = {
       buttonLabel: "Explore accessories",
       href: "/categories",
       mediaId: null,
-      alt: "Illustrative over-ear headphones",
+      alt: "",
     },
   ],
 };
@@ -80,6 +97,7 @@ export function sectionContent(raw: unknown): SectionContent {
     ...defaultContent,
     ...data,
     sideCards: data.sideCards ?? defaultContent.sideCards,
+    heroSlides: data.heroSlides ?? defaultContent.heroSlides,
   };
 }
 

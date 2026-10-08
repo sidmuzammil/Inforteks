@@ -30,6 +30,16 @@ export function SectionPreview({
     );
     observer.observe(mount);
     const stop = (e: Event) => {
+      // Only trusted renderer controls are interactive in the isolated preview.
+      // Uploaded HTML cannot create buttons or supply this attribute.
+      const target = e.target;
+      if (
+        target &&
+        "closest" in target &&
+        typeof target.closest === "function" &&
+        target.closest('button[data-preview-control="true"]')
+      )
+        return;
       e.preventDefault();
       e.stopPropagation();
     };

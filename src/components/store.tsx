@@ -66,9 +66,10 @@ export async function Header() {
         <nav className="container main-nav" aria-label="Main navigation">
           <DepartmentMenu categories={categories} />
           <div className="nav-links">
+            <Link href="/search">All products</Link>
             {categories
               .filter((c) => !c.parentId)
-              .slice(0, 4)
+              .slice(0, 3)
               .map((c) => (
                 <Link key={c.id} href={`/category/${c.slug}`}>
                   {c.name}
@@ -171,6 +172,7 @@ export function Footer() {
           {
             title: "Explore",
             links: [
+              ["All products", "/search"],
               ["Laptops", "/category/laptops"],
               ["Toners & cartridges", "/category/toners-cartridges"],
               ["PC components", "/category/components"],

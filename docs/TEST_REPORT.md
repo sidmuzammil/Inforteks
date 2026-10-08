@@ -1,5 +1,13 @@
 # Verification report
 
+## Product-photo carousel — 8 October 2026
+
+- **116 unit/integration tests across 26 files** passed in isolated `inforteks_test`. Five new domain cases cover current publication/store/category/SKU/photo eligibility; quote-only price/stock redaction; permission-protected no-write previews; automatic non-demo selection; uploaded media schedules, removal and stale versions; and rejected cross-product media references, missing images and excess slides.
+- **16 distinct browser journeys** passed across the carousel, merchant-editor, storefront navigation, quote-catalogue and account suites. New cases exercise desktop keyboard/thumbnail controls, 320/390px touch navigation and overflow, functioning carousel controls inside non-navigating staff previews, and removal of draft/Direct-only/private-photo products. A focused follow-up also verifies six slides plus rotation controls fit at 320px, all slide selectors are at least 24px wide, and reduced motion removes the rotation control. Representative carousel Axe checks found no serious or critical violations. Legacy uploaded hero/side-banner previews remain private and do not save during preview.
+- The first carousel run caught an actual product-picker endpoint error; it now uses the public storefront products endpoint. Its test verifies the response before selection. The touch fixture was corrected to use complete browser Touch objects. A regression recovery case initially lacked the local job worker; all five account journeys passed after starting the required worker. A single-test recovery retry could not run independently of its account-creation fixture; the complete file was rerun. Authentication limits and production settings were not changed.
+- Desktop/mobile screenshots use explicitly synthetic local test fixtures for layout checks, not verified merchant product imagery. They must not be presented as a populated live catalogue. No production seed, Owner reset or production browser fixture was used.
+- Full TypeScript, ESLint, formatting, OpenAPI validation (129 operations) and the optimized production build with an unreachable database passed. Remote rollout results are recorded in `RAILWAY_STATUS.md` when verified. This carousel revision adds no migration.
+
 ## Quote catalogue and premium storefront — 8 October 2026
 
 GitHub Actions [37768182660](https://github.com/sidmuzammil/Inforteks/actions/runs/37768182660) passed all checks, including the full browser suite and production build, on application commit `bc40ddde109625b876f4924dccf2a1b51f7ef534`. The later supplier research CLI passed a local feed fixture confirming separate product/variant counts, stripped commercial fields and unresolved publication status; its live feed remains inaccessible.

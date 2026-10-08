@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { catalogue } from "@/domains/catalogue";
-import { cleanBannerHtml } from "@/domains/home-sections";
+import { cleanBannerHtml, resolveHeroProducts } from "@/domains/home-sections";
 import {
+  defaultContent,
   sectionContent,
   sectionProductQuery,
   productSectionKinds,
@@ -32,29 +33,60 @@ export default async function Home() {
     sections.map(async (section) => {
       const content = sectionContent(section.content);
       content.html = cleanBannerHtml(content.html);
-      const products = productSectionKinds.includes(section.kind)
-        ? (await catalogue(sectionProductQuery({ ...section, content })))
-            .products
-        : [];
-      return { section: { ...section, content }, products };
+      const preparedSection = { ...section, content };
+      const [selection, heroProducts] = await Promise.all([
+        productSectionKinds.includes(section.kind)
+          ? catalogue(sectionProductQuery(preparedSection))
+          : null,
+        resolveHeroProducts(preparedSection),
+      ]);
+      return {
+        section: preparedSection,
+        products: selection?.products ?? [],
+        heroProducts,
+      };
     }),
   );
+  // A published product need not be featured or discounted to be discoverable.
+  // Existing curated shelves retain their settings; an otherwise empty homepage
+  // gets the newest eligible catalogue products through the same public query.
+  const catalogueShelf = prepared.some(({ products }) => products.length)
+    ? null
+    : await catalogue({ sort: "newest", limit: 12 });
   return (
     <>
       <div className="container home-content">
         <div className="store-intro">
           <span>THE INFORTEKS STORE</span>
-          <p>Technology for your business. Essentials for your everyday.</p>
-          <Link href="/categories">Explore all technology →</Link>
+          <p>Find your next everyday essential.</p>
+          <Link href="/search">Shop all products →</Link>
         </div>
-        {prepared.map(({ section, products }) => (
+        {prepared.map(({ section, products, heroProducts }) => (
           <HomeSectionView
             key={section.id}
             section={section}
             categories={categories}
             products={products}
+            heroProducts={heroProducts}
           />
         ))}
+        {catalogueShelf && catalogueShelf.products.length > 0 && (
+          <HomeSectionView
+            section={{
+              kind: "collection",
+              title: "Explore the catalogue",
+              subtitle: "Find the right technology for you",
+              href: "/search",
+              buttonLabel: `View all ${catalogueShelf.total} products`,
+              bannerMediaId: null,
+              position: 0,
+              visible: true,
+              content: { ...defaultContent, productLimit: 12 },
+            }}
+            products={catalogueShelf.products}
+            categories={[]}
+          />
+        )}
         {brands.length > 0 && (
           <section className="brands-strip">
             <p className="eyebrow">EXPLORE THE BRANDS YOU KNOW</p>

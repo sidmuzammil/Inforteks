@@ -436,6 +436,9 @@ export function DepartmentMenu({
               ))}
           </div>
           <div className="mega-quick-links">
+            <Link href="/search" onClick={() => setOpen(false)}>
+              All products
+            </Link>
             <Link href="/offers" onClick={() => setOpen(false)}>
               Offers
             </Link>
