@@ -1,8 +1,10 @@
 # Storefront redesign — 8 October 2026
 
-## Reference review and original direction
+## Marketplace layout and reference review
 
-Reviewed https://www.alershadonline.com/ on 8 October 2026. Useful patterns are prominent product search, grouped technology departments, separate offer/new-product shopping routes and image-led product cards. The later product-carousel revision also reviewed publicly indexed Noon electronics navigation; live reference homepages timed out in the available browser connector, so a fresh visual review is not claimed. Inforteks retains its own logo, navy/blue/pearl palette, copy and category hierarchy. No reference-site artwork, product descriptions, prices, reviews, delivery promises or warranty claims were copied.
+The storefront follows the shopping hierarchy of https://uae.microless.com/: a compact search-led header, grouped department navigation, wide product campaigns, dense product rows, sidebar filters and a separate product purchase panel. Its desktop/mobile HTML and CSS and browser-rendered homepage, toner category and product layouts were reviewed on 8 October 2026. The reference image CDN is blocked in this workspace, so the captured pages establish layout rather than verified product or campaign photography. Al Ershad remains the separately researched catalogue source. Inforteks uses its own deep-navy, jade-green and soft-pearl palette, logo, copy and catalogue hierarchy; no other merchant's artwork, descriptions, prices, reviews, delivery promises or warranty claims were copied.
+
+`src/app/storefront.css` scopes the marketplace presentation to `.storefront-shell`. The root layout loads it after the existing stylesheet so the same styles are available inside authorized section previews. The public shopping layout and isolated preview root carry that wrapper; staff administration and Direct Sales do not. Product grids and scrolling rows retain every rendered product at all viewport widths rather than hiding later cards. Category/search pages expose current filters and context-preserving reset links, with a keyboard-accessible modal filter drawer on phones and tablets. Product detail separates the gallery, identity/highlights and purchase/quote area, then presents the selected SKU's specifications and existing reviews.
 
 ## Product-led carousel
 
@@ -20,7 +22,7 @@ Product cards emphasize brand, name, highlights, AED price, genuine previous-pri
 
 ## Online Store controls
 
-Open Online Store → Homepage → Edit & preview. Existing sections and their saved copy, schedules, media and visibility remain intact. Banners offer Midnight navy, Inforteks blue and Soft ice themes. Product sections offer a responsive grid or horizontal row, 1–12 products, and optional department and collection filters. Filters combine with the section's Featured, Discounted or New arrivals selection. Curated shopping sections use newest matching products.
+Open Online Store → Homepage → Edit & preview. Existing sections and their saved copy, schedules, media and visibility remain intact. Banners offer Midnight navy, Jade green and Soft pearl themes. The existing stored `blue` tone value remains backward compatible and is presented as Jade green. Product sections offer a responsive grid or horizontal row, 1–12 products, and optional department and collection filters. Filters combine with the section's Featured, Discounted or New arrivals selection. Curated shopping sections use newest matching products.
 
 Desktop/mobile previews and the storefront share rendering and query construction. Preview does not save, publish or enable shopping actions; the carousel navigation controls remain interactive inside its isolated frame. Only published Online Store products are selected; `Product.store=false` and draft products remain excluded. Empty configured product sections stay hidden. Changes retain existing content permissions, optimistic versions, media authorization, schedule enforcement and sanitization.
 

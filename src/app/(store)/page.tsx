@@ -9,6 +9,7 @@ import {
   productSectionKinds,
 } from "@/lib/home-sections";
 import { HomeSectionView } from "@/components/home-section-view";
+import { DepartmentIcon } from "@/components/department-icon";
 import { Benefits } from "@/components/store";
 export default async function Home() {
   const now = new Date();
@@ -53,14 +54,31 @@ export default async function Home() {
   const catalogueShelf = prepared.some(({ products }) => products.length)
     ? null
     : await catalogue({ sort: "newest", limit: 12 });
+  const showCategoryShortcuts =
+    categories.length > 0 &&
+    !prepared.some(({ section }) => section.kind === "categories");
   return (
     <>
-      <div className="container home-content">
-        <div className="store-intro">
-          <span>THE INFORTEKS STORE</span>
-          <p>Find your next everyday essential.</p>
-          <Link href="/search">Shop all products →</Link>
-        </div>
+      <div className="container home-content marketplace-home">
+        {showCategoryShortcuts && (
+          <nav
+            className="marketplace-quick-categories"
+            aria-label="Shop by department"
+          >
+            {categories.map((category) => (
+              <Link key={category.id} href={`/category/${category.slug}`}>
+                <DepartmentIcon
+                  name={`${category.slug} ${category.name}`}
+                  size={22}
+                />
+                <span>{category.name}</span>
+              </Link>
+            ))}
+            <Link href="/categories" className="all-departments-link">
+              All departments
+            </Link>
+          </nav>
+        )}
         {prepared.map(({ section, products, heroProducts }) => (
           <HomeSectionView
             key={section.id}
@@ -74,8 +92,8 @@ export default async function Home() {
           <HomeSectionView
             section={{
               kind: "collection",
-              title: "Explore the catalogue",
-              subtitle: "Find the right technology for you",
+              title: "Discover our products",
+              subtitle: "Browse the latest additions to Inforteks",
               href: "/search",
               buttonLabel: `View all ${catalogueShelf.total} products`,
               bannerMediaId: null,
@@ -88,8 +106,8 @@ export default async function Home() {
           />
         )}
         {brands.length > 0 && (
-          <section className="brands-strip">
-            <p className="eyebrow">EXPLORE THE BRANDS YOU KNOW</p>
+          <section className="brands-strip marketplace-brands">
+            <h2>Shop by brand</h2>
             <div>
               {brands.map((b) => (
                 <Link key={b.id} href={`/brand/${b.slug}`}>

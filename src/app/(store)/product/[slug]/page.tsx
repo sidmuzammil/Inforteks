@@ -1,4 +1,6 @@
 import { notFound, permanentRedirect } from "next/navigation";
+import Link from "next/link";
+import { Check } from "lucide-react";
 import { db } from "@/lib/db";
 import { catalogue, getProduct } from "@/domains/catalogue";
 import { ProductPurchase, Gallery } from "@/components/store-client";
@@ -35,6 +37,16 @@ export default async function Product({
   }
   const { sku } = await searchParams;
   const related = await catalogue({ category: p.category.slug, limit: 6 });
+  const selectedSku = p.skus.find((item) => item.id === sku) ?? p.skus[0];
+  const specifications = Object.entries({
+    ...(p.specs as Record<string, unknown>),
+    ...(selectedSku?.specs as Record<string, unknown>),
+  }).filter(
+    ([key, value]) => key !== "dataset" && value !== null && value !== "",
+  );
+  const relatedProducts = related.products
+    .filter((item) => item.id !== p.id)
+    .slice(0, 5);
   const schema = {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -67,19 +79,60 @@ export default async function Product({
       : {}),
   };
   return (
-    <div className="page-container">
+    <div className="page-container product-detail-page">
       <Breadcrumbs
         items={[
           { label: p.category.name, href: `/category/${p.category.slug}` },
           { label: p.name },
         ]}
       />
-      <div className="product-detail">
+      <div className="product-detail product-detail-marketplace">
         <Gallery product={p} />
         <div className="product-info">
-          <div className="eyebrow">{p.category.name}</div>
-          <h1>{p.name}</h1>
-          <ProductPurchase product={p} initialSku={sku} />
+          <div className="product-heading">
+            <Link
+              className="product-brand-link"
+              href={`/brand/${p.brand.slug}`}
+            >
+              Shop {p.brand.name}
+            </Link>
+            <h1>{p.name}</h1>
+            {p.model && (
+              <p className="product-model">
+                Model: <b>{p.model}</b>
+              </p>
+            )}
+            <a className="product-review-link" href="#product-reviews">
+              {p.reviews.length
+                ? `${p.reviews.length} verified purchase ${p.reviews.length === 1 ? "review" : "reviews"}`
+                : "Customer reviews"}
+            </a>
+          </div>
+          {p.highlights.length > 0 && (
+            <ul className="highlights product-highlights">
+              {p.highlights.map((highlight) => (
+                <li key={highlight}>
+                  <Check size={15} aria-hidden="true" />
+                  {highlight}
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="product-information-links">
+            <a href="#product-specifications">View full specifications</a>
+            <Link href={`/category/${p.category.slug}`}>
+              More {p.category.name}
+            </Link>
+          </div>
+        </div>
+        <div className="product-purchase-panel">
+          <ProductPurchase
+            key={selectedSku?.id ?? p.id}
+            product={p}
+            initialSku={sku}
+            showSpecifications={false}
+            showHighlights={false}
+          />
         </div>
       </div>
       {p.demo && (
@@ -88,11 +141,87 @@ export default async function Product({
           imagery is representative. This product is not a verified live offer.
         </div>
       )}
-      <section className="product-description">
-        <h2>A closer look</h2>
-        <p>{p.description}</p>
-      </section>
-      <section className="product-description">
+      <nav className="product-section-nav" aria-label="Product information">
+        <a href="#product-overview">Overview</a>
+        <a href="#product-specifications">Specifications</a>
+        <a href="#product-reviews">Reviews ({p.reviews.length})</a>
+      </nav>
+      <div className="product-content-grid">
+        <section
+          className="product-description product-overview"
+          id="product-overview"
+        >
+          <h2>Product overview</h2>
+          <p>
+            {p.description ||
+              "Contact our team for more information about this product."}
+          </p>
+          <Link
+            href={
+              selectedSku
+                ? `/contact?${new URLSearchParams({ product: p.slug, sku: selectedSku.id })}`
+                : "/contact"
+            }
+            className="text-button"
+          >
+            Ask about this product
+          </Link>
+        </section>
+        <section
+          className="product-description product-specifications"
+          id="product-specifications"
+        >
+          <h2>Specifications</h2>
+          <table className="product-spec-table">
+            <tbody>
+              <tr>
+                <th scope="row">Brand</th>
+                <td>{p.brand.name}</td>
+              </tr>
+              {p.model && (
+                <tr>
+                  <th scope="row">Model</th>
+                  <td>{p.model}</td>
+                </tr>
+              )}
+              {selectedSku && (
+                <>
+                  <tr>
+                    <th scope="row">SKU</th>
+                    <td>{selectedSku.code}</td>
+                  </tr>
+                  {selectedSku.mpn && (
+                    <tr>
+                      <th scope="row">Manufacturer part number</th>
+                      <td>{selectedSku.mpn}</td>
+                    </tr>
+                  )}
+                  <tr>
+                    <th scope="row">Condition</th>
+                    <td>{selectedSku.condition}</td>
+                  </tr>
+                </>
+              )}
+              {specifications.map(([key, value]) => (
+                <tr key={key}>
+                  <th scope="row">{key.replaceAll("_", " ")}</th>
+                  <td>{String(value)}</td>
+                </tr>
+              ))}
+              {selectedSku?.warranty && (
+                <tr>
+                  <th scope="row">Warranty</th>
+                  <td>{selectedSku.warranty}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </section>
+      </div>
+      <section
+        className="product-description product-reviews"
+        id="product-reviews"
+      >
         <h2>Customer reviews</h2>
         {p.reviews.length ? (
           p.reviews.map((r) => (
@@ -108,21 +237,20 @@ export default async function Product({
           </p>
         )}
       </section>
-      <section className="section">
-        <SectionHeading
-          title="More to explore"
-          subtitle="FROM THE SAME DEPARTMENT"
-          href={`/category/${p.category.slug}`}
-        />
-        <div className="product-grid">
-          {related.products
-            .filter((r) => r.id !== p.id)
-            .slice(0, 5)
-            .map((r) => (
+      {relatedProducts.length > 0 && (
+        <section className="section related-products">
+          <SectionHeading
+            title="Related products"
+            subtitle={`MORE FROM ${p.category.name.toUpperCase()}`}
+            href={`/category/${p.category.slug}`}
+          />
+          <div className="product-grid">
+            {relatedProducts.map((r) => (
               <ProductCard key={r.id} product={r} />
             ))}
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
       {!p.demo && (
         <script
           type="application/ld+json"

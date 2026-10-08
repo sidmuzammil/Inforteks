@@ -97,7 +97,7 @@ export function ProductHeroCarousel({
 
   return (
     <section
-      className={`product-showcase showcase-${slide.tone}`}
+      className={`product-showcase marketplace-campaign showcase-${slide.tone}`}
       role="region"
       aria-roledescription={count > 1 ? "carousel" : undefined}
       aria-label="Product highlights"
@@ -139,10 +139,6 @@ export function ProductHeroCarousel({
         touch.current = null;
       }}
     >
-      <div className="showcase-topline" aria-hidden="true">
-        <span>THE INFORTEKS EDIT</span>
-        <span>{slide.category || "Discover your next upgrade"}</span>
-      </div>
       <div
         id={panelId}
         className="showcase-stage"

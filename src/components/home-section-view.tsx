@@ -109,7 +109,7 @@ export function HomeSectionView({
     const legacyBanner = !c.heroSlides.length && s.bannerMediaId;
     return (
       <div
-        className={`hero-composition ${sideCards.length ? "has-side-banners" : ""}`}
+        className={`hero-composition marketplace-hero ${sideCards.length ? "has-side-banners" : ""}`}
       >
         {slides.length ? (
           <ProductHeroCarousel
@@ -204,7 +204,7 @@ export function HomeSectionView({
     return null;
   return (
     <section
-      className={`section ${s.kind === "categories" ? "category-section" : ""}`}
+      className={`section marketplace-shelf shelf-${s.kind} ${s.kind === "categories" ? "category-section" : ""}`}
     >
       <SectionHeading
         title={s.title}
@@ -213,7 +213,7 @@ export function HomeSectionView({
         label={s.buttonLabel}
       />
       {s.kind === "categories" ? (
-        <div className="category-shortcuts">
+        <div className="category-shortcuts marketplace-departments">
           {categories.map((c) => (
             <Link href={`/category/${c.slug}`} key={c.id}>
               <span className="category-art">
@@ -226,7 +226,11 @@ export function HomeSectionView({
         </div>
       ) : (
         <div
-          className={c.layout === "rail" ? "product-rail" : "product-grid"}
+          className={
+            c.layout === "rail"
+              ? "product-rail marketplace-product-rail"
+              : "product-grid marketplace-product-grid"
+          }
           tabIndex={c.layout === "rail" ? 0 : undefined}
           aria-label={c.layout === "rail" ? `${s.title} products` : undefined}
         >

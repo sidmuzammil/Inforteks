@@ -96,7 +96,7 @@ test("quote catalogue keeps price and stock unknown through discovery, selection
     .click();
   await expect(page).toHaveURL(new RegExp(`product=${key}.*sku=${skuId}`));
   await expect(
-    page.getByRole("heading", { name: "Let’s prepare your quote." }),
+    page.getByRole("heading", { name: "Request a product quote" }),
   ).toBeVisible();
   await expect(page.locator("main form")).toContainText(`${key}-MPN`);
   const accessibility = await new AxeBuilder({ page })

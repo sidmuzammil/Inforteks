@@ -7,6 +7,7 @@ import {
   MapPin,
   Box,
   ArrowUpRight,
+  ArrowRight,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/session";
@@ -31,26 +32,36 @@ export async function Header() {
   const demo = (store?.value as { demo?: boolean })?.demo;
   return (
     <>
-      <div className="utility-bar">
+      <div className="utility-bar marketplace-utility">
         <div className="container utility-inner">
-          <DeliveryLocationPicker
-            signedIn={Boolean(session)}
-            savedEmirate={address?.emirate}
-            savedArea={address?.area ?? undefined}
-          />
+          <div className="utility-left">
+            <DeliveryLocationPicker
+              signedIn={Boolean(session)}
+              savedEmirate={address?.emirate}
+              savedArea={address?.area ?? undefined}
+            />
+            <Link className="utility-service" href="/contact">
+              <Headphones size={13} aria-hidden="true" /> Product advice
+            </Link>
+            <Link className="utility-service" href="/track-order">
+              <Box size={13} aria-hidden="true" /> Track order
+            </Link>
+          </div>
           <span className="utility-center">
             {demo
               ? "Development store · Illustrative products & prices"
-              : "Technology. Thoughtfully selected."}
+              : "Your technology. Your requirements."}
           </span>
-          <div>
-            <Link href="/track-order">Track order</Link>
+          <div className="utility-right">
             <Link href="/contact">Help & support</Link>
-            <span>AED</span>
+            <span className="currency-label">AED</span>
+            <span className="language-label" lang="en">
+              English
+            </span>
           </div>
         </div>
       </div>
-      <header className="site-header">
+      <header className="site-header marketplace-header">
         <div className="container header-main">
           <Link href="/" className="brand" aria-label="Inforteks home">
             <img
@@ -61,30 +72,31 @@ export async function Header() {
             />
           </Link>
           <SearchBox categories={categories.filter((c) => !c.parentId)} />
-          <HeaderActions />
+          <HeaderActions signedIn={Boolean(session)} />
         </div>
-        <nav className="container main-nav" aria-label="Main navigation">
-          <DepartmentMenu categories={categories} />
-          <div className="nav-links">
-            <Link href="/search">All products</Link>
-            {categories
-              .filter((c) => !c.parentId)
-              .slice(0, 3)
-              .map((c) => (
-                <Link key={c.id} href={`/category/${c.slug}`}>
-                  {c.name}
-                </Link>
-              ))}
-            <Link href="/brands">Brands</Link>
-            <Link href="/offers" className="offer-link">
-              Offers
-              <span className="tiny-dot" />
+        <div className="marketplace-nav-bar">
+          <nav className="container main-nav" aria-label="Main navigation">
+            <DepartmentMenu categories={categories} />
+            <div className="nav-links">
+              <Link href="/search">All products</Link>
+              {categories
+                .filter((c) => !c.parentId)
+                .slice(0, 4)
+                .map((c) => (
+                  <Link key={c.id} href={`/category/${c.slug}`}>
+                    {c.name}
+                  </Link>
+                ))}
+              <Link href="/brands">Brands</Link>
+              <Link href="/offers" className="offer-link">
+                Offers
+              </Link>
+            </div>
+            <Link className="nav-new" href="/new-arrivals">
+              New arrivals <ArrowUpRight size={14} aria-hidden="true" />
             </Link>
-          </div>
-          <Link className="nav-new" href="/new-arrivals">
-            New arrivals <ArrowUpRight size={14} />
-          </Link>
-        </nav>
+          </nav>
+        </div>
       </header>
     </>
   );
@@ -113,7 +125,7 @@ export function Breadcrumbs({
 }
 export function Benefits() {
   return (
-    <div className="benefits container">
+    <div className="benefits marketplace-benefits container">
       <div>
         <Box />
         <span>
@@ -147,8 +159,22 @@ export function Benefits() {
 }
 export function Footer() {
   return (
-    <footer className="footer">
-      <div className="container footer-top">
+    <footer className="footer marketplace-footer">
+      <div className="footer-help-strip">
+        <div className="container footer-help-inner">
+          <div>
+            <Headphones size={27} aria-hidden="true" />
+            <span>
+              <strong>Let’s find the right product.</strong>
+              <small>Ask about a model, a quote or an existing order.</small>
+            </span>
+          </div>
+          <Link className="footer-help-link" href="/contact">
+            Contact Inforteks <ArrowRight size={17} aria-hidden="true" />
+          </Link>
+        </div>
+      </div>
+      <div className="container footer-top footer-columns">
         <div className="footer-brand">
           <Link href="/">
             <img
@@ -159,9 +185,8 @@ export function Footer() {
             />
           </Link>
           <p>
-            Technology. Thoughtfully selected.
-            <br />
-            For the way you work, play and create.
+            Computers, print supplies and everyday technology. Find what you
+            need for your next project, workspace or business.
           </p>
           <span className="footer-location">
             <MapPin size={14} />
@@ -170,7 +195,7 @@ export function Footer() {
         </div>
         {[
           {
-            title: "Explore",
+            title: "Shop Inforteks",
             links: [
               ["All products", "/search"],
               ["Laptops", "/category/laptops"],
@@ -182,7 +207,7 @@ export function Footer() {
             ],
           },
           {
-            title: "We’re here to help",
+            title: "Customer support",
             links: [
               ["Contact us", "/contact"],
               ["FAQs", "/faq"],
@@ -192,11 +217,12 @@ export function Footer() {
             ],
           },
           {
-            title: "Your Inforteks",
+            title: "Your account",
             links: [
               ["My account", "/account"],
               ["My orders", "/account/orders"],
               ["Wishlist", "/wishlist"],
+              ["Compare products", "/compare"],
               ["Track an order", "/track-order"],
               ["About Inforteks", "/about"],
             ],

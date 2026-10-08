@@ -385,6 +385,7 @@ test("content staff can operate the carousel preview without navigating or publi
   const frame = page.frameLocator(
     'iframe[title="Selected homepage section preview"]',
   );
+  await expect(frame.locator("#preview-root")).toHaveClass(/storefront-shell/);
   const preview = frame.getByRole("region", { name: "Product highlights" });
   await expect(
     preview.getByRole("heading", { name: unsavedTitle, exact: true }),
@@ -415,6 +416,10 @@ test("content staff can operate the carousel preview without navigating or publi
   await finishCarouselAnimations(preview);
   await expect(previewLink).toBeInViewport();
   await previewLink.click();
+  const previewAccent = await preview.evaluate((element) =>
+    getComputedStyle(element).getPropertyValue("--market-accent").trim(),
+  );
+  expect(previewAccent).not.toBe("");
   await expect(page).toHaveURL(
     new RegExp(`/admin/home-sections/${sectionId}$`),
   );
@@ -431,6 +436,11 @@ test("content staff can operate the carousel preview without navigating or publi
   });
   await page.goto("/");
   await expectSlide(carousel(page), 0);
+  expect(
+    await carousel(page).evaluate((element) =>
+      getComputedStyle(element).getPropertyValue("--market-accent").trim(),
+    ),
+  ).toBe(previewAccent);
   await expect(page.locator("main")).not.toContainText(unsavedTitle);
 });
 

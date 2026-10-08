@@ -495,8 +495,8 @@ export function HomeSectionEditor({
                   }
                 >
                   <option value="navy">Midnight navy</option>
-                  <option value="blue">Inforteks blue</option>
-                  <option value="light">Soft ice</option>
+                  <option value="blue">Jade green</option>
+                  <option value="light">Soft pearl</option>
                 </select>
               </label>
             )}
@@ -703,8 +703,8 @@ export function HomeSectionEditor({
                         }
                       >
                         <option value="navy">Midnight navy</option>
-                        <option value="blue">Inforteks blue</option>
-                        <option value="light">Soft ice</option>
+                        <option value="blue">Jade green</option>
+                        <option value="light">Soft pearl</option>
                       </select>
                     </label>
                   </div>

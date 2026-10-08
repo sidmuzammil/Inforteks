@@ -1,6 +1,19 @@
 # Verification report
 
+## Marketplace layout and original colour theme — 8 October 2026
+
+The new storefront uses deep navy, jade green and soft pearl across the header, navigation, product cards, banners, product pages and isolated admin previews. Its marketplace structure was researched against Microless; the final colours and brand presentation are Inforteks-specific. No product data or infrastructure setting is changed by this presentation revision.
+
+- All **116 unit/integration tests across 26 files** passed. TypeScript, ESLint, formatting, OpenAPI validation (129 operations) and the optimized production build with an unreachable database passed.
+- The full local browser run passed 37 of 38 journeys and caught a real regression: a responsive CSS rule hid the Compare link on phones. Removing the rule restored access. All eight affected shopping/navigation journeys then passed, including comparison, every rendered shelf card, scoped search, keyboard menus and modal filters at widths down to 320px.
+- Final review also caught an inaccessible desktop submenu: earlier departments lost their child panel while keyboard focus moved through later roots. Desktop expand/ArrowRight now moves focus to the selected child panel; ArrowLeft returns to its parent. The five targeted storefront journeys passed. The final extended keyboard case also passed with two temporary local parent/child departments and mobile accordion behavior. Header checks at eight widths from 320px to 1440px found no page overflow and retained Compare access.
+- The passing full-run cases also cover account and address flows, Direct Sales, CRM/Contacts, staff editors, quote-only products, carousel accessibility and matching preview/storefront theme tokens. A separate read-only desktop/mobile capture visited home, catalogue, product, login and cart pages: all ten returned HTTP 200, without horizontal page overflow or JavaScript page errors.
+- Browser screenshots and fixtures are explicitly local development data. They do not establish verified merchant photographs or a populated production catalogue. No production seed, Owner reset or record mutation was performed.
+- Exact source CI and rollout status are tracked in [PR #2](https://github.com/sidmuzammil/Inforteks/pull/2) and `RAILWAY_STATUS.md`; local checks alone do not establish a live release.
+
 ## Product-photo carousel — 8 October 2026
+
+GitHub Actions [37783994904](https://github.com/sidmuzammil/Inforteks/actions/runs/37783994904) passed the complete static/database checks, all 36 browser journeys and production build on application source `2d00b98e6504871c53edc9c9a2d7ed399c04279f`. The subsequent Microless-reference storefront revision requires its own verification.
 
 - **116 unit/integration tests across 26 files** passed in isolated `inforteks_test`. Five new domain cases cover current publication/store/category/SKU/photo eligibility; quote-only price/stock redaction; permission-protected no-write previews; automatic non-demo selection; uploaded media schedules, removal and stale versions; and rejected cross-product media references, missing images and excess slides.
 - **16 distinct browser journeys** passed across the carousel, merchant-editor, storefront navigation, quote-catalogue and account suites. New cases exercise desktop keyboard/thumbnail controls, 320/390px touch navigation and overflow, functioning carousel controls inside non-navigating staff previews, and removal of draft/Direct-only/private-photo products. A focused follow-up also verifies six slides plus rotation controls fit at 320px, all slide selectors are at least 24px wide, and reduced motion removes the rotation control. Representative carousel Axe checks found no serious or critical violations. Legacy uploaded hero/side-banner previews remain private and do not save during preview.
