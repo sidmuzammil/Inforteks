@@ -265,14 +265,33 @@ test("product banners support keyboard, slide selection and mobile swipe without
         animations: "disabled",
       });
   }
-  const accessibility = await new AxeBuilder({ page })
-    .include(".product-showcase")
-    .analyze();
-  expect(
-    accessibility.violations.filter((violation) =>
-      ["critical", "serious"].includes(violation.impact ?? ""),
-    ),
-  ).toEqual([]);
+  for (const [index, slide] of slides.entries()) {
+    await test.step(`${slide.tone} carousel accessibility`, async () => {
+      await region
+        .getByRole("button", {
+          name: `Show slide ${index + 1}: ${slide.title}`,
+          exact: true,
+        })
+        .click();
+      await expectSlide(region, index);
+      await expect(region).toHaveClass(new RegExp(`showcase-${slide.tone}`));
+      await region.evaluate(async (element) => {
+        await Promise.all(
+          element
+            .getAnimations({ subtree: true })
+            .map((animation) => animation.finished),
+        );
+      });
+      const accessibility = await new AxeBuilder({ page })
+        .include(".product-showcase")
+        .analyze();
+      expect(
+        accessibility.violations.filter((violation) =>
+          ["critical", "serious"].includes(violation.impact ?? ""),
+        ),
+      ).toEqual([]);
+    });
+  }
   // The maximum six slides and optional rotation controls still fit a phone.
   const sixSlides = [
     ...slides,

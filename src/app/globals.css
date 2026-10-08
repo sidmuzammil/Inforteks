@@ -6930,7 +6930,7 @@ summary {
 }
 .product-showcase {
   --showcase-ink: #10213b;
-  --showcase-muted: #596b83;
+  --showcase-muted: #465970;
   --showcase-line: #dce3ec;
   container-type: inline-size;
   min-width: 0;
@@ -6981,7 +6981,7 @@ summary {
   padding: 36px 0 40px 44px;
 }
 .showcase-eyebrow {
-  color: #2458d9;
+  color: #204fc5;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1.5px;
@@ -7022,7 +7022,7 @@ summary {
 .showcase-highlights li + li::before {
   content: "·";
   padding-inline: 9px;
-  color: #8b9ab1;
+  color: currentColor;
 }
 .showcase-price {
   display: flex;
@@ -7246,11 +7246,12 @@ summary {
   flex-shrink: 0;
 }
 @keyframes showcase-enter {
+  /* Keep text opaque so its contrast is maintained throughout the transition. */
   from {
-    opacity: 0;
+    transform: translateY(6px);
   }
   to {
-    opacity: 1;
+    transform: translateY(0);
   }
 }
 @container (max-width: 900px) {
@@ -7370,7 +7371,7 @@ summary {
     width: 5px;
     height: 5px;
     border-radius: 50%;
-    background: #9aaac0;
+    background: var(--showcase-muted);
   }
   .showcase-selection.is-active > i {
     width: 15px;
