@@ -183,6 +183,19 @@ async function expectSlide(region: Locator, index: number) {
     .toBeGreaterThan(0);
 }
 
+async function finishCarouselAnimations(region: Locator) {
+  await region.evaluate(async (element) => {
+    await Promise.all(
+      element
+        .getAnimations({ subtree: true })
+        .filter(
+          (animation) => animation.effect?.getTiming().iterations !== Infinity,
+        )
+        .map((animation) => animation.finished),
+    );
+  });
+}
+
 test("product banners support keyboard, slide selection and mobile swipe without overflow", async ({
   page,
 }) => {
@@ -275,13 +288,7 @@ test("product banners support keyboard, slide selection and mobile swipe without
         .click();
       await expectSlide(region, index);
       await expect(region).toHaveClass(new RegExp(`showcase-${slide.tone}`));
-      await region.evaluate(async (element) => {
-        await Promise.all(
-          element
-            .getAnimations({ subtree: true })
-            .map((animation) => animation.finished),
-        );
-      });
+      await finishCarouselAnimations(region);
       const accessibility = await new AxeBuilder({ page })
         .include(".product-showcase")
         .analyze();
@@ -382,17 +389,32 @@ test("content staff can operate the carousel preview without navigating or publi
   await expect(
     preview.getByRole("heading", { name: unsavedTitle, exact: true }),
   ).toBeVisible();
+  // Bring the isolated iframe into view before awaiting its animation frames.
+  await preview.evaluate((element) =>
+    element.scrollIntoView({ block: "center", behavior: "instant" }),
+  );
+  await finishCarouselAnimations(preview);
   await preview.getByRole("button", { name: "Next banner" }).click();
   await expect(
     preview.getByRole("heading", { name: slides[1].title, exact: true }),
   ).toBeVisible();
+  await finishCarouselAnimations(preview);
   await preview.getByRole("button", { name: "Previous banner" }).click();
   await expect(
     preview.getByRole("heading", { name: unsavedTitle, exact: true }),
   ).toBeVisible();
-  await preview
-    .getByRole("link", { name: "Request a quote", exact: true })
-    .click();
+  const previewLink = preview.getByRole("link", {
+    name: "Request a quote",
+    exact: true,
+  });
+  // Offscreen iframe animation frames can be throttled; scrolling first avoids
+  // waiting for a moving target before Playwright has brought it into view.
+  await previewLink.evaluate((element) =>
+    element.scrollIntoView({ block: "center", behavior: "instant" }),
+  );
+  await finishCarouselAnimations(preview);
+  await expect(previewLink).toBeInViewport();
+  await previewLink.click();
   await expect(page).toHaveURL(
     new RegExp(`/admin/home-sections/${sectionId}$`),
   );
