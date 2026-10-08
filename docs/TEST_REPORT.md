@@ -1,5 +1,12 @@
 # Verification report
 
+## Quote catalogue and premium storefront — 8 October 2026
+
+- All **111 unit/integration tests across 25 files** passed in isolated `inforteks_test`. New coverage includes quote publication, price/filter semantics, permission/stale proposal checks, online checkout denial with unchanged Direct Sales stock behavior, verified quote inquiry references, source import fingerprints, concurrent retry idempotency, preserved existing prices/stock, revoked staff access and invalid manifest rejection.
+- **19 browser journeys** passed: the new mobile quote inquiry/wishlist/comparison/structured-data journey and 18 storefront, merchant editor, Direct Sales and ERP regressions. One initial quote test used a stale development Prisma client after generation; restarting the local server resolved it. The new test passed against the migrated runtime. Sign-in rate limiting was respected during the regression run.
+- TypeScript, ESLint, formatting, OpenAPI validation (129 operations) and the production build with an unreachable database passed. Desktop/mobile inspection found and corrected inherited CSS hiding category icons. Quote form accessibility had no serious or critical Axe findings in the tested scope.
+- These checks use local fixtures; they do not establish researched image correctness, full supplier catalogue coverage, a staging rollout or production publication. The private research manifest contains 137 stocklist products and unresolved real-image checks. See `CATALOGUE_LAUNCH.md` for remaining launch requirements.
+
 ## Storefront redesign — 8 October 2026
 
 - 97 unit/integration tests passed across 21 files in the isolated local `inforteks_test` database. New coverage checks sample starters remain DRAFT/demo/store=false with unset prices and zero inventory, public/preview selection parity, exclusion of drafts and Direct-only products, bounded presentation settings and content-permission denial. Existing shared inventory, channel visibility, CRM, Contacts and approval tests remain green.

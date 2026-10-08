@@ -44,7 +44,7 @@ export default async function Home() {
       <div className="container home-content">
         <div className="store-intro">
           <span>THE INFORTEKS STORE</span>
-          <p>Find your next everyday upgrade.</p>
+          <p>Technology for your business. Essentials for your everyday.</p>
           <Link href="/categories">Explore all technology →</Link>
         </div>
         {prepared.map(({ section, products }) => (

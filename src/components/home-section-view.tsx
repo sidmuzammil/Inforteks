@@ -3,6 +3,7 @@ import { ArrowRight, ArrowUpRight, ChevronRight } from "lucide-react";
 import type { HomeSectionData } from "@/lib/home-sections";
 import type { PublicProduct } from "@/domains/catalogue";
 import { ProductCard, SectionHeading } from "./catalogue-cards";
+import { DepartmentIcon } from "./department-icon";
 export type SectionPreviewData = {
   section: HomeSectionData;
   products: PublicProduct[];
@@ -32,9 +33,11 @@ export function HomeSectionView({
           <img
             className="hero-image"
             src={
-              s.bannerMediaId ? `/media/${s.bannerMediaId}` : "/brand/hero.png"
+              s.bannerMediaId
+                ? `/media/${s.bannerMediaId}`
+                : "/brand/storefront-hero.webp"
             }
-            alt={c.imageAlt}
+            alt={s.bannerMediaId ? c.imageAlt : ""}
             fetchPriority="high"
           />
           <div className="hero-overlay" />
@@ -65,14 +68,15 @@ export function HomeSectionView({
                   {card.buttonLabel}
                   <ArrowRight size={15} />
                 </span>
-                <img
-                  src={
-                    card.mediaId
-                      ? `/media/${card.mediaId}`
-                      : `/illustrations/${i === 0 ? "monitor" : "headphones"}.svg`
-                  }
-                  alt={card.alt}
-                />
+                {card.mediaId ? (
+                  <img src={`/media/${card.mediaId}`} alt={card.alt} />
+                ) : (
+                  <span className="mini-hero-decoration" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                )}
               </Link>
             ))}
           </div>
@@ -91,14 +95,15 @@ export function HomeSectionView({
             <ArrowUpRight size={16} />
           </Link>
         </div>
-        <img
-          src={
-            s.bannerMediaId
-              ? `/media/${s.bannerMediaId}`
-              : "/illustrations/desktop.svg"
-          }
-          alt={c.imageAlt}
-        />
+        {s.bannerMediaId ? (
+          <img src={`/media/${s.bannerMediaId}`} alt={c.imageAlt} />
+        ) : (
+          <span className="editorial-decoration" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
+        )}
         <span className="editorial-word">{c.footer}</span>
       </section>
     );
@@ -122,12 +127,7 @@ export function HomeSectionView({
           {categories.map((c) => (
             <Link href={`/category/${c.slug}`} key={c.id}>
               <span className="category-art">
-                <img
-                  src={`/illustrations/${c.icon}.svg`}
-                  alt=""
-                  width="110"
-                  height="88"
-                />
+                <DepartmentIcon name={`${c.slug} ${c.name}`} size={34} />
               </span>
               <b>{c.name}</b>
               <ChevronRight size={13} />

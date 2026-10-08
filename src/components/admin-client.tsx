@@ -67,6 +67,7 @@ type ProductEdit = {
   version: number;
   featured: boolean;
   store: boolean;
+  quoteOnly: boolean;
   model?: string | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
@@ -109,6 +110,7 @@ export function ProductEditor({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [quoteOnly, setQuoteOnly] = useState(false);
   const [sampleId, setSampleId] = useState<SampleProductId | null>(null);
   const sample = sampleProducts.find((s) => s.id === sampleId);
   const [sampleRevision, setSampleRevision] = useState(0);
@@ -189,6 +191,7 @@ export function ProductEditor({
       const values = readFields(e.currentTarget, overview);
       const common = {
         ...values,
+        ...(!product ? { quoteOnly } : {}),
         slug: values.slug || undefined,
         brandId: fd.get("brandId"),
         categoryId: fd.get("categoryId"),
@@ -206,7 +209,7 @@ export function ProductEditor({
       } else {
         const skus = Array.from({ length: skuCount }, (_, i) => ({
           code: String(fd.get(`sku_${i}`)),
-          ...(scopes.includes("pricing:write")
+          ...(scopes.includes("pricing:write") && !quoteOnly
             ? readPrices(fd, `_${i}`)
             : { price: null, compareAt: null }),
           mpn: String(fd.get(`mpn_${i}`) ?? ""),
@@ -296,12 +299,6 @@ export function ProductEditor({
                   setDirty(false);
                 }}
               >
-                <img
-                  src={`/illustrations/${starter.image}.svg`}
-                  width="80"
-                  height="64"
-                  alt=""
-                />
                 <b>{starter.name}</b>
                 <small>{starter.category} · Draft only</small>
               </button>
@@ -350,6 +347,34 @@ export function ProductEditor({
           <div className="form-grid">
             <Fields fields={overview} />
           </div>
+          {!product && (
+            <div className="quote-mode-control">
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  name="quoteOnly"
+                  checked={quoteOnly}
+                  onChange={(event) => setQuoteOnly(event.target.checked)}
+                />
+                Request a quote instead of online checkout
+              </label>
+              <p className="form-help">
+                Publish real products without a selling price or stock claim.
+                Customers send an inquiry with the selected product; they cannot
+                add it to the online cart.
+              </p>
+              {quoteOnly && (
+                <div className="quote-mode-preview">
+                  <small>Storefront preview</small>
+                  <strong>Request a quote</strong>
+                  <span>Availability on request</span>
+                  <span className="button primary" aria-hidden="true">
+                    Enquire now →
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </section>
         <section className="editor-section" id="organization">
           <h2>Organization</h2>
@@ -417,7 +442,7 @@ export function ProductEditor({
                         }
                       />
                     </label>
-                    {scopes.includes("pricing:write") && (
+                    {scopes.includes("pricing:write") && !quoteOnly && (
                       <PriceFields suffix={`_${i}`} />
                     )}
                     <label>
@@ -497,6 +522,11 @@ export function ProductEditor({
             store={product.store}
             canEdit={scopes.includes("catalog:publish")}
           />
+          <QuoteOnlyControl
+            productId={product.id}
+            quoteOnly={product.quoteOnly}
+            canEdit={scopes.includes("catalog:publish")}
+          />
           <ProductMediaEditor
             key={product.id}
             productId={product.id}
@@ -561,6 +591,13 @@ export function ProductEditor({
           </section>
           <section className="editor-section panel" id="pricing">
             <h2>SKU pricing</h2>
+            {product.quoteOnly && (
+              <p className="notice">
+                The Online Store shows “Request a quote”. Internal prices remain
+                available for authorised Direct Sales and are not displayed
+                online.
+              </p>
+            )}
             {product.skus.map((s) => (
               <div key={s.id} style={{ marginBottom: 25 }}>
                 <h3 style={{ marginBottom: 15 }}>{s.code}</h3>
@@ -653,6 +690,62 @@ export function ProductEditor({
         </>
       )}
     </div>
+  );
+}
+export function QuoteOnlyControl({
+  productId,
+  quoteOnly,
+  canEdit,
+}: {
+  productId: string;
+  quoteOnly: boolean;
+  canEdit: boolean;
+}) {
+  const [selected, setSelected] = useState(quoteOnly);
+  return (
+    <section className="editor-section panel">
+      <h2>Online buying experience</h2>
+      <p className="form-help">
+        This setting controls how customers enquire or buy online. It preserves
+        shared stock, internal pricing and Direct Sales.
+      </p>
+      <label className="check-row">
+        <input
+          type="checkbox"
+          checked={selected}
+          disabled={!canEdit}
+          onChange={(event) => setSelected(event.target.checked)}
+        />
+        Request a quote instead of online checkout
+      </label>
+      <div className="quote-mode-preview">
+        <small>Preview after approval</small>
+        <strong>
+          {selected ? "Request a quote" : "Show listed selling price"}
+        </strong>
+        <span>
+          {selected
+            ? "Availability on request · No online cart action"
+            : "Online checkout uses the current price and available stock"}
+        </span>
+      </div>
+      {canEdit ? (
+        <ActionButton
+          endpoint="admin/proposals"
+          payload={{
+            operation: "product.quoteOnly",
+            targetId: productId,
+            payload: { quoteOnly: selected },
+          }}
+          label="Review buying experience"
+          proposal
+        />
+      ) : (
+        <p className="form-help">
+          Publishing access is required to change this setting.
+        </p>
+      )}
+    </section>
   );
 }
 export function StoreVisibility({

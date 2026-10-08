@@ -51,14 +51,20 @@ export default async function Product({
         ).href,
     ),
     brand: { "@type": "Brand", name: p.brand.name },
-    offers: p.skus.map((s) => ({
-      "@type": "Offer",
-      sku: s.code,
-      price: (s.price / 100).toFixed(2),
-      priceCurrency: "AED",
-      availability: `https://schema.org/${s.available ? "InStock" : "OutOfStock"}`,
-      url: `${process.env.APP_URL ?? process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/product/${p.slug}?sku=${s.id}`,
-    })),
+    ...(!p.quoteOnly
+      ? {
+          offers: p.skus
+            .filter((s) => s.price !== null)
+            .map((s) => ({
+              "@type": "Offer",
+              sku: s.code,
+              price: (s.price! / 100).toFixed(2),
+              priceCurrency: "AED",
+              availability: `https://schema.org/${s.available ? "InStock" : "OutOfStock"}`,
+              url: `${process.env.APP_URL ?? process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/product/${p.slug}?sku=${s.id}`,
+            })),
+        }
+      : {}),
   };
   return (
     <div className="page-container">

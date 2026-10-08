@@ -118,6 +118,7 @@ model Product {
   specs       Json @default("{}")
   featured    Boolean @default(false)
   store       Boolean @default(true)
+  quoteOnly   Boolean @default(false)
   demo        Boolean @default(false)
   seoTitle    String?
   seoDescription String?
@@ -128,8 +129,20 @@ model Product {
   media       Media[]
   reviews     Review[]
   collections CollectionProduct[]
+  catalogueSources CatalogueSource[]
   @@index([status, categoryId, createdAt])
   @@index([status, brandId])
+}
+model CatalogueSource {
+  id           String @id @default(cuid())
+  source       String
+  externalId   String
+  productId    String
+  product      Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  manifestHash String
+  createdAt    DateTime @default(now())
+  @@unique([source, externalId])
+  @@index([productId])
 }
 model Sku {
   id          String @id @default(cuid())

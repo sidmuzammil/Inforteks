@@ -35,11 +35,20 @@ export async function CataloguePage({
     q.set(k, v);
     return `${base}?${q}`;
   };
+  const pageNumbers = [
+    ...new Set([
+      1,
+      ...Array.from({ length: 5 }, (_, i) => result.page - 2 + i),
+      result.pages,
+    ]),
+  ]
+    .filter((page) => page >= 1 && page <= result.pages)
+    .sort((a, b) => a - b);
   return (
     <div className="page-container">
       <Breadcrumbs items={[{ label: title }]} />
       <div className="page-heading">
-        <div className="eyebrow">FIND YOUR NEXT UPGRADE</div>
+        <div className="eyebrow">THE INFORTEKS COLLECTION</div>
         <h1>{title}</h1>
         <p>{subtitle}</p>
       </div>
@@ -213,6 +222,13 @@ export async function CataloguePage({
               </Link>
             </div>
           )}
+          {result.products.some((product) => product.quoteOnly) && (
+            <p className="catalogue-notice">
+              Quote products: ask our team for current pricing and availability.
+              Search by model or manufacturer part number to find an exact
+              match.
+            </p>
+          )}
           {result.products.length ? (
             <div className="product-grid catalogue-products">
               {result.products.map((p) => (
@@ -236,18 +252,36 @@ export async function CataloguePage({
           )}
           {result.pages > 1 && (
             <nav className="pagination" aria-label="Catalogue pages">
-              {Array.from(
-                { length: Math.min(result.pages, 15) },
-                (_, i) => i + 1,
-              ).map((p) => (
+              {result.page > 1 && (
                 <Link
-                  key={p}
-                  href={update("page", String(p))}
-                  aria-current={p === result.page ? "page" : undefined}
+                  href={update("page", String(result.page - 1))}
+                  aria-label="Previous page"
                 >
-                  {p}
+                  ←
                 </Link>
+              )}
+              {pageNumbers.map((page, index) => (
+                <span key={page} className="pagination-item">
+                  {index > 0 && page - pageNumbers[index - 1] > 1 && (
+                    <span aria-hidden="true">…</span>
+                  )}
+                  <Link
+                    href={update("page", String(page))}
+                    aria-label={`Page ${page}`}
+                    aria-current={page === result.page ? "page" : undefined}
+                  >
+                    {page}
+                  </Link>
+                </span>
               ))}
+              {result.page < result.pages && (
+                <Link
+                  href={update("page", String(result.page + 1))}
+                  aria-label="Next page"
+                >
+                  →
+                </Link>
+              )}
             </nav>
           )}
         </div>

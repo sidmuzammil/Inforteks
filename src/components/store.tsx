@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
-  Truck,
-  ShieldCheck,
+  MessageSquare,
+  ListChecks,
   Headphones,
   ChevronRight,
   MapPin,
@@ -121,17 +121,17 @@ export function Benefits() {
         </span>
       </div>
       <div>
-        <Truck />
+        <MessageSquare />
         <span>
-          <b>UAE delivery</b>
-          <small>Options calculated at checkout</small>
+          <b>A quote for your requirements</b>
+          <small>Confirm pricing & availability with our team</small>
         </span>
       </div>
       <div>
-        <ShieldCheck />
+        <ListChecks />
         <span>
           <b>Shop with clarity</b>
-          <small>Detailed specifications & clear pricing</small>
+          <small>Model numbers & specifications that matter</small>
         </span>
       </div>
       <div>
@@ -172,6 +172,7 @@ export function Footer() {
             title: "Explore",
             links: [
               ["Laptops", "/category/laptops"],
+              ["Toners & cartridges", "/category/toners-cartridges"],
               ["PC components", "/category/components"],
               ["Monitors", "/category/monitors"],
               ["All departments", "/categories"],

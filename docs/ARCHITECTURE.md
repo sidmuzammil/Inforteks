@@ -45,6 +45,8 @@ Homepage merchandising stores backward-compatible theme/layout/count/category/co
 
 ## Growth path
 
+`Product.quoteOnly` independently controls online purchasing. Quote-only public DTOs suppress internal prices and stock; publication retains image/spec validation while permitting missing prices. Product share locks serialize mode changes against online checkout. Direct Sales retains the same commercial validation and inventory writer. `CatalogueSource` stores private import provenance/idempotency outside public product facts; reviewed imports use existing catalogue creation, validated media and publication approvals. See [catalogue launch](CATALOGUE_LAUNCH.md).
+
 Keep new capabilities inside the existing domain boundary until measured load justifies a separate service. Add a real payment adapter with signed webhook ingestion and a unique provider-event ledger before accepting card payments. Add shipping providers behind server-validated rate quotes. Preserve the immutable order snapshot when changing catalogue data.
 
 The current PostgreSQL search matches product, model, brand, SKU and specification text, ranks exact model/SKU matches first, and filters against a matching individual SKU. For a substantially larger catalogue, measure query plans, add appropriate PostgreSQL indexes, then consider a dedicated search service with an explicit reconciliation job. Do not make a search index authoritative for price or stock.

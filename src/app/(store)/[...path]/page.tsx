@@ -18,6 +18,9 @@ import { money, date } from "@/lib/utils";
 import { actorForUser } from "@/domains/identity";
 import { Breadcrumbs } from "@/components/store";
 import { CataloguePage } from "@/components/catalogue-page";
+import { DepartmentIcon } from "@/components/department-icon";
+import { QuoteInquiry } from "@/components/quote-inquiry";
+import { getProduct } from "@/domains/catalogue";
 import { SelectionPage } from "@/components/store-client";
 import {
   CartPage,
@@ -164,7 +167,7 @@ export default async function Page({
               href={`/category/${c.slug}`}
               className="directory-card"
             >
-              <img src={`/illustrations/${c.icon}.svg`} alt="" />
+              <DepartmentIcon name={`${c.slug} ${c.name}`} size={46} />
               <div>
                 <h2>{c.name}</h2>
                 <small>
@@ -653,31 +656,49 @@ export default async function Page({
       </div>
     );
   }
-  if (section === "contact")
+  if (section === "contact") {
+    const product = query.product ? await getProduct(query.product) : null;
+    const sku =
+      product?.skus.find((item) => item.id === query.sku) ??
+      (!query.sku ? product?.skus[0] : undefined);
+    if (query.product && (!product || !sku)) notFound();
     return (
       <div className="page-container">
         <Breadcrumbs items={[{ label: "Contact us" }]} />
         <div className="page-heading">
           <div className="eyebrow">LET’S TALK TECHNOLOGY</div>
-          <h1>How can we help?</h1>
+          <h1>{product ? "Let’s prepare your quote." : "How can we help?"}</h1>
           <p>
-            A product question, a little advice, or an update on your order.
-            Start a conversation.
+            {product
+              ? "Tell us what you need. Our team will confirm pricing and availability for your requirements."
+              : "A product question, a little advice, or an update on your order. Start a conversation."}
           </p>
         </div>
         <div className="checkout-layout">
           <div className="form-card">
-            <MutationForm
-              endpoint="storefront/inquiries"
-              fields={[
-                { name: "name", label: "Your name" },
-                { name: "email", label: "Email address", type: "email" },
-                { name: "subject", label: "What’s on your mind?" },
-                { name: "message", label: "Your message", type: "textarea" },
-              ]}
-              label="Send inquiry"
-              success="Your inquiry has been saved. Outbound email is not connected yet."
-            />
+            {product && sku ? (
+              <QuoteInquiry
+                product={{
+                  name: product.name,
+                  slug: product.slug,
+                  skuId: sku.id,
+                  code: sku.code,
+                  mpn: sku.mpn,
+                }}
+              />
+            ) : (
+              <MutationForm
+                endpoint="storefront/inquiries"
+                fields={[
+                  { name: "name", label: "Your name" },
+                  { name: "email", label: "Email address", type: "email" },
+                  { name: "subject", label: "What’s on your mind?" },
+                  { name: "message", label: "Your message", type: "textarea" },
+                ]}
+                label="Send inquiry"
+                success="Your inquiry has been saved for the Inforteks team."
+              />
+            )}
           </div>
           <div className="panel">
             <h2>Find a quick answer</h2>
@@ -693,6 +714,7 @@ export default async function Page({
         </div>
       </div>
     );
+  }
   const page = await db.contentPage.findFirst({
     where: { slug: section, published: true },
   });

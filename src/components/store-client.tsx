@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import type { PublicProduct } from "@/domains/catalogue";
 import { money } from "@/lib/utils";
+import { DepartmentIcon } from "./department-icon";
 import type { Comparison } from "@/domains/comparison";
 
 export async function api<T = unknown>(
@@ -130,8 +131,10 @@ function useSelectionStore(key: string) {
                 Array.isArray(item.product.skus) &&
                 Array.isArray(item.product.media) &&
                 item.product.skus.some(
-                  (sku: { id?: string; price?: number }) =>
-                    sku?.id === item.skuId && Number.isFinite(sku.price),
+                  (sku: { id?: string; price?: number | null }) =>
+                    sku?.id === item.skuId &&
+                    (Number.isFinite(sku.price) ||
+                      (item.product.quoteOnly === true && sku.price === null)),
                 ),
             )
             .slice(0, key === "ift-compare" ? 4 : 100)
@@ -411,14 +414,9 @@ export function DepartmentMenu({
                     href={`/category/${c.slug}`}
                     onClick={() => setOpen(false)}
                   >
-                    {c.icon && (
-                      <img
-                        src={`/illustrations/${c.icon}.svg`}
-                        width="44"
-                        height="36"
-                        alt=""
-                      />
-                    )}
+                    <span className="department-symbol">
+                      <DepartmentIcon name={`${c.slug} ${c.name}`} size={24} />
+                    </span>
                     <strong>{c.name}</strong>
                     <ArrowRight size={14} />
                   </Link>
@@ -621,14 +619,15 @@ export function SearchBox({
                   href={`/product/${p.slug}?sku=${p.skus[0]?.id ?? ""}`}
                   onClick={() => setOpen(false)}
                 >
-                  <img
-                    src={p.media[0]?.url ?? "/illustrations/laptop.svg"}
-                    alt=""
-                  />
+                  {p.media[0] && <img src={p.media[0].url} alt="" />}
                   <span>
                     {p.name}
                     <small>
-                      {p.skus[0] ? money(p.skus[0].price) : "Unavailable"}
+                      {p.quoteOnly
+                        ? "Request a quote"
+                        : p.skus[0]?.price != null
+                          ? money(p.skus[0].price)
+                          : "Price unavailable"}
                     </small>
                   </span>
                 </Link>
@@ -660,36 +659,46 @@ export function CardActions({
   if (!sku) return null;
   return (
     <div className="card-actions">
-      <button
-        className="add-button"
-        disabled={busy || sku.available === 0}
-        aria-label={`Add ${product.name} to cart`}
-        onClick={async () => {
-          setBusy(true);
-          try {
-            await api("storefront/carts", {
-              skuId: sku.id,
-              quantity: 1,
-              mode: "add",
-            });
-            await shop.refresh();
-            shop.message("Added to your cart.");
-          } catch (e) {
-            shop.message((e as Error).message);
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        {sku.available > 0 ? (
-          <>
-            <Plus size={16} />
-            {busy ? "Adding…" : "Add to cart"}
-          </>
-        ) : (
-          "Out of stock"
-        )}
-      </button>
+      {product.quoteOnly ? (
+        <Link
+          className="add-button quote-button"
+          href={`/contact?${new URLSearchParams({ product: product.slug, sku: sku.id })}`}
+          aria-label={`Request a quote for ${product.name}`}
+        >
+          Enquire now <ArrowRight size={15} />
+        </Link>
+      ) : (
+        <button
+          className="add-button"
+          disabled={busy || sku.available === 0 || sku.price === null}
+          aria-label={`Add ${product.name} to cart`}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await api("storefront/carts", {
+                skuId: sku.id,
+                quantity: 1,
+                mode: "add",
+              });
+              await shop.refresh();
+              shop.message("Added to your cart.");
+            } catch (e) {
+              shop.message((e as Error).message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {sku.available > 0 ? (
+            <>
+              <Plus size={16} />
+              {busy ? "Adding…" : "Add to cart"}
+            </>
+          ) : (
+            "Out of stock"
+          )}
+        </button>
+      )}
       <button
         className="icon-button"
         aria-label={`Compare ${product.name}`}
@@ -752,16 +761,23 @@ export function ProductPurchase({
         <span>SKU: {sku.code}</span>
         <span>{sku.condition}</span>
       </div>
-      <div className="detail-price">
-        {money(sku.price)}{" "}
-        {sku.compareAt && sku.compareAt > sku.price && (
-          <del>{money(sku.compareAt)}</del>
-        )}
+      <div className={`detail-price ${product.quoteOnly ? "quote-price" : ""}`}>
+        {product.quoteOnly
+          ? "Request a quote"
+          : sku.price != null
+            ? money(sku.price)
+            : "Price unavailable"}{" "}
+        {!product.quoteOnly &&
+          sku.price != null &&
+          sku.compareAt &&
+          sku.compareAt > sku.price && <del>{money(sku.compareAt)}</del>}
       </div>
-      <p className={sku.available ? "stock" : "muted"}>
-        {sku.available
-          ? `${sku.available > 5 ? "In stock" : `Only ${sku.available} available`} · Ready to order`
-          : "Currently out of stock"}
+      <p className={!product.quoteOnly && sku.available ? "stock" : "muted"}>
+        {product.quoteOnly
+          ? "Availability on request"
+          : sku.available
+            ? `${sku.available > 5 ? "In stock" : `Only ${sku.available} available`} · Ready to order`
+            : "Currently out of stock"}
       </p>
       {product.skus.length > 1 && (
         <fieldset className="variants">
@@ -796,48 +812,63 @@ export function ProductPurchase({
           </li>
         ))}
       </ul>
-      <div className="purchase-row">
-        <div className="quantity">
-          <button
-            aria-label="Decrease quantity"
-            disabled={quantity <= 1}
-            onClick={() => setQuantity(quantity - 1)}
+      {product.quoteOnly ? (
+        <div className="quote-purchase">
+          <p>
+            Tell us the quantity you need. We’ll confirm your price, product
+            details and availability before you order.
+          </p>
+          <Link
+            className="button primary"
+            href={`/contact?${new URLSearchParams({ product: product.slug, sku: sku.id })}`}
           >
-            <Minus size={14} />
-          </button>
-          <span>{quantity}</span>
+            Request a quote <ArrowRight size={18} />
+          </Link>
+        </div>
+      ) : (
+        <div className="purchase-row">
+          <div className="quantity">
+            <button
+              aria-label="Decrease quantity"
+              disabled={quantity <= 1}
+              onClick={() => setQuantity(quantity - 1)}
+            >
+              <Minus size={14} />
+            </button>
+            <span>{quantity}</span>
+            <button
+              aria-label="Increase quantity"
+              disabled={quantity >= sku.available || quantity >= 99}
+              onClick={() => setQuantity(quantity + 1)}
+            >
+              <Plus size={14} />
+            </button>
+          </div>
           <button
-            aria-label="Increase quantity"
-            disabled={quantity >= sku.available || quantity >= 99}
-            onClick={() => setQuantity(quantity + 1)}
+            className="button primary grow"
+            disabled={busy || sku.available === 0 || sku.price === null}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await api("storefront/carts", {
+                  skuId: sku.id,
+                  quantity,
+                  mode: "add",
+                });
+                await shop.refresh();
+                shop.message("Added to your cart.");
+              } catch (e) {
+                shop.message((e as Error).message);
+              } finally {
+                setBusy(false);
+              }
+            }}
           >
-            <Plus size={14} />
+            <ShoppingCart size={18} />
+            {busy ? "Adding…" : sku.available ? "Add to cart" : "Out of stock"}
           </button>
         </div>
-        <button
-          className="button primary grow"
-          disabled={busy || sku.available === 0}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await api("storefront/carts", {
-                skuId: sku.id,
-                quantity,
-                mode: "add",
-              });
-              await shop.refresh();
-              shop.message("Added to your cart.");
-            } catch (e) {
-              shop.message((e as Error).message);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <ShoppingCart size={18} />
-          {busy ? "Adding…" : sku.available ? "Add to cart" : "Out of stock"}
-        </button>
-      </div>
+      )}
       <div className="detail-selection">
         <button onClick={() => shop.select("wishlist", product, sku.id)}>
           <Heart size={17} />
@@ -872,6 +903,12 @@ export function Gallery({ product }: { product: PublicProduct }) {
   const [zoom, setZoom] = useState(false);
   const ref = useRef<HTMLDialogElement>(null);
   const current = product.media[index];
+  if (!current)
+    return (
+      <div className="gallery gallery-unavailable">
+        <p>Product photography is not available for this item.</p>
+      </div>
+    );
   return (
     <div className="gallery">
       <button
@@ -883,7 +920,7 @@ export function Gallery({ product }: { product: PublicProduct }) {
         }}
       >
         <img
-          src={current?.url ?? "/illustrations/laptop.svg"}
+          src={current.url}
           alt={current?.alt ?? product.name}
           fetchPriority="high"
         />
@@ -969,12 +1006,21 @@ export function SelectionPage({ kind }: { kind: "wishlist" | "compare" }) {
                     >
                       <X size={16} />
                     </button>
-                    <img src={p.media[0]?.url} alt={p.name} />
+                    {p.media[0] && (
+                      <img
+                        src={p.media[0].url}
+                        alt={p.media[0].alt || p.name}
+                      />
+                    )}
                     <Link href={`/product/${p.slug}?sku=${skuId}`}>
                       <b>{p.name}</b>
                     </Link>
                     <p>
-                      {money(p.skus.find((s) => s.id === skuId)?.price ?? 0)}
+                      {p.quoteOnly
+                        ? "Request a quote"
+                        : p.skus.find((s) => s.id === skuId)?.price != null
+                          ? money(p.skus.find((s) => s.id === skuId)!.price!)
+                          : "Price unavailable"}
                     </p>
                     <CardActions product={p} skuId={skuId} />
                   </td>
@@ -1043,7 +1089,7 @@ function ComparisonPage() {
         <div className="eyebrow">MAKE ROOM FOR THE RIGHT CHOICE</div>
         <h1>Compare your next upgrade</h1>
         <p>
-          Current prices and listed specifications, side by side. Compare up to
+          Product details and listed specifications, side by side. Compare up to
           four configurations from one department.
         </p>
       </div>
@@ -1123,8 +1169,9 @@ function ComparisonPage() {
                   <p key={line}>{line}</p>
                 ))}
                 <small>
-                  Based on the current catalogue. Prices and stock are checked
-                  again at checkout.
+                  Based on the current catalogue. Quote products require
+                  confirmation of price and availability. Priced items are
+                  checked again at checkout.
                 </small>
               </section>
               <p className="comparison-scroll-hint">
@@ -1158,20 +1205,25 @@ function ComparisonPage() {
                             >
                               <X size={16} />
                             </button>
-                            <img
-                              src={
-                                product.media[0]?.url ??
-                                "/illustrations/laptop.svg"
-                              }
-                              alt={product.media[0]?.alt ?? product.name}
-                            />
+                            {product.media[0] && (
+                              <img
+                                src={product.media[0].url}
+                                alt={product.media[0].alt || product.name}
+                              />
+                            )}
                             <Link
                               href={`/product/${product.slug}?sku=${skuId}`}
                             >
                               <b>{product.name}</b>
                             </Link>
                             <small>{sku.code}</small>
-                            <p>{money(sku.price)}</p>
+                            <p>
+                              {product.quoteOnly
+                                ? "Request a quote"
+                                : sku.price != null
+                                  ? money(sku.price)
+                                  : "Price unavailable"}
+                            </p>
                             <CardActions product={product} skuId={skuId} />
                           </th>
                         );

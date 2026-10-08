@@ -12,23 +12,30 @@ export function ProductCard({
 }) {
   const s = p.skus[0];
   const sale =
-    s?.compareAt && s.compareAt > s.price
+    !p.quoteOnly && s?.price != null && s.compareAt && s.compareAt > s.price
       ? Math.round((1 - s.price / s.compareAt) * 100)
       : 0;
   return (
-    <article className="product-card">
+    <article className={`product-card ${p.quoteOnly ? "quote-product" : ""}`}>
       <div className="card-image">
         <Link
           href={`/product/${p.slug}${p.skus[0] ? `?sku=${p.skus[0].id}` : ""}`}
           tabIndex={-1}
         >
-          <img
-            src={p.media[0]?.url ?? "/illustrations/laptop.svg"}
-            alt={p.media[0]?.alt ?? p.name}
-            width="300"
-            height="240"
-            loading="lazy"
-          />
+          {p.media[0] ? (
+            <img
+              src={p.media[0].url}
+              alt={p.media[0].alt || p.name}
+              width="300"
+              height="240"
+              loading="lazy"
+            />
+          ) : (
+            <span className="product-image-unavailable">
+              {p.brand.name}
+              <small>Product image unavailable</small>
+            </span>
+          )}
         </Link>
         {sale > 0 ? (
           <span className="sale-badge">−{sale}%</span>
@@ -49,11 +56,17 @@ export function ProductCard({
           {p.highlights.slice(0, 2).join(" · ") || "Explore product details"}
         </p>
         <div className="card-price">
-          {s ? money(s.price) : "Price unavailable"}
+          {p.quoteOnly
+            ? "Request a quote"
+            : s?.price != null
+              ? money(s.price)
+              : "Price unavailable"}
         </div>
         <div className="price-secondary">
           {sale > 0 && <del>{money(s.compareAt!)}</del>}
-          {s?.available ? (
+          {p.quoteOnly ? (
+            <span className="quote-availability">Availability on request</span>
+          ) : s?.available ? (
             <span className="stock-dot">In stock</span>
           ) : (
             <span className="muted">Out of stock</span>
