@@ -1,5 +1,13 @@
 # Verification report
 
+## Storefront redesign — 8 October 2026
+
+- 97 unit/integration tests passed across 21 files in the isolated local `inforteks_test` database. New coverage checks sample starters remain DRAFT/demo/store=false with unset prices and zero inventory, public/preview selection parity, exclusion of drafts and Direct-only products, bounded presentation settings and content-permission denial. Existing shared inventory, channel visibility, CRM, Contacts and approval tests remain green.
+- All 32 distinct browser journeys passed across targeted/regression runs and sequential follow-up checks. New journeys cover scoped search, empty feedback, stale selection prevention, clearing/dismissal, retained department filters, 320/390px navigation, header accessibility, sample draft creation and mobile/desktop curated-section previews without publication.
+- One regression run hit an ENOENT Playwright trace-file collision because a second browser command reused its output directory; the affected three ERP journeys passed sequentially in their own output directory. The initially skipped Google interface test passed after restarting the local server with the existing CI-only Google fixture values; no real Google account or consent was used. The final sample-starter check also passed after the reset-control adjustment. Authentication rate limits were respected.
+- TypeScript, ESLint, full formatting checks, OpenAPI generation/validation (127 operations), and an optimized production build with an unreachable database URL passed. Desktop/mobile homepage and department-panel screenshots were inspected privately. No schema migration is needed.
+- No production seed, Owner bootstrap/reset, production sample insertion or production browser suite ran. Sample concepts are prepared as admin draft starters, not live catalogue products. Deployment evidence is tracked separately in RAILWAY_STATUS.md.
+
 ## Direct Sales workspaces — 7 October 2026
 
 - 81 unit/integration tests passed across 18 files. New coverage checks office contacts without logins, scoped product/office access, reviewed prices, immutable snapshots, idempotent confirmation, concurrent online/direct and cross-office stock reservations, follow-up completion, archived-customer denial and existing manager fulfilment approvals. Anonymous/customer denial also covers the new API registry entries.

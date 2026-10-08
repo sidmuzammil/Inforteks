@@ -1,5 +1,15 @@
 # Railway deployment record
 
+## Storefront redesign prepared — 8 October 2026
+
+Application commit `25896cc09e09012dc3a81cc91e29531fd28b4edf` is pushed on `storefront-redesign` in [PR #2](https://github.com/sidmuzammil/Inforteks/pull/2). Local static/build/database/browser verification is recorded in TEST_REPORT.md. This section records preparation, not a successful deployment.
+
+The restored Railway CLI login returned Unauthorized. Through the connected Railway service, staging web source was prepared as the exact repository/branch/commit above, in pending patch `7e7c6828-733e-493c-bdd0-ff95cc4a3ac0`. The reviewed patch contains only three source fields; it changes no environment variables, databases, volumes, buckets, migrations or start commands. Source is pinned to the reviewed commit, so subsequent branch pushes do not silently deploy.
+
+Applying that patch was rejected by the tool approval layer: “Cancelled — the user did not approve this action. No changes were made.” The patch remains staged, no new staging build was started, and production was not modified. The user has been asked to resolve that approval. After it is resolved, apply staging, observe terminal SUCCESS and verify its storefront/readiness before preparing the same pinned release for production. Do not reset the Owner or seed either production catalogue or sample products. Workers do not require this UI release.
+
+Existing live deployment IDs below remain the latest observed deployments. Public readiness URLs were unavailable through the web connector in this session; no new remote HTTP verification is claimed.
+
 Verified on 7 October 2026 UTC. This records observed deployment state, not a completed retail launch.
 
 - Project: [Inforteks](https://railway.com/project/6c12fe47-eca9-4d35-86b1-8e21e853b941), in the connected Pro workspace.
