@@ -29,6 +29,14 @@ const digest = (bytes: Uint8Array | string) =>
   createHash("sha256").update(bytes).digest("hex");
 const [command, inputPath, outputPath] = process.argv.slice(2);
 if (
+  (process.env.HTTPS_PROXY || process.env.HTTP_PROXY) &&
+  process.env.NODE_USE_ENV_PROXY !== "1" &&
+  !process.execArgv.includes("--use-env-proxy")
+)
+  throw new Error(
+    "Preserve the environment network policy: run Node with --use-env-proxy.",
+  );
+if (
   !command ||
   !inputPath ||
   !["preview", "commit", "upload", "propose", "publish"].includes(command)

@@ -2,6 +2,8 @@
 
 ## Quote catalogue and premium storefront — 8 October 2026
 
+GitHub Actions [37768182660](https://github.com/sidmuzammil/Inforteks/actions/runs/37768182660) passed all checks, including the full browser suite and production build, on application commit `bc40ddde109625b876f4924dccf2a1b51f7ef534`. The later supplier research CLI passed a local feed fixture confirming separate product/variant counts, stripped commercial fields and unresolved publication status; its live feed remains inaccessible.
+
 - All **111 unit/integration tests across 25 files** passed in isolated `inforteks_test`. New coverage includes quote publication, price/filter semantics, permission/stale proposal checks, online checkout denial with unchanged Direct Sales stock behavior, verified quote inquiry references, source import fingerprints, concurrent retry idempotency, preserved existing prices/stock, revoked staff access and invalid manifest rejection.
 - **19 browser journeys** passed: the new mobile quote inquiry/wishlist/comparison/structured-data journey and 18 storefront, merchant editor, Direct Sales and ERP regressions. One initial quote test used a stale development Prisma client after generation; restarting the local server resolved it. The new test passed against the migrated runtime. Sign-in rate limiting was respected during the regression run.
 - TypeScript, ESLint, formatting, OpenAPI validation (129 operations) and the production build with an unreachable database passed. Desktop/mobile inspection found and corrected inherited CSS hiding category icons. Quote form accessibility had no serious or critical Axe findings in the tested scope.

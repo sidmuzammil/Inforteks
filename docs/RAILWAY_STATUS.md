@@ -2,7 +2,7 @@
 
 ## Quote catalogue release prepared — 8 October 2026
 
-Application commit `bc40ddde109625b876f4924dccf2a1b51f7ef534` is pushed on `storefront-redesign` in [PR #2](https://github.com/sidmuzammil/Inforteks/pull/2). Local verification passed 111 unit/integration tests, 19 browser journeys, static checks, generated API validation and the production build. GitHub Actions [37768182660](https://github.com/sidmuzammil/Inforteks/actions/runs/37768182660) is running; no result is claimed yet.
+Application commit `bc40ddde109625b876f4924dccf2a1b51f7ef534` is pushed on `storefront-redesign` in [PR #2](https://github.com/sidmuzammil/Inforteks/pull/2). Local verification passed 111 unit/integration tests, 19 browser journeys, static checks, generated API validation and the production build. GitHub Actions [37768182660](https://github.com/sidmuzammil/Inforteks/actions/runs/37768182660) passed the complete setup, static/database checks, browser suite and production build on that exact application commit.
 
 The existing staging patch `7e7c6828-733e-493c-bdd0-ff95cc4a3ac0` now pins web to that application commit. Inspection shows only repository, branch, commit and an empty image-source removal; it is non-destructive and changes no credentials, variables, volumes, buckets or production configuration. The patch has **not been applied**. Staging's previous web/worker/Postgres remain online. No new migration, deployment or catalogue import has run remotely.
 

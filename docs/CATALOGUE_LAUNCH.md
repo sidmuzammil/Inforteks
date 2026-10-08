@@ -22,17 +22,19 @@ The manifest schema is `src/lib/catalogue-manifest.ts`. Imports are limited to a
 `scripts/catalogue-import.ts` is an authenticated HTTP client. It never creates an actor, resets a password, connects directly to a production database or invokes a seed. Configure `INFORTEKS_ADMIN_ORIGIN` and an existing `INFORTEKS_SESSION_COOKIE` through private runtime bindings; do not paste credentials into source, commands, logs or chat.
 
 ```sh
-node --import tsx scripts/catalogue-import.ts preview .data/catalogue/stocklist-manifest.json .data/catalogue/staging-receipt.json
-node --import tsx scripts/catalogue-import.ts commit .data/catalogue/staging-receipt.json
-node --import tsx scripts/catalogue-import.ts upload .data/catalogue/staging-receipt.json
-node --import tsx scripts/catalogue-import.ts propose .data/catalogue/staging-receipt.json
+node --use-env-proxy --import tsx scripts/catalogue-import.ts preview .data/catalogue/stocklist-manifest.json .data/catalogue/staging-receipt.json
+node --use-env-proxy --import tsx scripts/catalogue-import.ts commit .data/catalogue/staging-receipt.json
+node --use-env-proxy --import tsx scripts/catalogue-import.ts upload .data/catalogue/staging-receipt.json
+node --use-env-proxy --import tsx scripts/catalogue-import.ts propose .data/catalogue/staging-receipt.json
 # Inspect the exact, version-bound proposals saved in the private receipt first.
-node --import tsx scripts/catalogue-import.ts publish .data/catalogue/staging-receipt.json --reviewed
+node --use-env-proxy --import tsx scripts/catalogue-import.ts publish .data/catalogue/staging-receipt.json --reviewed
 ```
 
 Photograph files must be inside the manifest directory and match reviewed SHA-256 hashes. The normal media service validates and re-encodes image bytes. Unexpected existing media is preserved and stops automation for review. Unresolved research or missing photos block CLI publication proposals. Each propose invocation prepares at most 100 products; review/publish that batch, then repeat for remaining drafts. Re-proposing renews expired unapproved proposals. Recheck the resulting storefront and inquiry flow in staging before separately previewing and importing production.
 
 ## Research prepared on 8 October 2026
+
+After the source host is allowed, run `node --use-env-proxy --import tsx scripts/research-supplier-catalogue.ts .data/catalogue/supplier` to enumerate the public Shopify feed. It checkpoints identity/photo references, rejects repeated pagination, records product and variant counts separately, and generates **unverified research drafts only**. It strips source prices, stock, HTML descriptions and reviews. Category/brand suggestions and every photo require review; successful feed traversal does not prove manufacturer verification or complete supplier availability. This tool has not been verified against the live feed because source access is blocked.
 
 The supplied stocklist contains 139 rows resolving to **137 distinct products: 116 HP and 21 Canon**, consisting of 135 toner cartridges and two imaging drums. Duplicate 35A/89A rows are consolidated; HP 05A is normalized to CE505A; Canon 045A/054A names are normalized to standard 045/054. The user confirmed genuine cartridges and requested quote-only publication with no invented price or inventory quantity.
 
