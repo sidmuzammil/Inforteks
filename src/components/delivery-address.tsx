@@ -70,6 +70,7 @@ export function DeliveryAddressFields({
   const [notice, setNotice] = useState("");
   const [googleSuggestion, setGoogleSuggestion] = useState(false);
   const [lookupEnabled, setLookupEnabled] = useState(false);
+  const [lookupReady, setLookupReady] = useState(false);
   const generation = useRef(0);
   const mounted = useRef(true);
   useEffect(() => {
@@ -79,7 +80,10 @@ export function DeliveryAddressFields({
       .then((r) => {
         if (active) setLookupEnabled(r.enabled);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (active) setLookupReady(true);
+      });
     return () => {
       active = false;
       mounted.current = false;
@@ -237,7 +241,9 @@ export function DeliveryAddressFields({
         <button
           type="button"
           className="button"
-          disabled={busy}
+          // Wait for capability discovery so the click uses the displayed
+          // lookup consent and cannot capture the initial disabled state.
+          disabled={busy || !lookupReady}
           onClick={() => void detect()}
         >
           <LocateFixed size={18} />

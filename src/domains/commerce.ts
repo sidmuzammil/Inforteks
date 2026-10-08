@@ -64,7 +64,8 @@ export function publicCart(cart: Awaited<ReturnType<typeof getCart>>) {
     ? {
         id: cart.id,
         items: cart.items.map((l) => {
-          const visible = isOnlineProduct(l.sku.product);
+          const visible =
+            isOnlineProduct(l.sku.product) && !l.sku.product.quoteOnly;
           const media = visible ? l.sku.product.media[0] : undefined;
           return {
             id: l.id,
@@ -179,7 +180,11 @@ export async function setCartItem(cartId: string, raw: unknown) {
       include: { product: { include: { category: true } } },
     });
     invariant(
-      sku && sku.active && isOnlineProduct(sku.product) && sku.price !== null,
+      sku &&
+        sku.active &&
+        isOnlineProduct(sku.product) &&
+        !sku.product.quoteOnly &&
+        sku.price !== null,
       404,
       "This item is no longer available.",
     );
@@ -217,8 +222,8 @@ export async function quoteTx(
   couponCode?: string,
   channel: "ONLINE" | "DIRECT" = "ONLINE",
 ) {
-  // Serialize visibility changes with online checkout; a hidden product cannot
-  // be purchased from an old cart after the visibility change has committed.
+  // Serialize visibility/quote-mode changes with online checkout so an old
+  // cart cannot purchase after either restriction has committed.
   await tx.$queryRaw`SELECT p.id FROM "Product" p JOIN "Sku" s ON s."productId"=p.id JOIN "CartItem" ci ON ci."skuId"=s.id WHERE ci."cartId"=${cartId} ORDER BY p.id FOR SHARE OF p`;
   const cart = await tx.cart.findUnique({
     where: { id: cartId },
@@ -236,7 +241,8 @@ export async function quoteTx(
     invariant(
       sku.active &&
         sku.product.status === "PUBLISHED" &&
-        (channel === "DIRECT" || sku.product.store) &&
+        (channel === "DIRECT" ||
+          (sku.product.store && !sku.product.quoteOnly)) &&
         sku.product.category.visible &&
         sku.price !== null &&
         sku.onHand - sku.reserved >= quantity,

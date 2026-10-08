@@ -7,6 +7,7 @@ import {
   useRef,
   useSyncExternalStore,
   useMemo,
+  useId,
   type ReactNode,
 } from "react";
 import Link from "next/link";
@@ -23,9 +24,13 @@ import {
   X,
   Menu,
   ChevronDown,
+  ChevronRight,
+  UserRound,
+  Box,
 } from "lucide-react";
 import type { PublicProduct } from "@/domains/catalogue";
 import { money } from "@/lib/utils";
+import { DepartmentIcon } from "./department-icon";
 import type { Comparison } from "@/domains/comparison";
 
 export async function api<T = unknown>(
@@ -130,8 +135,10 @@ function useSelectionStore(key: string) {
                 Array.isArray(item.product.skus) &&
                 Array.isArray(item.product.media) &&
                 item.product.skus.some(
-                  (sku: { id?: string; price?: number }) =>
-                    sku?.id === item.skuId && Number.isFinite(sku.price),
+                  (sku: { id?: string; price?: number | null }) =>
+                    sku?.id === item.skuId &&
+                    (Number.isFinite(sku.price) ||
+                      (item.product.quoteOnly === true && sku.price === null)),
                 ),
             )
             .slice(0, key === "ift-compare" ? 4 : 100)
@@ -259,19 +266,26 @@ export function ShopProvider({
     </Shop.Provider>
   );
 }
-export function HeaderActions() {
+export function HeaderActions({ signedIn = false }: { signedIn?: boolean }) {
   const shop = useShop();
   return (
     <div className="header-actions">
-      <Link href="/account" className="account-shortcut">
-        <span className="avatar-mini">i</span>
-        <span>
-          <small>Welcome to Inforteks</small>
-          <b>Sign in / Account</b>
+      <Link
+        href="/account"
+        className="account-shortcut"
+        aria-label={signedIn ? "My account" : "Sign in or create account"}
+      >
+        <UserRound size={23} aria-hidden="true" />
+        <span className="account-copy">
+          <small>{signedIn ? "Welcome back" : "Welcome to Inforteks"}</small>
+          <b className="account-label">
+            {signedIn ? "My account" : "Sign in / Account"}
+          </b>
         </span>
       </Link>
       <Link
         href="/wishlist"
+        className="wishlist-shortcut"
         aria-label={`Wishlist, ${shop.wishlist.length} items`}
       >
         <Heart size={22} />
@@ -279,6 +293,7 @@ export function HeaderActions() {
       </Link>
       <Link
         href="/compare"
+        className="compare-shortcut"
         aria-label={`Compare, ${shop.compare.length} items`}
       >
         <ChartNoAxesColumnIncreasing size={22} />
@@ -296,16 +311,60 @@ export function HeaderActions() {
     </div>
   );
 }
+function subscribeDepartmentLayout(listener: () => void) {
+  const media = window.matchMedia("(max-width: 640px)");
+  media.addEventListener("change", listener);
+  return () => media.removeEventListener("change", listener);
+}
 export function DepartmentMenu({
   categories,
 }: {
-  categories: { name: string; slug: string }[];
+  categories: {
+    id?: string;
+    name: string;
+    slug: string;
+    parentId?: string | null;
+    icon?: string;
+  }[];
 }) {
   const [open, setOpen] = useState(false);
+  const mobile = useSyncExternalStore(
+    subscribeDepartmentLayout,
+    () => window.matchMedia("(max-width: 640px)").matches,
+    () => false,
+  );
+  const roots = categories.filter(
+    (category) =>
+      !category.parentId ||
+      !categories.some((parent) => parent.id === category.parentId),
+  );
+  const [activeSlug, setActiveSlug] = useState<string | null>(
+    roots[0]?.slug ?? null,
+  );
+  const selected =
+    roots.find((category) => category.slug === activeSlug) ?? roots[0];
+  const childrenOf = (id?: string) =>
+    id ? categories.filter((category) => category.parentId === id) : [];
   const root = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const categoryLinks = useRef(new Map<string, HTMLAnchorElement>());
+  const pendingPanelFocus = useRef<string | null>(null);
+  const [panelFocusRequest, setPanelFocusRequest] = useState(0);
   const button = useRef<HTMLButtonElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const hovered = useRef(false);
+  const focusSubcategories = (slug: string) => {
+    setActiveSlug(slug);
+    pendingPanelFocus.current = slug;
+    setPanelFocusRequest((request) => request + 1);
+  };
+  useEffect(() => {
+    if (!open || mobile || pendingPanelFocus.current !== selected?.slug) return;
+    pendingPanelFocus.current = null;
+    panel.current
+      ?.querySelector<HTMLAnchorElement>(".mega-subcategory-list a")
+      ?.focus();
+  }, [open, mobile, selected?.slug, panelFocusRequest]);
   useEffect(() => {
     if (!open) return;
     const outside = (event: PointerEvent) => {
@@ -378,18 +437,193 @@ export function DepartmentMenu({
         <ChevronDown size={15} />
       </button>
       {open && (
-        <div id="department-menu" className="mega-menu">
-          {categories.map((c) => (
-            <Link
-              key={c.slug}
-              href={`/category/${c.slug}`}
-              onClick={() => setOpen(false)}
+        <div id="department-menu" className="mega-menu marketplace-departments">
+          <div className="mega-heading">
+            <strong>Shop by department</strong>
+            <button
+              type="button"
+              aria-label="Close departments"
+              onClick={() => {
+                setOpen(false);
+                button.current?.focus();
+              }}
             >
-              {c.name}
-              <ArrowRight size={14} />
+              <X size={20} />
+            </button>
+          </div>
+          <div className="mega-layout">
+            <div className="mega-category-list">
+              {roots.map((category) => (
+                <div
+                  key={category.slug}
+                  className={`mega-category-row ${activeSlug === category.slug ? "is-active" : ""}`}
+                  onPointerEnter={(event) => {
+                    if (
+                      event.pointerType === "mouse" &&
+                      window.matchMedia("(hover: hover)").matches
+                    )
+                      setActiveSlug(category.slug);
+                  }}
+                >
+                  <Link
+                    ref={(element) => {
+                      if (element)
+                        categoryLinks.current.set(category.slug, element);
+                      else categoryLinks.current.delete(category.slug);
+                    }}
+                    className="mega-category-link"
+                    href={`/category/${category.slug}`}
+                    onFocus={() => setActiveSlug(category.slug)}
+                    onClick={() => setOpen(false)}
+                    onKeyDown={(event) => {
+                      if (event.key === "ArrowRight" && !mobile) {
+                        event.preventDefault();
+                        focusSubcategories(category.slug);
+                      }
+                    }}
+                  >
+                    <span className="department-symbol">
+                      <DepartmentIcon
+                        name={`${category.slug} ${category.name}`}
+                        size={20}
+                      />
+                    </span>
+                    <strong>{category.name}</strong>
+                  </Link>
+                  {childrenOf(category.id).length > 0 && (
+                    <>
+                      <button
+                        type="button"
+                        className="mega-category-expand"
+                        aria-label={`Show ${category.name} subcategories`}
+                        aria-expanded={
+                          (mobile ? activeSlug : selected?.slug) ===
+                          category.slug
+                        }
+                        aria-controls={
+                          mobile
+                            ? `department-children-${category.slug}`
+                            : "department-panel"
+                        }
+                        onClick={() => {
+                          if (mobile)
+                            setActiveSlug(
+                              activeSlug === category.slug
+                                ? null
+                                : category.slug,
+                            );
+                          else focusSubcategories(category.slug);
+                        }}
+                      >
+                        <ChevronRight size={17} aria-hidden="true" />
+                      </button>
+                      <div
+                        id={`department-children-${category.slug}`}
+                        className="mega-mobile-children"
+                      >
+                        {childrenOf(category.id).map((child) => (
+                          <Link
+                            key={child.slug}
+                            href={`/category/${child.slug}`}
+                            onClick={() => setOpen(false)}
+                          >
+                            {child.name}
+                          </Link>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+            {selected && (
+              <div
+                ref={panel}
+                id="department-panel"
+                className="mega-category-panel"
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowLeft") {
+                    event.preventDefault();
+                    categoryLinks.current.get(selected.slug)?.focus();
+                  }
+                }}
+              >
+                <div className="mega-panel-heading">
+                  <span className="eyebrow">Explore the department</span>
+                  <h2>{selected.name}</h2>
+                  <Link
+                    href={`/category/${selected.slug}`}
+                    onClick={() => setOpen(false)}
+                  >
+                    Shop all {selected.name}{" "}
+                    <ArrowRight size={15} aria-hidden="true" />
+                  </Link>
+                </div>
+                <div className="mega-subcategory-list">
+                  {childrenOf(selected.id).map((child) => (
+                    <Link
+                      key={child.slug}
+                      href={`/category/${child.slug}`}
+                      onClick={() => setOpen(false)}
+                    >
+                      <DepartmentIcon
+                        name={`${child.slug} ${child.name}`}
+                        size={21}
+                      />
+                      <span>{child.name}</span>
+                      <ChevronRight size={15} aria-hidden="true" />
+                    </Link>
+                  ))}
+                  {!childrenOf(selected.id).length && (
+                    <Link
+                      href={`/search?${new URLSearchParams({ category: selected.slug, sort: "newest" })}`}
+                      onClick={() => setOpen(false)}
+                    >
+                      <Box size={21} aria-hidden="true" />
+                      <span>Latest in {selected.name}</span>
+                      <ChevronRight size={15} aria-hidden="true" />
+                    </Link>
+                  )}
+                </div>
+                <Link
+                  className="mega-feature-link"
+                  href="/contact"
+                  onClick={() => setOpen(false)}
+                >
+                  <span>
+                    <strong>Looking for a specific model?</strong>
+                    <small>Ask our team about pricing and availability.</small>
+                  </span>
+                  <ArrowRight size={18} aria-hidden="true" />
+                </Link>
+              </div>
+            )}
+          </div>
+          <div className="mega-quick-links">
+            <Link href="/search" onClick={() => setOpen(false)}>
+              All products
             </Link>
-          ))}
-          <Link href="/categories" onClick={() => setOpen(false)}>
+            <Link href="/offers" onClick={() => setOpen(false)}>
+              Offers
+            </Link>
+            <Link href="/new-arrivals" onClick={() => setOpen(false)}>
+              New arrivals
+            </Link>
+            <Link href="/brands" onClick={() => setOpen(false)}>
+              Brands
+            </Link>
+            <Link href="/account" onClick={() => setOpen(false)}>
+              My account
+            </Link>
+            <Link href="/compare" onClick={() => setOpen(false)}>
+              Compare products
+            </Link>
+          </div>
+          <Link
+            className="mega-browse-all"
+            href="/categories"
+            onClick={() => setOpen(false)}
+          >
             Browse all departments
           </Link>
         </div>
@@ -397,98 +631,192 @@ export function DepartmentMenu({
     </div>
   );
 }
-export function SearchBox() {
+export function SearchBox({
+  categories = [],
+}: {
+  categories?: { name: string; slug: string }[];
+}) {
   const [q, setQ] = useState("");
-  const [items, setItems] = useState<PublicProduct[]>([]);
+  const [category, setCategory] = useState("");
+  const [result, setResult] = useState<{
+    key: string;
+    items: PublicProduct[];
+    error?: boolean;
+  } | null>(null);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
+  const root = useRef<HTMLFormElement>(null);
   const router = useRouter();
+  const key = `${category}:${q.trim()}`;
+  const current = result?.key === key ? result : null;
+  const items = current?.items ?? [];
   useEffect(() => {
-    if (q.length < 2) return;
+    if (q.trim().length < 2) return;
     const ctrl = new AbortController();
-    const timer = setTimeout(() => {
-      fetch(`/api/v1/storefront/search?q=${encodeURIComponent(q)}&limit=5`, {
-        signal: ctrl.signal,
-      })
-        .then((r) => r.json())
-        .then((r) => setItems(r.data?.products ?? []))
-        .catch(() => {});
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `/api/v1/storefront/search?${new URLSearchParams({ q: q.trim(), category, limit: "5" })}`,
+          { signal: ctrl.signal },
+        );
+        if (!response.ok) throw new Error("Search unavailable");
+        const data = await response.json();
+        if (!ctrl.signal.aborted)
+          setResult({ key, items: data.data?.products ?? [] });
+      } catch {
+        if (!ctrl.signal.aborted) setResult({ key, items: [], error: true });
+      }
     }, 250);
     return () => {
       clearTimeout(timer);
       ctrl.abort();
     };
-  }, [q]);
+  }, [q, category, key]);
+  useEffect(() => {
+    const close = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, []);
+  const showing = open && q.trim().length >= 2;
   return (
     <form
+      ref={root}
       action="/search"
-      className="search-box"
-      onSubmit={(e) => {
+      className="search-box marketplace-search"
+      role="search"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}
+      onSubmit={(event) => {
         if (active >= 0 && items[active]) {
-          e.preventDefault();
-          router.push(`/product/${items[active].slug}`);
+          event.preventDefault();
+          router.push(
+            `/product/${items[active].slug}?sku=${items[active].skus[0]?.id ?? ""}`,
+          );
         }
         setOpen(false);
       }}
     >
-      <Search size={20} className="search-icon" />
+      <select
+        name="category"
+        aria-label="Search department"
+        value={category}
+        onChange={(event) => {
+          setCategory(event.target.value);
+          setActive(-1);
+        }}
+      >
+        <option value="">All departments</option>
+        {categories.map((c) => (
+          <option key={c.slug} value={c.slug}>
+            {c.name}
+          </option>
+        ))}
+      </select>
       <input
         name="q"
         value={q}
-        onChange={(e) => {
-          setQ(e.target.value);
-          if (e.target.value.length < 2) setItems([]);
+        maxLength={100}
+        onChange={(event) => {
+          setQ(event.target.value);
           setOpen(true);
           setActive(-1);
         }}
         onFocus={() => setOpen(true)}
-        placeholder="Search products, brands and more…"
+        placeholder="Search products, brands or model numbers"
         aria-label="Search products"
         role="combobox"
-        aria-expanded={open && items.length > 0}
+        aria-expanded={showing}
         aria-controls="search-results"
         aria-autocomplete="list"
-        aria-activedescendant={active >= 0 ? `suggestion-${active}` : undefined}
+        aria-activedescendant={
+          showing && active >= 0 && items[active]
+            ? `suggestion-${active}`
+            : undefined
+        }
         autoComplete="off"
-        onKeyDown={(e) => {
-          if (e.key === "ArrowDown") {
-            e.preventDefault();
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setOpen(true);
             setActive(Math.min(active + 1, items.length - 1));
           }
-          if (e.key === "ArrowUp") {
-            e.preventDefault();
+          if (event.key === "ArrowUp") {
+            event.preventDefault();
             setActive(Math.max(active - 1, -1));
           }
-          if (e.key === "Escape") setOpen(false);
+          if (event.key === "Escape") {
+            setOpen(false);
+            setActive(-1);
+          }
         }}
       />
-      <button aria-label="Submit search">
+      {q && (
+        <button
+          className="search-clear"
+          type="button"
+          aria-label="Clear search"
+          onClick={() => {
+            setQ("");
+            setActive(-1);
+            root.current?.querySelector("input")?.focus();
+          }}
+        >
+          <X size={16} />
+        </button>
+      )}
+      <button className="search-submit" aria-label="Submit search">
         <Search size={20} />
+        <span>Search</span>
       </button>
-      {open && items.length > 0 && (
-        <ul id="search-results" className="search-results" role="listbox">
-          {items.map((p, i) => (
-            <li
-              key={p.id}
-              role="option"
-              id={`suggestion-${i}`}
-              aria-selected={active === i}
-            >
-              <Link href={`/product/${p.slug}`} onClick={() => setOpen(false)}>
-                <img
-                  src={p.media[0]?.url ?? "/illustrations/laptop.svg"}
-                  alt=""
-                />
-                <span>
-                  {p.name}
-                  <small>
-                    {p.skus[0] ? money(p.skus[0].price) : "Unavailable"}
-                  </small>
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+      {showing && (
+        <div className="search-panel">
+          <p className="search-caption" role="status">
+            {!current
+              ? "Searching…"
+              : current.error
+                ? "Suggestions unavailable. Submit to try the full search."
+                : items.length
+                  ? "Matching products"
+                  : "No matching products. Try a brand, model or another department."}
+          </p>
+          <ul id="search-results" className="search-results" role="listbox">
+            {items.map((p, i) => (
+              <li
+                key={p.id}
+                role="option"
+                id={`suggestion-${i}`}
+                aria-selected={active === i}
+              >
+                <Link
+                  href={`/product/${p.slug}?sku=${p.skus[0]?.id ?? ""}`}
+                  onClick={() => setOpen(false)}
+                >
+                  {p.media[0] && <img src={p.media[0].url} alt="" />}
+                  <span>
+                    {p.name}
+                    <small>
+                      {p.quoteOnly
+                        ? "Request a quote"
+                        : p.skus[0]?.price != null
+                          ? money(p.skus[0].price)
+                          : "Price unavailable"}
+                    </small>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <Link
+            className="search-all"
+            href={`/search?${new URLSearchParams({ q: q.trim(), category })}`}
+            onClick={() => setOpen(false)}
+          >
+            View all search results <ArrowRight size={16} />
+          </Link>
+        </div>
       )}
     </form>
   );
@@ -506,36 +834,46 @@ export function CardActions({
   if (!sku) return null;
   return (
     <div className="card-actions">
-      <button
-        className="add-button"
-        disabled={busy || sku.available === 0}
-        aria-label={`Add ${product.name} to cart`}
-        onClick={async () => {
-          setBusy(true);
-          try {
-            await api("storefront/carts", {
-              skuId: sku.id,
-              quantity: 1,
-              mode: "add",
-            });
-            await shop.refresh();
-            shop.message("Added to your cart.");
-          } catch (e) {
-            shop.message((e as Error).message);
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        {sku.available > 0 ? (
-          <>
-            <Plus size={16} />
-            {busy ? "Adding…" : "Add to cart"}
-          </>
-        ) : (
-          "Out of stock"
-        )}
-      </button>
+      {product.quoteOnly ? (
+        <Link
+          className="add-button quote-button"
+          href={`/contact?${new URLSearchParams({ product: product.slug, sku: sku.id })}`}
+          aria-label={`Request a quote for ${product.name}`}
+        >
+          Enquire now <ArrowRight size={15} />
+        </Link>
+      ) : (
+        <button
+          className="add-button"
+          disabled={busy || sku.available === 0 || sku.price === null}
+          aria-label={`Add ${product.name} to cart`}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await api("storefront/carts", {
+                skuId: sku.id,
+                quantity: 1,
+                mode: "add",
+              });
+              await shop.refresh();
+              shop.message("Added to your cart.");
+            } catch (e) {
+              shop.message((e as Error).message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {sku.available > 0 ? (
+            <>
+              <Plus size={16} />
+              {busy ? "Adding…" : "Add to cart"}
+            </>
+          ) : (
+            "Out of stock"
+          )}
+        </button>
+      )}
       <button
         className="icon-button"
         aria-label={`Compare ${product.name}`}
@@ -573,9 +911,13 @@ export function WishlistButton({
 export function ProductPurchase({
   product,
   initialSku,
+  showSpecifications = true,
+  showHighlights = true,
 }: {
   product: PublicProduct;
   initialSku?: string;
+  showSpecifications?: boolean;
+  showHighlights?: boolean;
 }) {
   const router = useRouter();
   const shop = useShop();
@@ -598,16 +940,23 @@ export function ProductPurchase({
         <span>SKU: {sku.code}</span>
         <span>{sku.condition}</span>
       </div>
-      <div className="detail-price">
-        {money(sku.price)}{" "}
-        {sku.compareAt && sku.compareAt > sku.price && (
-          <del>{money(sku.compareAt)}</del>
-        )}
+      <div className={`detail-price ${product.quoteOnly ? "quote-price" : ""}`}>
+        {product.quoteOnly
+          ? "Request a quote"
+          : sku.price != null
+            ? money(sku.price)
+            : "Price unavailable"}{" "}
+        {!product.quoteOnly &&
+          sku.price != null &&
+          sku.compareAt &&
+          sku.compareAt > sku.price && <del>{money(sku.compareAt)}</del>}
       </div>
-      <p className={sku.available ? "stock" : "muted"}>
-        {sku.available
-          ? `${sku.available > 5 ? "In stock" : `Only ${sku.available} available`} · Ready to order`
-          : "Currently out of stock"}
+      <p className={!product.quoteOnly && sku.available ? "stock" : "muted"}>
+        {product.quoteOnly
+          ? "Availability on request"
+          : sku.available
+            ? `${sku.available > 5 ? "In stock" : `Only ${sku.available} available`} · Ready to order`
+            : "Currently out of stock"}
       </p>
       {product.skus.length > 1 && (
         <fieldset className="variants">
@@ -634,56 +983,73 @@ export function ProductPurchase({
           ))}
         </fieldset>
       )}
-      <ul className="highlights">
-        {product.highlights.map((h) => (
-          <li key={h}>
-            <Check size={15} />
-            {h}
-          </li>
-        ))}
-      </ul>
-      <div className="purchase-row">
-        <div className="quantity">
-          <button
-            aria-label="Decrease quantity"
-            disabled={quantity <= 1}
-            onClick={() => setQuantity(quantity - 1)}
+      {showHighlights && (
+        <ul className="highlights">
+          {product.highlights.map((h) => (
+            <li key={h}>
+              <Check size={15} />
+              {h}
+            </li>
+          ))}
+        </ul>
+      )}
+      {product.quoteOnly ? (
+        <div className="quote-purchase">
+          <p>
+            Tell us the quantity you need. We’ll confirm your price, product
+            details and availability before you order.
+          </p>
+          <Link
+            className="button primary"
+            href={`/contact?${new URLSearchParams({ product: product.slug, sku: sku.id })}`}
           >
-            <Minus size={14} />
-          </button>
-          <span>{quantity}</span>
+            Request a quote <ArrowRight size={18} />
+          </Link>
+        </div>
+      ) : (
+        <div className="purchase-row">
+          <div className="quantity">
+            <button
+              aria-label="Decrease quantity"
+              disabled={quantity <= 1}
+              onClick={() => setQuantity(quantity - 1)}
+            >
+              <Minus size={14} />
+            </button>
+            <span>{quantity}</span>
+            <button
+              aria-label="Increase quantity"
+              disabled={quantity >= sku.available || quantity >= 99}
+              onClick={() => setQuantity(quantity + 1)}
+            >
+              <Plus size={14} />
+            </button>
+          </div>
           <button
-            aria-label="Increase quantity"
-            disabled={quantity >= sku.available || quantity >= 99}
-            onClick={() => setQuantity(quantity + 1)}
+            className="button primary grow"
+            disabled={busy || sku.available === 0 || sku.price === null}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await api("storefront/carts", {
+                  skuId: sku.id,
+                  quantity,
+                  mode: "add",
+                });
+                await shop.refresh();
+                shop.message("Added to your cart.");
+              } catch (e) {
+                shop.message((e as Error).message);
+              } finally {
+                setBusy(false);
+              }
+            }}
           >
-            <Plus size={14} />
+            <ShoppingCart size={18} />
+            {busy ? "Adding…" : sku.available ? "Add to cart" : "Out of stock"}
           </button>
         </div>
-        <button
-          className="button primary grow"
-          disabled={busy || sku.available === 0}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await api("storefront/carts", {
-                skuId: sku.id,
-                quantity,
-                mode: "add",
-              });
-              await shop.refresh();
-              shop.message("Added to your cart.");
-            } catch (e) {
-              shop.message((e as Error).message);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <ShoppingCart size={18} />
-          {busy ? "Adding…" : sku.available ? "Add to cart" : "Out of stock"}
-        </button>
-      </div>
+      )}
       <div className="detail-selection">
         <button onClick={() => shop.select("wishlist", product, sku.id)}>
           <Heart size={17} />
@@ -694,22 +1060,24 @@ export function ProductPurchase({
           Compare product
         </button>
       </div>
-      <div className="spec-preview">
-        {Object.entries(specs)
-          .filter(([k]) => k !== "dataset")
-          .map(([key, value]) => (
-            <div key={key}>
-              <span>{key.replaceAll("_", " ")}</span>
-              <b>{String(value)}</b>
+      {showSpecifications && (
+        <div className="spec-preview">
+          {Object.entries(specs)
+            .filter(([k]) => k !== "dataset")
+            .map(([key, value]) => (
+              <div key={key}>
+                <span>{key.replaceAll("_", " ")}</span>
+                <b>{String(value)}</b>
+              </div>
+            ))}
+          {sku.warranty && (
+            <div>
+              <span>Warranty</span>
+              <b>{sku.warranty}</b>
             </div>
-          ))}
-        {sku.warranty && (
-          <div>
-            <span>Warranty</span>
-            <b>{sku.warranty}</b>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </>
   );
 }
@@ -718,6 +1086,12 @@ export function Gallery({ product }: { product: PublicProduct }) {
   const [zoom, setZoom] = useState(false);
   const ref = useRef<HTMLDialogElement>(null);
   const current = product.media[index];
+  if (!current)
+    return (
+      <div className="gallery gallery-unavailable">
+        <p>Product photography is not available for this item.</p>
+      </div>
+    );
   return (
     <div className="gallery">
       <button
@@ -729,7 +1103,7 @@ export function Gallery({ product }: { product: PublicProduct }) {
         }}
       >
         <img
-          src={current?.url ?? "/illustrations/laptop.svg"}
+          src={current.url}
           alt={current?.alt ?? product.name}
           fetchPriority="high"
         />
@@ -815,12 +1189,21 @@ export function SelectionPage({ kind }: { kind: "wishlist" | "compare" }) {
                     >
                       <X size={16} />
                     </button>
-                    <img src={p.media[0]?.url} alt={p.name} />
+                    {p.media[0] && (
+                      <img
+                        src={p.media[0].url}
+                        alt={p.media[0].alt || p.name}
+                      />
+                    )}
                     <Link href={`/product/${p.slug}?sku=${skuId}`}>
                       <b>{p.name}</b>
                     </Link>
                     <p>
-                      {money(p.skus.find((s) => s.id === skuId)?.price ?? 0)}
+                      {p.quoteOnly
+                        ? "Request a quote"
+                        : p.skus.find((s) => s.id === skuId)?.price != null
+                          ? money(p.skus.find((s) => s.id === skuId)!.price!)
+                          : "Price unavailable"}
                     </p>
                     <CardActions product={p} skuId={skuId} />
                   </td>
@@ -889,7 +1272,7 @@ function ComparisonPage() {
         <div className="eyebrow">MAKE ROOM FOR THE RIGHT CHOICE</div>
         <h1>Compare your next upgrade</h1>
         <p>
-          Current prices and listed specifications, side by side. Compare up to
+          Product details and listed specifications, side by side. Compare up to
           four configurations from one department.
         </p>
       </div>
@@ -969,8 +1352,9 @@ function ComparisonPage() {
                   <p key={line}>{line}</p>
                 ))}
                 <small>
-                  Based on the current catalogue. Prices and stock are checked
-                  again at checkout.
+                  Based on the current catalogue. Quote products require
+                  confirmation of price and availability. Priced items are
+                  checked again at checkout.
                 </small>
               </section>
               <p className="comparison-scroll-hint">
@@ -1004,20 +1388,25 @@ function ComparisonPage() {
                             >
                               <X size={16} />
                             </button>
-                            <img
-                              src={
-                                product.media[0]?.url ??
-                                "/illustrations/laptop.svg"
-                              }
-                              alt={product.media[0]?.alt ?? product.name}
-                            />
+                            {product.media[0] && (
+                              <img
+                                src={product.media[0].url}
+                                alt={product.media[0].alt || product.name}
+                              />
+                            )}
                             <Link
                               href={`/product/${product.slug}?sku=${skuId}`}
                             >
                               <b>{product.name}</b>
                             </Link>
                             <small>{sku.code}</small>
-                            <p>{money(sku.price)}</p>
+                            <p>
+                              {product.quoteOnly
+                                ? "Request a quote"
+                                : sku.price != null
+                                  ? money(sku.price)
+                                  : "Price unavailable"}
+                            </p>
                             <CardActions product={product} skuId={skuId} />
                           </th>
                         );
@@ -1114,18 +1503,89 @@ function ComparisonPage() {
     </div>
   );
 }
+function subscribeFilterLayout(listener: () => void) {
+  const media = window.matchMedia("(max-width: 960px)");
+  media.addEventListener("change", listener);
+  return () => media.removeEventListener("change", listener);
+}
 export function FilterToggle({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const mobile = useSyncExternalStore(
+    subscribeFilterLayout,
+    () => window.matchMedia("(max-width: 960px)").matches,
+    () => false,
+  );
+  const id = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const element = dialog.current;
+    if (!mobile || !element) return;
+    if (!open) {
+      element.close();
+      return;
+    }
+    element.showModal();
+    const overflow = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.documentElement.style.overflow = overflow;
+      element.close();
+    };
+  }, [mobile, open]);
   return (
     <>
       <button
+        ref={trigger}
+        type="button"
         className="button filter-toggle"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
+        aria-controls={id}
+        aria-haspopup="dialog"
       >
         Filters <ChevronDown size={16} />
       </button>
-      <aside className={`filters ${open ? "is-open" : ""}`}>{children}</aside>
+      {mobile ? (
+        <dialog
+          ref={dialog}
+          id={id}
+          className={`filters filter-drawer ${open ? "is-open" : ""}`}
+          aria-label="Product filters"
+          onClose={() => {
+            setOpen(false);
+            trigger.current?.focus();
+          }}
+          onClick={(event) => {
+            if (event.target !== event.currentTarget) return;
+            const bounds = event.currentTarget.getBoundingClientRect();
+            if (
+              event.clientX < bounds.left ||
+              event.clientX > bounds.right ||
+              event.clientY < bounds.top ||
+              event.clientY > bounds.bottom
+            )
+              setOpen(false);
+          }}
+          onSubmitCapture={() => setOpen(false)}
+        >
+          <div className="filter-drawer-heading">
+            <h2>Filters</h2>
+            <button
+              type="button"
+              aria-label="Close filters"
+              onClick={() => setOpen(false)}
+            >
+              <X size={21} aria-hidden="true" />
+            </button>
+          </div>
+          <div className="filter-drawer-body">{children}</div>
+        </dialog>
+      ) : (
+        <aside id={id} className="filters">
+          {children}
+        </aside>
+      )}
     </>
   );
 }

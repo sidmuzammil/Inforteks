@@ -11,6 +11,523 @@
     }
   ],
   "paths": {
+    "/admin/catalogue-imports": {
+      "post": {
+        "operationId": "previewCatalogueImport",
+        "summary": "Preview up to 100 researched quote-only catalogue records. Identifies source/SKU/MPN conflicts, missing photographs and unresolved research. Saves a private 15-minute preview; creates no products.",
+        "x-required-scope": "catalog:write",
+        "parameters": [],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "sessionAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "manifest": {
+                    "type": "object",
+                    "properties": {
+                      "version": {
+                        "type": "number",
+                        "const": 1
+                      },
+                      "source": {
+                        "type": "string",
+                        "pattern": "^[a-z0-9][a-z0-9-]{1,79}$"
+                      },
+                      "products": {
+                        "minItems": 1,
+                        "maxItems": 100,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "externalId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160
+                            },
+                            "sourceUrl": {
+                              "type": "string",
+                              "maxLength": 2000,
+                              "format": "uri"
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 3,
+                              "maxLength": 180
+                            },
+                            "slug": {
+                              "type": "string",
+                              "maxLength": 180,
+                              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                            },
+                            "brand": {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 2,
+                                  "maxLength": 100
+                                },
+                                "slug": {
+                                  "type": "string",
+                                  "maxLength": 180,
+                                  "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                                }
+                              },
+                              "required": ["name", "slug"],
+                              "additionalProperties": false
+                            },
+                            "category": {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 2,
+                                  "maxLength": 100
+                                },
+                                "slug": {
+                                  "type": "string",
+                                  "maxLength": 180,
+                                  "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                                },
+                                "parent": {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "type": "string",
+                                      "minLength": 2,
+                                      "maxLength": 100
+                                    },
+                                    "slug": {
+                                      "type": "string",
+                                      "maxLength": 180,
+                                      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                                    }
+                                  },
+                                  "required": ["name", "slug"],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "required": ["name", "slug"],
+                              "additionalProperties": false
+                            },
+                            "sku": {
+                              "type": "object",
+                              "properties": {
+                                "code": {
+                                  "type": "string",
+                                  "minLength": 2,
+                                  "maxLength": 80
+                                },
+                                "mpn": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 100
+                                }
+                              },
+                              "required": ["code"],
+                              "additionalProperties": false
+                            },
+                            "model": {
+                              "type": "string",
+                              "maxLength": 100
+                            },
+                            "description": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 20000
+                            },
+                            "highlights": {
+                              "default": [],
+                              "maxItems": 12,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "maxLength": 250
+                              }
+                            },
+                            "specs": {
+                              "default": {},
+                              "type": "object",
+                              "propertyNames": {
+                                "type": "string",
+                                "pattern": "^[a-zA-Z0-9_ ]{1,40}$"
+                              },
+                              "additionalProperties": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 200
+                                  },
+                                  {
+                                    "type": "number"
+                                  }
+                                ]
+                              }
+                            },
+                            "featured": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "store": {
+                              "default": true,
+                              "type": "boolean"
+                            },
+                            "images": {
+                              "default": [],
+                              "maxItems": 8,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "file": {
+                                    "type": "string",
+                                    "maxLength": 500,
+                                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_./ -]*$"
+                                  },
+                                  "sha256": {
+                                    "type": "string",
+                                    "pattern": "^[a-f0-9]{64}$"
+                                  },
+                                  "alt": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 250
+                                  },
+                                  "sourceUrl": {
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "format": "uri"
+                                  }
+                                },
+                                "required": [
+                                  "file",
+                                  "sha256",
+                                  "alt",
+                                  "sourceUrl"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "unresolved": {
+                              "default": [],
+                              "maxItems": 20,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              }
+                            }
+                          },
+                          "required": [
+                            "externalId",
+                            "sourceUrl",
+                            "name",
+                            "slug",
+                            "brand",
+                            "category",
+                            "sku",
+                            "description",
+                            "highlights",
+                            "specs",
+                            "featured",
+                            "store",
+                            "images",
+                            "unresolved"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": ["version", "source", "products"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["manifest"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or origin denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, version or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Provider or service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/catalogue-imports/{id}/commit": {
+      "post": {
+        "operationId": "commitCatalogueImport",
+        "summary": "Human staff session only. Rechecks permissions, exact manifest fingerprint and conflicts; creates additive quote-only drafts without prices or inventory. Identical retries preserve existing products. Upload real media and approve publication separately.",
+        "x-required-scope": "catalog:write",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "fingerprint": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                },
+                "required": ["fingerprint"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Success"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Permission or origin denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Record not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "State, version or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request too large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Provider or service unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/contacts": {
       "get": {
         "operationId": "listContacts",
@@ -7735,10 +8252,61 @@
     "/storefront/inquiries": {
       "post": {
         "operationId": "createInquiry",
-        "summary": "Save a contact inquiry; does not claim email delivery.",
+        "summary": "Save a contact or product quote inquiry. Product/SKU references are checked against current public visibility; no order or reservation is created.",
         "x-required-scope": null,
         "parameters": [],
         "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 100
+                  },
+                  "email": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "format": "email",
+                    "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                  },
+                  "subject": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 150
+                  },
+                  "message": {
+                    "type": "string",
+                    "minLength": 10,
+                    "maxLength": 5000
+                  },
+                  "productSlug": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "skuId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10000
+                  }
+                },
+                "required": ["name", "email", "subject", "message"],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful response",
@@ -10802,6 +11370,14 @@
                     "default": true,
                     "type": "boolean"
                   },
+                  "quoteOnly": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "sampleTemplate": {
+                    "type": "string",
+                    "enum": ["work-laptop", "desk-monitor", "daily-headset"]
+                  },
                   "seoTitle": {
                     "type": "string",
                     "maxLength": 180
@@ -10952,6 +11528,7 @@
                   "categoryId",
                   "featured",
                   "store",
+                  "quoteOnly",
                   "specs",
                   "skus"
                 ],

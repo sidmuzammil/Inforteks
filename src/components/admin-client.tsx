@@ -10,6 +10,7 @@ import {
   ChosenImages,
 } from "./merchant-inputs";
 import { readPrices } from "@/lib/merchant-pricing";
+import { sampleProducts, type SampleProductId } from "@/lib/sample-products";
 import { MAX_IMAGE_BYTES } from "@/lib/uploads";
 import { ProductMediaEditor } from "./product-media-editor";
 import { Sparkles, Plus, ArrowRight, ExternalLink } from "lucide-react";
@@ -66,6 +67,7 @@ type ProductEdit = {
   version: number;
   featured: boolean;
   store: boolean;
+  quoteOnly: boolean;
   model?: string | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
@@ -108,6 +110,10 @@ export function ProductEditor({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [quoteOnly, setQuoteOnly] = useState(false);
+  const [sampleId, setSampleId] = useState<SampleProductId | null>(null);
+  const sample = sampleProducts.find((s) => s.id === sampleId);
+  const [sampleRevision, setSampleRevision] = useState(0);
   const [skuCount, setSkuCount] = useState(1);
   const [files, setFiles] = useState<File[]>([]);
   const [createdId, setCreatedId] = useState<string | null>(null);
@@ -120,14 +126,18 @@ export function ProductEditor({
     return () => window.removeEventListener("beforeunload", guard);
   }, [dirty]);
   const overview: Field[] = [
-    { name: "name", label: "Product name", value: product?.name },
+    {
+      name: "name",
+      label: "Product name",
+      value: product?.name ?? sample?.name,
+    },
     ...(!product
       ? [
           {
             name: "store",
             label: "Show in online store",
             type: "checkbox",
-            value: true,
+            value: !sample,
             help: "Turn off for Direct Sales only. This applies to all variants; stock stays shared. Drafts stay private until activated.",
           },
         ]
@@ -162,13 +172,13 @@ export function ProductEditor({
       name: "description",
       label: "Product description",
       type: "textarea",
-      value: product?.description,
+      value: product?.description ?? sample?.description,
     },
     {
       name: "highlights",
       label: "Highlights (one per line)",
       type: "textarea",
-      value: product?.highlights.join("\n"),
+      value: product?.highlights.join("\n") ?? sample?.highlights.join("\n"),
       required: false,
     },
   ];
@@ -181,6 +191,7 @@ export function ProductEditor({
       const values = readFields(e.currentTarget, overview);
       const common = {
         ...values,
+        ...(!product ? { quoteOnly } : {}),
         slug: values.slug || undefined,
         brandId: fd.get("brandId"),
         categoryId: fd.get("categoryId"),
@@ -198,7 +209,7 @@ export function ProductEditor({
       } else {
         const skus = Array.from({ length: skuCount }, (_, i) => ({
           code: String(fd.get(`sku_${i}`)),
-          ...(scopes.includes("pricing:write")
+          ...(scopes.includes("pricing:write") && !quoteOnly
             ? readPrices(fd, `_${i}`)
             : { price: null, compareAt: null }),
           mpn: String(fd.get(`mpn_${i}`) ?? ""),
@@ -216,6 +227,7 @@ export function ProductEditor({
           ? { id: createdId }
           : await api<{ id: string }>("admin/products", {
               ...common,
+              ...(sampleId ? { sampleTemplate: sampleId } : {}),
               brandId: fd.get("brandId"),
               categoryId: fd.get("categoryId"),
               specs: JSON.parse(String(fd.get("specs") ?? "{}")),
@@ -258,7 +270,74 @@ export function ProductEditor({
           </a>
         ))}
       </nav>
+      {!product && !createdId && (
+        <details className="draft-kit">
+          <summary>Sample draft starters</summary>
+          <p>
+            Original illustrative concepts. Choosing a starter only fills this
+            form. Saving creates a private sample draft with Online Store
+            visibility off and no stock. No price or warranty is invented.
+          </p>
+          <div className="draft-kit-grid">
+            {sampleProducts.map((starter) => (
+              <button
+                type="button"
+                key={starter.id}
+                onClick={() => {
+                  if (
+                    dirty &&
+                    !window.confirm(
+                      "Replace the unsaved form with this sample draft?",
+                    )
+                  )
+                    return;
+                  setSampleId(starter.id);
+                  setSampleRevision((revision) => revision + 1);
+                  setError("");
+                  setSkuCount(1);
+                  setFiles([]);
+                  setDirty(false);
+                }}
+              >
+                <b>{starter.name}</b>
+                <small>{starter.category} · Draft only</small>
+              </button>
+            ))}
+          </div>
+          {sample && (
+            <button
+              type="button"
+              className="button"
+              onClick={() => {
+                if (
+                  dirty &&
+                  !window.confirm(
+                    "Discard unsaved sample edits and start a blank product?",
+                  )
+                )
+                  return;
+                setSampleId(null);
+                setSampleRevision((revision) => revision + 1);
+                setFiles([]);
+                setSkuCount(1);
+                setError("");
+                setDirty(false);
+              }}
+            >
+              Start blank product
+            </button>
+          )}
+        </details>
+      )}
+      {sample && (
+        <p className="notice">
+          Sample draft selected. Choose an existing or new brand and category.
+          Price and stock remain unset; this draft is excluded from the Online
+          Store.
+        </p>
+      )}
       <form
+        key={`${sampleId ?? "product"}-${sampleRevision}`}
         className="form-card form-stack"
         onSubmit={submit}
         onChange={() => setDirty(true)}
@@ -268,6 +347,34 @@ export function ProductEditor({
           <div className="form-grid">
             <Fields fields={overview} />
           </div>
+          {!product && (
+            <div className="quote-mode-control">
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  name="quoteOnly"
+                  checked={quoteOnly}
+                  onChange={(event) => setQuoteOnly(event.target.checked)}
+                />
+                Request a quote instead of online checkout
+              </label>
+              <p className="form-help">
+                Publish real products without a selling price or stock claim.
+                Customers send an inquiry with the selected product; they cannot
+                add it to the online cart.
+              </p>
+              {quoteOnly && (
+                <div className="quote-mode-preview">
+                  <small>Storefront preview</small>
+                  <strong>Request a quote</strong>
+                  <span>Availability on request</span>
+                  <span className="button primary" aria-hidden="true">
+                    Enquire now →
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </section>
         <section className="editor-section" id="organization">
           <h2>Organization</h2>
@@ -286,7 +393,7 @@ export function ProductEditor({
         </section>
         <SpecificationFields
           name="specs"
-          value={product?.specs}
+          value={product?.specs ?? sample?.specs}
           label="Product specifications"
         />
         {!product && (
@@ -325,9 +432,17 @@ export function ProductEditor({
                   <div className="form-grid" style={{ marginTop: 16 }}>
                     <label>
                       SKU code
-                      <input name={`sku_${i}`} required />
+                      <input
+                        name={`sku_${i}`}
+                        required
+                        defaultValue={
+                          sampleId
+                            ? `SAMPLE-${sampleId.toUpperCase()}-${i + 1}`
+                            : ""
+                        }
+                      />
                     </label>
-                    {scopes.includes("pricing:write") && (
+                    {scopes.includes("pricing:write") && !quoteOnly && (
                       <PriceFields suffix={`_${i}`} />
                     )}
                     <label>
@@ -387,7 +502,9 @@ export function ProductEditor({
         <p className="form-help">
           {product
             ? "Changes are prepared as an exact proposal. Review and approve to apply them; existing live content remains unchanged until then."
-            : "This saves an unpublished draft with your images. Review stock and publish in the next step."}
+            : sample
+              ? "This saves a private sample draft only. It does not publish or add stock."
+              : "This saves an unpublished draft with your images. Review stock and publish in the next step."}
         </p>
         <button className="button primary" disabled={busy}>
           {busy
@@ -403,6 +520,11 @@ export function ProductEditor({
           <StoreVisibility
             productId={product.id}
             store={product.store}
+            canEdit={scopes.includes("catalog:publish")}
+          />
+          <QuoteOnlyControl
+            productId={product.id}
+            quoteOnly={product.quoteOnly}
             canEdit={scopes.includes("catalog:publish")}
           />
           <ProductMediaEditor
@@ -469,6 +591,13 @@ export function ProductEditor({
           </section>
           <section className="editor-section panel" id="pricing">
             <h2>SKU pricing</h2>
+            {product.quoteOnly && (
+              <p className="notice">
+                The Online Store shows “Request a quote”. Internal prices remain
+                available for authorised Direct Sales and are not displayed
+                online.
+              </p>
+            )}
             {product.skus.map((s) => (
               <div key={s.id} style={{ marginBottom: 25 }}>
                 <h3 style={{ marginBottom: 15 }}>{s.code}</h3>
@@ -561,6 +690,62 @@ export function ProductEditor({
         </>
       )}
     </div>
+  );
+}
+export function QuoteOnlyControl({
+  productId,
+  quoteOnly,
+  canEdit,
+}: {
+  productId: string;
+  quoteOnly: boolean;
+  canEdit: boolean;
+}) {
+  const [selected, setSelected] = useState(quoteOnly);
+  return (
+    <section className="editor-section panel">
+      <h2>Online buying experience</h2>
+      <p className="form-help">
+        This setting controls how customers enquire or buy online. It preserves
+        shared stock, internal pricing and Direct Sales.
+      </p>
+      <label className="check-row">
+        <input
+          type="checkbox"
+          checked={selected}
+          disabled={!canEdit}
+          onChange={(event) => setSelected(event.target.checked)}
+        />
+        Request a quote instead of online checkout
+      </label>
+      <div className="quote-mode-preview">
+        <small>Preview after approval</small>
+        <strong>
+          {selected ? "Request a quote" : "Show listed selling price"}
+        </strong>
+        <span>
+          {selected
+            ? "Availability on request · No online cart action"
+            : "Online checkout uses the current price and available stock"}
+        </span>
+      </div>
+      {canEdit ? (
+        <ActionButton
+          endpoint="admin/proposals"
+          payload={{
+            operation: "product.quoteOnly",
+            targetId: productId,
+            payload: { quoteOnly: selected },
+          }}
+          label="Review buying experience"
+          proposal
+        />
+      ) : (
+        <p className="form-help">
+          Publishing access is required to change this setting.
+        </p>
+      )}
+    </section>
   );
 }
 export function StoreVisibility({

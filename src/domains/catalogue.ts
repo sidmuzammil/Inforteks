@@ -44,6 +44,10 @@ export const productInput = z
     categoryId: z.string().min(1, "Choose or create a category."),
     featured: z.boolean().default(false),
     store: z.boolean().default(true),
+    quoteOnly: z.boolean().default(false),
+    sampleTemplate: z
+      .enum(["work-laptop", "desk-monitor", "daily-headset"])
+      .optional(),
     seoTitle: z.string().max(180).optional(),
     seoDescription: z.string().max(300).optional(),
     model: z.string().max(100).optional(),
@@ -80,6 +84,7 @@ export function publicProduct(p: FullProduct, preview = false) {
     brand: p.brand,
     category: p.category,
     demo: p.demo,
+    quoteOnly: p.quoteOnly,
     media: p.media
       .filter((m) => preview || m.public)
       .map((m) => ({
@@ -91,18 +96,19 @@ export function publicProduct(p: FullProduct, preview = false) {
       })),
     reviews: p.reviews,
     skus: p.skus
-      .filter((s) => s.active && s.price !== null)
+      .filter((s) => s.active && (p.quoteOnly || s.price !== null))
       .map((s) => ({
         id: s.id,
         code: s.code,
         mpn: s.mpn,
         options: s.options,
         specs: s.specs,
-        price: s.price!,
-        compareAt: s.compareAt,
+        // A direct-sales price is not an online offer for quote-only products.
+        price: p.quoteOnly ? null : s.price,
+        compareAt: p.quoteOnly ? null : s.compareAt,
         condition: s.condition,
         warranty: s.warranty,
-        available: Math.max(0, s.onHand - s.reserved),
+        available: p.quoteOnly ? 0 : Math.max(0, s.onHand - s.reserved),
       })),
   };
 }
@@ -135,14 +141,22 @@ export const searchInput = z.object({
 });
 export async function catalogue(input: Record<string, unknown> = {}) {
   const f = searchInput.parse(input);
+  const pricedOnly =
+    (input.min !== undefined && input.min !== "") ||
+    (input.max !== undefined && input.max !== "") ||
+    f.available === "true" ||
+    f.offers === "true";
   const conditions: Prisma.Sql[] = [
     Prisma.sql`p.status = 'PUBLISHED'`,
     Prisma.sql`p.store = true`,
     Prisma.sql`s.active = true`,
-    Prisma.sql`s.price IS NOT NULL`,
     Prisma.sql`c.visible = true`,
-    Prisma.sql`s.price BETWEEN ${Math.round(f.min * 100)} AND ${Math.round(f.max * 100)}`,
+    pricedOnly
+      ? Prisma.sql`p."quoteOnly" = false AND s.price BETWEEN ${Math.round(f.min * 100)} AND ${Math.round(f.max * 100)}`
+      : Prisma.sql`(p."quoteOnly" = true OR s.price BETWEEN ${Math.round(f.min * 100)} AND ${Math.round(f.max * 100)})`,
   ];
+  if (process.env.NODE_ENV === "production")
+    conditions.push(Prisma.sql`p.demo = false`);
   if (f.q) {
     const term = `%${f.q.replace(/[\\%_]/g, "\\$&")}%`;
     conditions.push(
@@ -168,15 +182,15 @@ export async function catalogue(input: Record<string, unknown> = {}) {
   const from = Prisma.sql`FROM "Product" p JOIN "Sku" s ON s."productId" = p.id JOIN "Brand" b ON b.id = p."brandId" JOIN "Category" c ON c.id = p."categoryId" WHERE ${Prisma.join(conditions, " AND ")}`;
   const sort =
     f.sort === "price-asc"
-      ? Prisma.sql`price ASC, id`
+      ? Prisma.sql`price ASC NULLS LAST, id`
       : f.sort === "price-desc"
-        ? Prisma.sql`price DESC, id`
+        ? Prisma.sql`price DESC NULLS LAST, id`
         : f.sort === "newest"
           ? Prisma.sql`created DESC, id`
           : Prisma.sql`exact DESC, featured DESC, id`;
   const [ids, count, brandFacets, specFacets] = await Promise.all([
     db.$queryRaw<{ id: string; matched: string[] }[]>(
-      Prisma.sql`SELECT p.id, array_agg(s.id ORDER BY s.price,s.id) AS matched, MIN(s.price) AS price, MAX(p."createdAt") AS created, BOOL_OR(p.featured) AS featured, BOOL_OR(lower(s.code) = lower(${f.q}) OR lower(COALESCE(p.model,'')) = lower(${f.q})) AS exact ${from} GROUP BY p.id ORDER BY ${sort} LIMIT ${f.limit} OFFSET ${(f.page - 1) * f.limit}`,
+      Prisma.sql`SELECT p.id, array_agg(s.id ORDER BY s.price,s.id) AS matched, MIN(CASE WHEN p."quoteOnly" THEN NULL ELSE s.price END) AS price, MAX(p."createdAt") AS created, BOOL_OR(p.featured) AS featured, BOOL_OR(lower(s.code) = lower(${f.q}) OR lower(COALESCE(p.model,'')) = lower(${f.q})) AS exact ${from} GROUP BY p.id ORDER BY ${sort} LIMIT ${f.limit} OFFSET ${(f.page - 1) * f.limit}`,
     ),
     db.$queryRaw<{ count: bigint }[]>(
       Prisma.sql`SELECT count(DISTINCT p.id) AS count ${from}`,
@@ -215,7 +229,7 @@ export async function catalogue(input: Record<string, unknown> = {}) {
 }
 export async function createProduct(actor: Actor, raw: unknown, tx?: Tx) {
   requireScope(actor, "catalog:write");
-  const data = productInput.parse(raw);
+  const { sampleTemplate, ...data } = productInput.parse(raw);
   if (data.skus.some((s) => s.price !== null || s.compareAt !== null))
     requireScope(actor, "pricing:write");
   invariant(
@@ -237,6 +251,9 @@ export async function createProduct(actor: Actor, raw: unknown, tx?: Tx) {
     const p = await conn.product.create({
       data: {
         ...data,
+        ...(sampleTemplate
+          ? { status: "DRAFT" as const, demo: true, store: false }
+          : {}),
         slug: data.slug ?? slugify(data.name),
         skus: { create: data.skus },
       },
@@ -245,6 +262,7 @@ export async function createProduct(actor: Actor, raw: unknown, tx?: Tx) {
       name: p.name,
       status: p.status,
       store: p.store,
+      quoteOnly: p.quoteOnly,
     });
     return p;
   };
@@ -261,7 +279,17 @@ export async function validatePublication(tx: Tx, id: string) {
   });
   invariant(p, 404, "Product not found.");
   invariant(
-    p.skus.some((s) => s.active) &&
+    process.env.NODE_ENV !== "production" || !p.demo,
+    422,
+    "Sample products must remain drafts in production. Create a verified merchant product before publishing.",
+  );
+  invariant(
+    p.skus.some((s) => s.active),
+    422,
+    "Add at least one active SKU before publishing.",
+  );
+  invariant(
+    p.quoteOnly ||
       p.skus
         .filter((s) => s.active)
         .every((s) => s.price !== null && s.price >= 0),

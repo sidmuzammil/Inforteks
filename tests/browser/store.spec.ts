@@ -60,9 +60,24 @@ test("storefront layouts, navigation and images at four viewport widths", async 
   for (const width of [1440, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 950 });
     await page.goto("/");
+    const discovery = page
+      .getByRole("region", { name: "Discover Inforteks", exact: true })
+      .first();
     await expect(
-      page.getByRole("heading", { name: "A new level of possibility." }),
+      discovery.getByRole("heading", {
+        name: "Find your next essential.",
+        exact: true,
+      }),
     ).toBeVisible();
+    await expect(
+      discovery.getByRole("link", { name: "Browse departments", exact: true }),
+    ).toHaveAttribute("href", "/categories");
+    await expect(discovery.locator("img")).toHaveCount(0);
+    await expect(
+      page.locator(
+        '.hero-composition img[src="/brand/storefront-hero.webp"], .hero-composition img[src="/brand/hero.png"], .hero-composition img[src^="/illustrations/"]',
+      ),
+    ).toHaveCount(0);
     await page.waitForLoadState("networkidle");
     expect(
       await page.evaluate(

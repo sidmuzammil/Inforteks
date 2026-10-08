@@ -45,6 +45,11 @@ const policy = {
     schema: z.object({ store: z.boolean() }).strict(),
     kind: "product",
   },
+  "product.quoteOnly": {
+    scope: "catalog:publish",
+    schema: z.object({ quoteOnly: z.boolean() }).strict(),
+    kind: "product",
+  },
   "product.publish": {
     scope: "catalog:publish",
     schema: z.object({}).strict(),
@@ -177,6 +182,7 @@ async function snapshot(tx: Tx, op: Operation, id: string) {
         name: true,
         status: true,
         store: true,
+        quoteOnly: true,
         version: true,
         description: true,
         slug: true,
@@ -374,6 +380,17 @@ async function execute(
         where: { id },
         data: { store: data.store, version: { increment: 1 } },
       });
+    }
+    case "product.quoteOnly": {
+      const data = policy[op].schema.parse(raw);
+      const product = await tx.product.update({
+        where: { id },
+        data: { quoteOnly: data.quoteOnly, version: { increment: 1 } },
+      });
+      // Turning online purchasing on must meet ordinary price requirements.
+      // Validation and the version-bound change roll back together on failure.
+      if (product.status === "PUBLISHED") await validatePublication(tx, id);
+      return product;
     }
     case "product.publish":
       await validatePublication(tx, id);

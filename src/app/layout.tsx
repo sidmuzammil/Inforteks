@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./storefront.css";
 import { ShopProvider } from "@/components/store-client";
 import { getSession } from "@/lib/session";
 export const metadata: Metadata = {

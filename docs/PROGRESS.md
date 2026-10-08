@@ -2,7 +2,13 @@
 
 This file distinguishes the supplied brief's broad target from the working implementation.
 
+## Quote catalogue preparation — 8 October 2026
+
+Implemented quote-only products, original banner artwork, refined responsive storefront, safe quote inquiries, private/source-aware researched manifest preview/import, real-photo checksum upload tooling and normal publication approvals. The 137-product stocklist manifest is researched but remains outside production with photo verification blockers; the wider Al Ershad discovery is partial. No production products, stock, accounts or other records were changed. [Launch readiness and remaining access requirements](CATALOGUE_LAUNCH.md) are explicit; source completion is not a completed catalogue launch.
+
 ## Implemented
+
+- Storefront redesign with database-driven grouped category navigation, responsive department panel, scoped search with explicit feedback, revised product cards and editable banner themes/product layouts. Curated section filters share the public/preview catalogue path. Three original sample starters save private drafts only; no production catalogue seed. See STOREFRONT_REDESIGN.md.
 
 - Per-product online-store visibility across all variants, with publishing-scoped approvals from Products or Inventory. Offline-only products remain available for Direct Sales; public discovery, product/media access, wishlists and online checkout enforce store eligibility. Existing stock and order snapshots are preserved.
 

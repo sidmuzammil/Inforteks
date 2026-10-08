@@ -152,9 +152,12 @@ test("automatic suggestions require a click and leave missing postal codes blank
   context,
 }) => {
   let requests = 0;
+  const capability = Promise.withResolvers<void>();
   await page.route("**/api/v1/storefront/location", async (route) => {
-    if (route.request().method() === "GET")
+    if (route.request().method() === "GET") {
+      await capability.promise;
       return route.fulfill({ json: { data: { enabled: true } } });
+    }
     requests++;
     expect(route.request().postDataJSON().consent).toBe(true);
     return route.fulfill({
@@ -172,6 +175,15 @@ test("automatic suggestions require a click and leave missing postal codes blank
     });
   });
   await page.reload();
+  const detect = page.getByRole("button", {
+    name: "Use my current delivery location",
+    exact: true,
+  });
+  // A slow capability response must not let a click capture lookup=false and
+  // silently skip address suggestions after discovering that lookup is enabled.
+  await expect(detect).toBeDisabled();
+  capability.resolve();
+  await expect(detect).toBeEnabled();
   await context.grantPermissions(["geolocation"]);
   await context.setGeolocation({
     latitude: 25.1972,
@@ -179,12 +191,7 @@ test("automatic suggestions require a click and leave missing postal codes blank
     accuracy: 15,
   });
   expect(requests).toBe(0);
-  await page
-    .getByRole("button", {
-      name: "Use my current delivery location",
-      exact: true,
-    })
-    .click();
+  await detect.click();
   await expect(
     page.getByLabel("Area / neighbourhood", { exact: true }),
   ).toHaveValue("Downtown Dubai");

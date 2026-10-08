@@ -18,6 +18,9 @@ import { money, date } from "@/lib/utils";
 import { actorForUser } from "@/domains/identity";
 import { Breadcrumbs } from "@/components/store";
 import { CataloguePage } from "@/components/catalogue-page";
+import { DepartmentIcon } from "@/components/department-icon";
+import { QuoteInquiry } from "@/components/quote-inquiry";
+import { getProduct } from "@/domains/catalogue";
 import { SelectionPage } from "@/components/store-client";
 import {
   CartPage,
@@ -87,7 +90,8 @@ export default async function Page({
     ].includes(section)
   ) {
     let title = "All products";
-    let subtitle = "The right technology for what comes next.";
+    let subtitle =
+      "Compare products, explore specifications and find your next upgrade.";
     const filters = { ...query };
     if (section === "category") {
       const c = await db.category.findFirst({
@@ -100,7 +104,7 @@ export default async function Page({
     if (section === "brand") {
       const b = await db.brand.findUnique({ where: { slug } });
       if (!b) notFound();
-      title = `Explore ${b.name}`;
+      title = `${b.name} products`;
       filters.brand = b.slug;
     }
     if (section === "collection") {
@@ -110,16 +114,16 @@ export default async function Page({
       filters.collection = c.slug;
     }
     if (section === "search") {
-      title = query.q ? `Results for “${query.q}”` : "Explore the catalogue";
+      title = query.q ? `Results for “${query.q}”` : "All products";
       subtitle = "Search names, brands, models and SKU codes.";
     }
     if (section === "offers") {
-      title = "An upgrade worth exploring.";
+      title = "Offers";
       filters.offers = "true";
       subtitle = "Current catalogue savings, clearly priced.";
     }
     if (section === "new-arrivals") {
-      title = "New arrivals. New possibilities.";
+      title = "New arrivals";
       filters.sort = query.sort ?? "newest";
     }
     return (
@@ -143,49 +147,117 @@ export default async function Page({
       section === "brands"
         ? await db.brand.findMany({ orderBy: { name: "asc" } })
         : [];
+    const directoryCategories = cats.filter(
+      (category) => !cats.some((parent) => parent.id === category.parentId),
+    );
     return (
-      <div className="page-container">
-        <Breadcrumbs items={[{ label: section }]} />
-        <div className="page-heading">
-          <div className="eyebrow">THE WORLD OF INFORTEKS</div>
-          <h1>
+      <div className="page-container directory-page">
+        <Breadcrumbs
+          items={[
+            {
+              label: section === "categories" ? "All categories" : "All brands",
+            },
+          ]}
+        />
+        <div className="page-heading directory-heading">
+          <div>
+            <h1>
+              {section === "categories" ? "Shop by category" : "Shop by brand"}
+            </h1>
+            <p>
+              {section === "categories"
+                ? "Find the right department for your work, home or next project."
+                : "Explore the brands in the Inforteks catalogue."}
+            </p>
+          </div>
+          <span className="directory-summary">
             {section === "categories"
-              ? "Find your kind of tech."
-              : "Good company. Great technology."}
-          </h1>
-          <p>Considered essentials for the way you work, play and create.</p>
+              ? `${cats.length} categories`
+              : `${brands.length} brands`}
+          </span>
         </div>
         <div
           className={`directory-grid ${section === "brands" ? "brand-directory" : ""}`}
         >
-          {cats.map((c) => (
-            <Link
-              key={c.id}
-              href={`/category/${c.slug}`}
-              className="directory-card"
-            >
-              <img src={`/illustrations/${c.icon}.svg`} alt="" />
-              <div>
-                <h2>{c.name}</h2>
-                <small>
-                  Explore department <ArrowRight size={12} />
-                </small>
-              </div>
-            </Link>
-          ))}
+          {directoryCategories.map((category) => {
+            const children = cats.filter(
+              (child) => child.parentId === category.id,
+            );
+            return (
+              <article className="directory-category-group" key={category.id}>
+                <Link
+                  href={`/category/${category.slug}`}
+                  className="directory-card"
+                >
+                  <DepartmentIcon
+                    name={`${category.slug} ${category.name}`}
+                    size={34}
+                  />
+                  <div className="directory-copy">
+                    <h2>{category.name}</h2>
+                    <small>View all products</small>
+                  </div>
+                  <ArrowRight
+                    className="directory-arrow"
+                    size={16}
+                    aria-hidden="true"
+                  />
+                </Link>
+                {children.length > 0 && (
+                  <nav
+                    className="directory-child-links"
+                    aria-label={`${category.name} categories`}
+                  >
+                    {children.map((child) => (
+                      <Link key={child.id} href={`/category/${child.slug}`}>
+                        {child.name}
+                        <ArrowRight size={12} aria-hidden="true" />
+                      </Link>
+                    ))}
+                  </nav>
+                )}
+              </article>
+            );
+          })}
           {brands.map((b) => (
-            <Link key={b.id} href={`/brand/${b.slug}`}>
-              {b.name}
+            <Link
+              key={b.id}
+              href={`/brand/${b.slug}`}
+              className="brand-directory-card"
+            >
+              <span>{b.name}</span>
+              <ArrowRight size={15} aria-hidden="true" />
             </Link>
           ))}
         </div>
+        {(section === "categories" ? cats : brands).length === 0 && (
+          <div className="empty-state">
+            <h2>
+              {section === "categories"
+                ? "Categories are being prepared"
+                : "Brands are being prepared"}
+            </h2>
+            <p>Contact our team if you are looking for a specific product.</p>
+            <Link href="/contact" className="button primary">
+              Contact us
+            </Link>
+          </div>
+        )}
       </div>
     );
   }
   if (section === "wishlist" || section === "compare")
-    return <SelectionPage kind={section} />;
+    return (
+      <div className="store-selection-page">
+        <SelectionPage kind={section} />
+      </div>
+    );
   if (section === "cart" || section === "checkout")
-    return <CartPage checkout={section === "checkout"} />;
+    return (
+      <div className="store-cart-page">
+        <CartPage checkout={section === "checkout"} />
+      </div>
+    );
   if (
     ["login", "register", "forgot-password", "reset-password"].includes(section)
   ) {
@@ -209,12 +281,13 @@ export default async function Page({
     if (["login", "register"].includes(mode) && (await getSession()))
       redirect(next);
     return (
-      <div className="auth-shell">
+      <div className="auth-shell store-auth-page">
         <aside className="auth-story">
           <span className="auth-kicker">YOUR INFORTEKS ACCOUNT</span>
           <h1>
-            A little less effort.
-            <br />A lot more possibility.
+            Your Inforteks account.
+            <br />
+            Everything in one place.
           </h1>
           <p>Your orders, favourites and delivery details, in one place.</p>
           <ul className="auth-benefits">
@@ -253,9 +326,9 @@ export default async function Page({
           </div>
           <h2>
             {mode === "login"
-              ? "Welcome back."
+              ? "Sign in to Inforteks"
               : mode === "register"
-                ? "Your next chapter starts here."
+                ? "Create your account"
                 : mode === "forgot-password"
                   ? "Forgot your password?"
                   : "Choose a new password."}
@@ -327,9 +400,9 @@ export default async function Page({
   }
   if (section === "track-order")
     return (
-      <div className="auth-wrap">
+      <div className="auth-wrap store-track-page">
         <div className="form-card">
-          <h1>Find your order.</h1>
+          <h1>Track your order</h1>
           <p>
             Your order reference and secure access code keep your details
             private.
@@ -354,7 +427,7 @@ export default async function Page({
     );
     if (!order) notFound();
     return (
-      <div className="page-container">
+      <div className="page-container store-confirmation-page">
         <div className="page-heading">
           <CheckCircle size={39} color="#168361" />
           <h1 style={{ marginTop: 18 }}>Your order is in.</h1>
@@ -623,11 +696,11 @@ export default async function Page({
         </>
       );
     return (
-      <div className="page-container">
+      <div className="page-container store-account-page">
         <Breadcrumbs items={[{ label: "My account" }]} />
         <div className="page-heading">
-          <h1>Your Inforteks.</h1>
-          <p>A little more organized. A lot more you.</p>
+          <h1>My account</h1>
+          <p>Manage your orders, addresses and account settings.</p>
         </div>
         <div className="account-grid">
           <nav className="account-menu" aria-label="Account">
@@ -653,31 +726,48 @@ export default async function Page({
       </div>
     );
   }
-  if (section === "contact")
+  if (section === "contact") {
+    const product = query.product ? await getProduct(query.product) : null;
+    const sku =
+      product?.skus.find((item) => item.id === query.sku) ??
+      (!query.sku ? product?.skus[0] : undefined);
+    if (query.product && (!product || !sku)) notFound();
     return (
-      <div className="page-container">
+      <div className="page-container store-support-page">
         <Breadcrumbs items={[{ label: "Contact us" }]} />
         <div className="page-heading">
-          <div className="eyebrow">LET’S TALK TECHNOLOGY</div>
-          <h1>How can we help?</h1>
+          <h1>{product ? "Request a product quote" : "Contact Inforteks"}</h1>
           <p>
-            A product question, a little advice, or an update on your order.
-            Start a conversation.
+            {product
+              ? "Tell us what you need. Our team will confirm pricing and availability for your requirements."
+              : "A product question, a little advice, or an update on your order. Start a conversation."}
           </p>
         </div>
         <div className="checkout-layout">
           <div className="form-card">
-            <MutationForm
-              endpoint="storefront/inquiries"
-              fields={[
-                { name: "name", label: "Your name" },
-                { name: "email", label: "Email address", type: "email" },
-                { name: "subject", label: "What’s on your mind?" },
-                { name: "message", label: "Your message", type: "textarea" },
-              ]}
-              label="Send inquiry"
-              success="Your inquiry has been saved. Outbound email is not connected yet."
-            />
+            {product && sku ? (
+              <QuoteInquiry
+                product={{
+                  name: product.name,
+                  slug: product.slug,
+                  skuId: sku.id,
+                  code: sku.code,
+                  mpn: sku.mpn,
+                }}
+              />
+            ) : (
+              <MutationForm
+                endpoint="storefront/inquiries"
+                fields={[
+                  { name: "name", label: "Your name" },
+                  { name: "email", label: "Email address", type: "email" },
+                  { name: "subject", label: "What’s on your mind?" },
+                  { name: "message", label: "Your message", type: "textarea" },
+                ]}
+                label="Send inquiry"
+                success="Your inquiry has been saved for the Inforteks team."
+              />
+            )}
           </div>
           <div className="panel">
             <h2>Find a quick answer</h2>
@@ -693,12 +783,13 @@ export default async function Page({
         </div>
       </div>
     );
+  }
   const page = await db.contentPage.findFirst({
     where: { slug: section, published: true },
   });
   if (!page || path.length > 1) notFound();
   return (
-    <div className="page-container">
+    <div className="page-container store-content-page">
       <Breadcrumbs items={[{ label: page.title }]} />
       <article className="content-prose">
         <h1>{page.title}</h1>

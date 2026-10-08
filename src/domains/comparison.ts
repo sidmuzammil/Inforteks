@@ -66,9 +66,11 @@ export function comparisonRows(items: ComparisonItem[]): ComparisonRow[] {
       "availability",
       "Availability",
       items.map((i) =>
-        i.product.skus.find((s) => s.id === i.skuId)!.available > 0
-          ? "In stock"
-          : "Out of stock",
+        i.product.quoteOnly
+          ? "Availability on request"
+          : i.product.skus.find((s) => s.id === i.skuId)!.available > 0
+            ? "In stock"
+            : "Out of stock",
       ),
     ),
     row(
@@ -103,7 +105,15 @@ export async function compareProducts(raw: unknown) {
   const records = await db.product.findMany({
     where: {
       ...onlineProductWhere,
-      skus: { some: { id: { in: ids }, active: true, price: { not: null } } },
+      OR: [
+        { quoteOnly: true, skus: { some: { id: { in: ids }, active: true } } },
+        {
+          quoteOnly: false,
+          skus: {
+            some: { id: { in: ids }, active: true, price: { not: null } },
+          },
+        },
+      ],
     },
     include: includeProduct,
   });
@@ -123,6 +133,9 @@ export async function compareProducts(raw: unknown) {
       name: `${i.product.name} (${i.product.skus.find((s) => s.id === i.skuId)!.code})`,
       price: i.product.skus.find((s) => s.id === i.skuId)!.price,
     }))
+    .filter(
+      (item): item is { name: string; price: number } => item.price !== null,
+    )
     .sort((a, b) => a.price - b.price);
   return {
     items,
@@ -133,16 +146,21 @@ export async function compareProducts(raw: unknown) {
     checkedAt: new Date().toISOString(),
     aiAvailable: comparisonAiEnabled(),
     summary:
-      prices.length >= 2
+      items.length >= 2 && prices.length === items.length
         ? [
             prices[0].price === prices.at(-1)!.price
               ? `All selected configurations have the same listed price: ${money(prices[0].price)}.`
               : `Lowest listed price: ${prices[0].name} at ${money(prices[0].price)}. Price difference across this selection: ${money(prices.at(-1)!.price - prices[0].price)}.`,
             `${rows.filter((row) => row.different).length} specification rows differ. Missing details are shown as “Not specified”.`,
           ]
-        : [
-            "Add another configuration from the same department to see the differences.",
-          ],
+        : items.length >= 2
+          ? [
+              "Prices and availability for quote-only products are confirmed in your quotation.",
+              `${rows.filter((row) => row.different).length} specification rows differ. Missing details are shown as “Not specified”.`,
+            ]
+          : [
+              "Add another configuration from the same department to see the differences.",
+            ],
   };
 }
 export type Comparison = Awaited<ReturnType<typeof compareProducts>>;
@@ -184,7 +202,9 @@ export async function comparisonInsights(userId: string, raw: unknown) {
             purpose: input.purpose,
             products: comparison.items.map((i) => ({
               name: i.product.name,
-              price: money(i.product.skus.find((s) => s.id === i.skuId)!.price),
+              price: i.product.quoteOnly
+                ? "Request a quote"
+                : money(i.product.skus.find((s) => s.id === i.skuId)!.price!),
             })),
             rows: comparison.rows,
           }),

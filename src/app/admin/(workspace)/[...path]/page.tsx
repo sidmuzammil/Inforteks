@@ -35,6 +35,7 @@ import { MutationForm, type Field, PrintButton } from "@/components/forms";
 import { Gallery } from "@/components/store-client";
 import { apiOperations, openapi } from "@/lib/openapi";
 import { HomeSectionEditor } from "@/components/home-section-editor";
+import { CatalogueImport } from "@/components/catalogue-import";
 
 const writeScope = (resource: string): Permission =>
   ["categories", "brands", "attributes", "collections"].includes(resource)
@@ -203,7 +204,13 @@ export default async function AdminPage({
                   {safe.skus.map((s) => (
                     <div key={s.id}>
                       <span>{s.code}</span>
-                      <b>{money(s.price)}</b>
+                      <b>
+                        {safe.quoteOnly
+                          ? "Request a quote"
+                          : s.price === null
+                            ? "Price not set"
+                            : money(s.price)}
+                      </b>
                     </div>
                   ))}
                 </div>
@@ -870,6 +877,7 @@ export default async function AdminPage({
             title="Bring your catalogue together."
             description="Validate first. Review the outcome. Commit intentionally."
           />
+          <CatalogueImport />
           <div className="panel">
             <ImportForm />
           </div>
@@ -1096,6 +1104,14 @@ export default async function AdminPage({
           <div className="panel admin-editor">
             {resource === "home-sections" ? (
               <HomeSectionEditor
+                categories={await db.category.findMany({
+                  select: { name: true, slug: true },
+                  orderBy: { position: "asc" },
+                })}
+                collections={await db.collection.findMany({
+                  select: { name: true, slug: true },
+                  orderBy: { name: "asc" },
+                })}
                 key={String(existing?.id ?? "new")}
                 values={json(existing) ?? {}}
               />

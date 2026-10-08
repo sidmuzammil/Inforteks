@@ -30,6 +30,16 @@ export function SectionPreview({
     );
     observer.observe(mount);
     const stop = (e: Event) => {
+      // Only trusted renderer controls are interactive in the isolated preview.
+      // Uploaded HTML cannot create buttons or supply this attribute.
+      const target = e.target;
+      if (
+        target &&
+        "closest" in target &&
+        typeof target.closest === "function" &&
+        target.closest('button[data-preview-control="true"]')
+      )
+        return;
       e.preventDefault();
       e.stopPropagation();
     };
@@ -50,7 +60,7 @@ export function SectionPreview({
         title="Selected homepage section preview"
         sandbox="allow-same-origin"
         srcDoc={
-          '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="preview-root" style="padding:16px;overflow:hidden"></div></body></html>'
+          '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="preview-root" class="storefront-shell" style="padding:16px;overflow:hidden"></div></body></html>'
         }
         style={{
           width,

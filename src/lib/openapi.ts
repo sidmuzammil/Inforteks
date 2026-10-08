@@ -7,6 +7,11 @@ import {
 } from "@/domains/direct-sales";
 import { z } from "zod";
 import { productInput } from "@/domains/catalogue";
+import { inquiryInput } from "@/domains/inquiries";
+import {
+  catalogueImportInput,
+  catalogueImportCommitInput,
+} from "@/lib/catalogue-manifest";
 import { addressInput, checkoutInput } from "@/domains/commerce";
 import { productMediaInput } from "@/lib/product-media";
 import { locationLookupInput } from "@/domains/geocoding";
@@ -25,6 +30,22 @@ type OperationDoc = {
   summary: string;
 };
 export const apiOperations: OperationDoc[] = [
+  {
+    method: "post",
+    path: "/admin/catalogue-imports",
+    id: "previewCatalogueImport",
+    scope: "catalog:write",
+    summary:
+      "Preview up to 100 researched quote-only catalogue records. Identifies source/SKU/MPN conflicts, missing photographs and unresolved research. Saves a private 15-minute preview; creates no products.",
+  },
+  {
+    method: "post",
+    path: "/admin/catalogue-imports/{id}/commit",
+    id: "commitCatalogueImport",
+    scope: "catalog:write",
+    summary:
+      "Human staff session only. Rechecks permissions, exact manifest fingerprint and conflicts; creates additive quote-only drafts without prices or inventory. Identical retries preserve existing products. Upload real media and approve publication separately.",
+  },
   {
     method: "get",
     path: "/admin/contacts",
@@ -347,7 +368,8 @@ export const apiOperations: OperationDoc[] = [
     method: "post",
     path: "/storefront/inquiries",
     id: "createInquiry",
-    summary: "Save a contact inquiry; does not claim email delivery.",
+    summary:
+      "Save a contact or product quote inquiry. Product/SKU references are checked against current public visibility; no order or reservation is created.",
   },
   ...["profile", "addresses", "orders", "returns", "wishlist"].map((r) => ({
     method: "get" as const,
@@ -661,6 +683,9 @@ export const apiOperations: OperationDoc[] = [
   },
 ];
 const requestSchemas: Record<string, unknown> = {
+  createInquiry: z.toJSONSchema(inquiryInput),
+  previewCatalogueImport: z.toJSONSchema(catalogueImportInput),
+  commitCatalogueImport: z.toJSONSchema(catalogueImportCommitInput),
   createOpportunity: z.toJSONSchema(opportunityInput),
   updateOpportunity: z.toJSONSchema(opportunityUpdate),
   moveOpportunity: z.toJSONSchema(stageInput),
@@ -943,6 +968,7 @@ for (const o of apiOperations) {
       "issueApiKey",
       "revokeApiKey",
       "commitImport",
+      "commitCatalogueImport",
       "startAiRun",
       "updateSettings",
     ].includes(o.id);

@@ -805,7 +805,7 @@ export async function importPreview(actor: Actor, raw: unknown) {
       // compatible while web and worker versions roll independently; both
       // versions default imported drafts to store=true.
       rows: json<Prisma.InputJsonValue>(
-        rows.map((row) => ({ ...row, store: undefined })),
+        rows.map((row) => ({ ...row, store: undefined, quoteOnly: undefined })),
       ),
       errors,
     },

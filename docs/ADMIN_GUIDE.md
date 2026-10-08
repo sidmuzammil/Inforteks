@@ -8,7 +8,13 @@ The app launcher and top menu open **Direct Sales** (office visits and orders ta
 
 Google sign-in, when configured, is only for customers. It cannot create, connect or sign into staff accounts. Existing email/password customers connect Google from Profile & security; staff continue using the account created by the Owner. See [Google activation](GOOGLE_SIGN_IN.md) for provider setup.
 
+## Storefront design and sample drafts
+
+See [storefront redesign](STOREFRONT_REDESIGN.md) for category navigation, search, banner themes, curated shopping sections and matching desktop/mobile previews. Product sections support department/collection selections, 1–12 products and grid/scrolling-row layouts. Products → Create product → Sample draft starters offers three illustrative concepts. Saving a starter creates only a private sample draft with `store=false`, no price and zero stock by default; nothing is seeded or published automatically.
+
 ## Catalogue workflow
+
+For researched supplier catalogues and unpriced products, see [quote catalogue launch](CATALOGUE_LAUNCH.md). **Request a quote** is independent of **Show in online store**: quote products can publish without prices, but require verified media and specifications. Quote inquiries appear in the existing Inquiries page and never reserve stock. Imports provides a reviewed, additive JSON workflow that creates only drafts and preserves existing products. Production hides demonstration records and rejects their publication.
 
 1. Open **Products → Create product**. Choose a brand/category or use **Create brand / Create category** directly in the editor, including on an empty store. Category attributes can define required product or SKU specifications.
 2. Enter the name, description, real specifications, model, search-engine copy and SKU details. Leave the URL slug blank to generate it from the name. **Feature on homepage** includes the published product in a featured-products section.
@@ -40,12 +46,14 @@ Categories, brands, attributes, collections, promotions, content pages and sched
 
 In **Homepage**, the section list follows page position. Open **Edit & preview** for the exact area you want:
 
-- **Hero & side banners:** headline, eyebrow, description, destination/button, background image and decorative footer text; show/hide the two side banners and edit their copy, images and destinations separately.
+- **Hero carousel & side banners:** add up to six slides. Search for and link a published Online Store product to use its actual photo and current price/quote status, or upload a real campaign photo. Edit each slide's headline, copy, destination, image description and colour; use Earlier/Later or Remove to arrange it. Automatic selection uses real published products when no custom slides or legacy hero upload are set. Rotation is optional and off by default. Existing uploaded hero images and the two side-banner settings remain editable. Side banners need an uploaded image; no illustrative fallback is inserted.
 - **Call to action banner:** editable headline, supporting copy, image, button and decorative text. The old hardcoded workspace CTA is now a normal section.
 - **Custom HTML banner:** paste HTML or insert the starter template. Use inline colours/spacing and `/media/…` paths from uploaded images. Scripts, forms, embeds, external URLs and unsafe CSS are stripped by the server. Preview shows the sanitized result.
 - **Featured products**, **Discounted products**, **New arrivals** and **Departments:** independent data selections with editable headings, destinations and button labels. Empty product/department sections stay hidden on the public homepage.
 
-Click **Preview this section** to see only that area in a desktop or mobile frame. Previewing does not save or publish; its links and shopping controls are disabled. After editing again, refresh the preview. Upload selected files before saving or previewing. **Save homepage section** saves the current visibility setting; new sections start hidden. Check **Visible on storefront** and save to publish. Optional start/end dates use Dubai time (UTC+4). Lower position numbers appear first. Conflicting edits from another tab require a reload rather than silently overwriting content.
+Click **Preview this section** to see only that area in a desktop or mobile frame using the same marketplace styling as the storefront. Previewing does not save or publish; its links and shopping controls are disabled, while carousel arrows and slide selectors work. After editing again, refresh the preview. Upload selected files before saving or previewing. **Save homepage section** saves the current visibility setting; new sections start hidden. Check **Visible on storefront** and save to publish. Optional start/end dates use Dubai time (UTC+4). Lower position numbers appear first. Conflicting edits from another tab require a reload rather than silently overwriting content.
+
+A product-linked slide is automatically excluded if its product later becomes private, draft, Direct-only or loses its published photo. To list imported quote products on the homepage, choose New arrivals or a Curated shopping section with the appropriate department; they need not be marked Featured. If every configured product shelf has no matches, a general catalogue shelf shows the newest eligible products. The All products route remains paginated and searchable. Importing drafts or deploying code alone does not publish products.
 
 Uploaded banner assets remain private until their attached section is visible and within its schedule, including images inside HTML and hero side banners. Turn off Visible to remove a section. Already-cached public image responses may remain visible for up to five minutes. File removal and general media-library cleanup are separate future work; product photo ordering is available in each product editor.
 
