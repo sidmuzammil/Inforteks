@@ -1,6 +1,14 @@
 # Railway deployment record
 
-## Storefront redesign prepared — 8 October 2026
+## Quote catalogue release prepared — 8 October 2026
+
+Application commit `bc40ddde109625b876f4924dccf2a1b51f7ef534` is pushed on `storefront-redesign` in [PR #2](https://github.com/sidmuzammil/Inforteks/pull/2). Local verification passed 111 unit/integration tests, 19 browser journeys, static checks, generated API validation and the production build. GitHub Actions [37768182660](https://github.com/sidmuzammil/Inforteks/actions/runs/37768182660) is running; no result is claimed yet.
+
+The existing staging patch `7e7c6828-733e-493c-bdd0-ff95cc4a3ac0` now pins web to that application commit. Inspection shows only repository, branch, commit and an empty image-source removal; it is non-destructive and changes no credentials, variables, volumes, buckets or production configuration. The patch has **not been applied**. Staging's previous web/worker/Postgres remain online. No new migration, deployment or catalogue import has run remotely.
+
+The prior deployment tool rejection below remains part of the record. The expanded release also requires the fresh backup prescribed by `DEPLOYMENT_RAILWAY.md`, verified real images, complete supplier coverage and an authenticated existing staff session for the normal import/publication workflow. The current managed environment has no configured secret bindings and denies the source/photo and Railway storefront hosts. See [catalogue launch](CATALOGUE_LAUNCH.md) for the exact remaining steps. No Owner reset, production seed or production record changes were performed.
+
+## Earlier storefront redesign preparation — 8 October 2026
 
 Application commit `25896cc09e09012dc3a81cc91e29531fd28b4edf` is pushed on `storefront-redesign` in [PR #2](https://github.com/sidmuzammil/Inforteks/pull/2). Local static/build/database/browser verification is recorded in TEST_REPORT.md. This section records preparation, not a successful deployment.
 
