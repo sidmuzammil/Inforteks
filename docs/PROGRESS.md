@@ -4,6 +4,8 @@ This file distinguishes the supplied brief's broad target from the working imple
 
 ## Implemented
 
+- Storefront redesign with database-driven grouped category navigation, responsive department panel, scoped search with explicit feedback, revised product cards and editable banner themes/product layouts. Curated section filters share the public/preview catalogue path. Three original sample starters save private drafts only; no production catalogue seed. See STOREFRONT_REDESIGN.md.
+
 - Per-product online-store visibility across all variants, with publishing-scoped approvals from Products or Inventory. Offline-only products remain available for Direct Sales; public discovery, product/media access, wishlists and online checkout enforce store eligibility. Existing stock and order snapshots are preserved.
 
 - ERP-style app launcher and context menus for Direct Sales, Online Store, CRM, Contacts, Products, Inventory, Operations and Settings. Unified, source-labelled contacts and purchase history; versioned CRM opportunities, forecasts, staff assignment, UAE-time activities, audited stages and explicit order conversion/linking. Shipment quantity controls, AED payment/refund inputs and readable sales-operation approvals. See ERP_WORKSPACE.md.

@@ -10802,6 +10802,10 @@
                     "default": true,
                     "type": "boolean"
                   },
+                  "sampleTemplate": {
+                    "type": "string",
+                    "enum": ["work-laptop", "desk-monitor", "daily-headset"]
+                  },
                   "seoTitle": {
                     "type": "string",
                     "maxLength": 180

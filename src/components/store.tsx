@@ -60,16 +60,20 @@ export async function Header() {
               alt="inforteks"
             />
           </Link>
-          <SearchBox />
+          <SearchBox categories={categories.filter((c) => !c.parentId)} />
           <HeaderActions />
         </div>
         <nav className="container main-nav" aria-label="Main navigation">
           <DepartmentMenu categories={categories} />
           <div className="nav-links">
-            <Link href="/category/laptops">Laptops</Link>
-            <Link href="/category/components">PC components</Link>
-            <Link href="/category/monitors">Monitors</Link>
-            <Link href="/category/peripherals">Accessories</Link>
+            {categories
+              .filter((c) => !c.parentId)
+              .slice(0, 4)
+              .map((c) => (
+                <Link key={c.id} href={`/category/${c.slug}`}>
+                  {c.name}
+                </Link>
+              ))}
             <Link href="/brands">Brands</Link>
             <Link href="/offers" className="offer-link">
               Offers

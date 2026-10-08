@@ -2,7 +2,12 @@ import sanitizeHtml from "sanitize-html";
 import { z } from "zod";
 import { db, type Tx } from "@/lib/db";
 import { invariant } from "@/lib/errors";
-import { defaultContent, sectionContent } from "@/lib/home-sections";
+import {
+  defaultContent,
+  sectionContent,
+  sectionProductQuery,
+  productSectionKinds,
+} from "@/lib/home-sections";
 import { requireScope, type Actor } from "./identity";
 import { catalogue } from "./catalogue";
 const internalPath = z
@@ -31,6 +36,7 @@ export const homeSectionInput = z
       "featured",
       "offers",
       "new",
+      "collection",
     ]),
     href: internalPath,
     buttonLabel: z.string().trim().min(2).max(60).default("Explore collection"),
@@ -48,6 +54,19 @@ export const homeSectionInput = z
         sideCards: z.array(card).length(2),
         html: z.string().max(40000),
         imageAlt: z.string().max(250),
+        tone: z.enum(["navy", "blue", "light"]).default("navy"),
+        layout: z.enum(["grid", "rail"]).default("grid"),
+        productLimit: z.number().int().min(1).max(12).default(5),
+        categorySlug: z
+          .string()
+          .regex(/^[a-z0-9-]*$/)
+          .max(100)
+          .default(""),
+        collectionSlug: z
+          .string()
+          .regex(/^[a-z0-9-]*$/)
+          .max(100)
+          .default(""),
       })
       .strict()
       .optional(),
@@ -172,15 +191,8 @@ export async function previewHomeSection(actor: Actor, raw: unknown) {
   requireScope(actor, "content:write");
   const section = await prepareHomeSection(raw);
   const [products, categories] = await Promise.all([
-    ["featured", "offers", "new"].includes(section.kind)
-      ? catalogue({
-          ...(section.kind === "featured"
-            ? { featured: "true" }
-            : section.kind === "offers"
-              ? { offers: "true" }
-              : { sort: "newest" }),
-          limit: 5,
-        })
+    productSectionKinds.includes(section.kind)
+      ? catalogue(sectionProductQuery(section))
       : null,
     section.kind === "categories"
       ? db.category.findMany({

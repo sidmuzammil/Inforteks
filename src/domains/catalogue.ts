@@ -44,6 +44,9 @@ export const productInput = z
     categoryId: z.string().min(1, "Choose or create a category."),
     featured: z.boolean().default(false),
     store: z.boolean().default(true),
+    sampleTemplate: z
+      .enum(["work-laptop", "desk-monitor", "daily-headset"])
+      .optional(),
     seoTitle: z.string().max(180).optional(),
     seoDescription: z.string().max(300).optional(),
     model: z.string().max(100).optional(),
@@ -215,7 +218,7 @@ export async function catalogue(input: Record<string, unknown> = {}) {
 }
 export async function createProduct(actor: Actor, raw: unknown, tx?: Tx) {
   requireScope(actor, "catalog:write");
-  const data = productInput.parse(raw);
+  const { sampleTemplate, ...data } = productInput.parse(raw);
   if (data.skus.some((s) => s.price !== null || s.compareAt !== null))
     requireScope(actor, "pricing:write");
   invariant(
@@ -237,6 +240,9 @@ export async function createProduct(actor: Actor, raw: unknown, tx?: Tx) {
     const p = await conn.product.create({
       data: {
         ...data,
+        ...(sampleTemplate
+          ? { status: "DRAFT" as const, demo: true, store: false }
+          : {}),
         slug: data.slug ?? slugify(data.name),
         skus: { create: data.skus },
       },

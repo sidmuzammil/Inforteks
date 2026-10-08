@@ -3,7 +3,13 @@ import { ArrowRight } from "lucide-react";
 import { money } from "@/lib/utils";
 import type { PublicProduct } from "@/domains/catalogue";
 import { CardActions, WishlistButton } from "./store-client";
-export function ProductCard({ product: p }: { product: PublicProduct }) {
+export function ProductCard({
+  product: p,
+  preview = false,
+}: {
+  product: PublicProduct;
+  preview?: boolean;
+}) {
   const s = p.skus[0];
   const sale =
     s?.compareAt && s.compareAt > s.price
@@ -27,9 +33,9 @@ export function ProductCard({ product: p }: { product: PublicProduct }) {
         {sale > 0 ? (
           <span className="sale-badge">−{sale}%</span>
         ) : p.demo ? (
-          <span className="new-badge">EXPLORE</span>
+          <span className="new-badge">SAMPLE</span>
         ) : null}
-        <WishlistButton product={p} />
+        {!preview && <WishlistButton product={p} />}
       </div>
       <div className="card-content">
         <div className="card-brand">{p.brand.name}</div>
@@ -40,7 +46,7 @@ export function ProductCard({ product: p }: { product: PublicProduct }) {
           {p.name}
         </Link>
         <p className="card-spec">
-          {p.highlights[0] ?? "Explore product details"}
+          {p.highlights.slice(0, 2).join(" · ") || "Explore product details"}
         </p>
         <div className="card-price">
           {s ? money(s.price) : "Price unavailable"}
@@ -53,7 +59,18 @@ export function ProductCard({ product: p }: { product: PublicProduct }) {
             <span className="muted">Out of stock</span>
           )}
         </div>
-        <CardActions product={p} />
+        {p.demo && (
+          <small className="sample-label">
+            Illustrative sample · not merchant stock
+          </small>
+        )}
+        {preview ? (
+          <button className="add-button" disabled>
+            Preview only
+          </button>
+        ) : (
+          <CardActions product={p} />
+        )}
       </div>
     </article>
   );

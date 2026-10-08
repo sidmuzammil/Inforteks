@@ -17,6 +17,8 @@ export async function CataloguePage({
   const result = await catalogue(query);
   const known = [
     "q",
+    "category",
+    "collection",
     "min",
     "max",
     "ram",
@@ -45,6 +47,12 @@ export async function CataloguePage({
         <FilterToggle>
           <form action={base}>
             <h3>Refine your search</h3>
+            {query.category && (
+              <input type="hidden" name="category" value={query.category} />
+            )}
+            {query.collection && (
+              <input type="hidden" name="collection" value={query.collection} />
+            )}
             {query.q && <input type="hidden" name="q" value={query.q} />}
             {query.featured === "true" && (
               <input type="hidden" name="featured" value="true" />

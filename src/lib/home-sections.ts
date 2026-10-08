@@ -6,6 +6,7 @@ export const sectionTypes = {
   featured: "Featured products",
   offers: "Discounted products",
   new: "New arrivals",
+  collection: "Curated shopping section",
 } as const;
 export type BannerCard = {
   title: string;
@@ -22,8 +23,18 @@ export type SectionContent = {
   sideCards: BannerCard[];
   html: string;
   imageAlt: string;
+  tone: "navy" | "blue" | "light";
+  layout: "grid" | "rail";
+  productLimit: number;
+  categorySlug: string;
+  collectionSlug: string;
 };
 export const defaultContent: SectionContent = {
+  tone: "navy",
+  layout: "grid",
+  productLimit: 5,
+  categorySlug: "",
+  collectionSlug: "",
   eyebrow: "THE NEXT CHAPTER IN TECH",
   footer: "WORK. PLAY. CREATE.",
   showSideCards: true,
@@ -71,3 +82,22 @@ export function sectionContent(raw: unknown): SectionContent {
     sideCards: data.sideCards ?? defaultContent.sideCards,
   };
 }
+
+// One selection contract for public sections and staff previews. Catalogue
+// remains responsible for publication, store visibility and public DTOs.
+export function sectionProductQuery(section: {
+  kind: string;
+  content: SectionContent;
+}) {
+  return {
+    ...(section.kind === "featured"
+      ? { featured: "true" }
+      : section.kind === "offers"
+        ? { offers: "true" }
+        : { sort: "newest" }),
+    category: section.content.categorySlug,
+    collection: section.content.collectionSlug,
+    limit: section.content.productLimit,
+  };
+}
+export const productSectionKinds = ["featured", "offers", "new", "collection"];

@@ -299,7 +299,13 @@ export function HeaderActions() {
 export function DepartmentMenu({
   categories,
 }: {
-  categories: { name: string; slug: string }[];
+  categories: {
+    id?: string;
+    name: string;
+    slug: string;
+    parentId?: string | null;
+    icon?: string;
+  }[];
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -379,16 +385,72 @@ export function DepartmentMenu({
       </button>
       {open && (
         <div id="department-menu" className="mega-menu">
-          {categories.map((c) => (
-            <Link
-              key={c.slug}
-              href={`/category/${c.slug}`}
-              onClick={() => setOpen(false)}
+          <div className="mega-heading">
+            <strong>Shop by department</strong>
+            <button
+              type="button"
+              aria-label="Close departments"
+              onClick={() => {
+                setOpen(false);
+                button.current?.focus();
+              }}
             >
-              {c.name}
-              <ArrowRight size={14} />
+              <X size={20} />
+            </button>
+          </div>
+          <div className="mega-departments">
+            {categories
+              .filter(
+                (c) =>
+                  !c.parentId ||
+                  !categories.some((parent) => parent.id === c.parentId),
+              )
+              .map((c) => (
+                <div key={c.slug} className="mega-group">
+                  <Link
+                    href={`/category/${c.slug}`}
+                    onClick={() => setOpen(false)}
+                  >
+                    {c.icon && (
+                      <img
+                        src={`/illustrations/${c.icon}.svg`}
+                        width="44"
+                        height="36"
+                        alt=""
+                      />
+                    )}
+                    <strong>{c.name}</strong>
+                    <ArrowRight size={14} />
+                  </Link>
+                  {categories
+                    .filter((child) => child.parentId === c.id && c.id)
+                    .map((child) => (
+                      <Link
+                        className="mega-child"
+                        key={child.slug}
+                        href={`/category/${child.slug}`}
+                        onClick={() => setOpen(false)}
+                      >
+                        {child.name}
+                      </Link>
+                    ))}
+                </div>
+              ))}
+          </div>
+          <div className="mega-quick-links">
+            <Link href="/offers" onClick={() => setOpen(false)}>
+              Offers
             </Link>
-          ))}
+            <Link href="/new-arrivals" onClick={() => setOpen(false)}>
+              New arrivals
+            </Link>
+            <Link href="/brands" onClick={() => setOpen(false)}>
+              Brands
+            </Link>
+            <Link href="/account" onClick={() => setOpen(false)}>
+              My account
+            </Link>
+          </div>
           <Link href="/categories" onClick={() => setOpen(false)}>
             Browse all departments
           </Link>
@@ -397,98 +459,190 @@ export function DepartmentMenu({
     </div>
   );
 }
-export function SearchBox() {
+export function SearchBox({
+  categories = [],
+}: {
+  categories?: { name: string; slug: string }[];
+}) {
   const [q, setQ] = useState("");
-  const [items, setItems] = useState<PublicProduct[]>([]);
+  const [category, setCategory] = useState("");
+  const [result, setResult] = useState<{
+    key: string;
+    items: PublicProduct[];
+    error?: boolean;
+  } | null>(null);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
+  const root = useRef<HTMLFormElement>(null);
   const router = useRouter();
+  const key = `${category}:${q.trim()}`;
+  const current = result?.key === key ? result : null;
+  const items = current?.items ?? [];
   useEffect(() => {
-    if (q.length < 2) return;
+    if (q.trim().length < 2) return;
     const ctrl = new AbortController();
-    const timer = setTimeout(() => {
-      fetch(`/api/v1/storefront/search?q=${encodeURIComponent(q)}&limit=5`, {
-        signal: ctrl.signal,
-      })
-        .then((r) => r.json())
-        .then((r) => setItems(r.data?.products ?? []))
-        .catch(() => {});
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `/api/v1/storefront/search?${new URLSearchParams({ q: q.trim(), category, limit: "5" })}`,
+          { signal: ctrl.signal },
+        );
+        if (!response.ok) throw new Error("Search unavailable");
+        const data = await response.json();
+        if (!ctrl.signal.aborted)
+          setResult({ key, items: data.data?.products ?? [] });
+      } catch {
+        if (!ctrl.signal.aborted) setResult({ key, items: [], error: true });
+      }
     }, 250);
     return () => {
       clearTimeout(timer);
       ctrl.abort();
     };
-  }, [q]);
+  }, [q, category, key]);
+  useEffect(() => {
+    const close = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, []);
+  const showing = open && q.trim().length >= 2;
   return (
     <form
+      ref={root}
       action="/search"
       className="search-box"
-      onSubmit={(e) => {
+      role="search"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}
+      onSubmit={(event) => {
         if (active >= 0 && items[active]) {
-          e.preventDefault();
-          router.push(`/product/${items[active].slug}`);
+          event.preventDefault();
+          router.push(
+            `/product/${items[active].slug}?sku=${items[active].skus[0]?.id ?? ""}`,
+          );
         }
         setOpen(false);
       }}
     >
-      <Search size={20} className="search-icon" />
+      <select
+        name="category"
+        aria-label="Search department"
+        value={category}
+        onChange={(event) => {
+          setCategory(event.target.value);
+          setActive(-1);
+        }}
+      >
+        <option value="">All departments</option>
+        {categories.map((c) => (
+          <option key={c.slug} value={c.slug}>
+            {c.name}
+          </option>
+        ))}
+      </select>
       <input
         name="q"
         value={q}
-        onChange={(e) => {
-          setQ(e.target.value);
-          if (e.target.value.length < 2) setItems([]);
+        maxLength={100}
+        onChange={(event) => {
+          setQ(event.target.value);
           setOpen(true);
           setActive(-1);
         }}
         onFocus={() => setOpen(true)}
-        placeholder="Search products, brands and more…"
+        placeholder="Search technology, brands, model or SKU…"
         aria-label="Search products"
         role="combobox"
-        aria-expanded={open && items.length > 0}
+        aria-expanded={showing}
         aria-controls="search-results"
         aria-autocomplete="list"
-        aria-activedescendant={active >= 0 ? `suggestion-${active}` : undefined}
+        aria-activedescendant={
+          showing && active >= 0 && items[active]
+            ? `suggestion-${active}`
+            : undefined
+        }
         autoComplete="off"
-        onKeyDown={(e) => {
-          if (e.key === "ArrowDown") {
-            e.preventDefault();
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setOpen(true);
             setActive(Math.min(active + 1, items.length - 1));
           }
-          if (e.key === "ArrowUp") {
-            e.preventDefault();
+          if (event.key === "ArrowUp") {
+            event.preventDefault();
             setActive(Math.max(active - 1, -1));
           }
-          if (e.key === "Escape") setOpen(false);
+          if (event.key === "Escape") {
+            setOpen(false);
+            setActive(-1);
+          }
         }}
       />
+      {q && (
+        <button
+          className="search-clear"
+          type="button"
+          aria-label="Clear search"
+          onClick={() => {
+            setQ("");
+            setActive(-1);
+            root.current?.querySelector("input")?.focus();
+          }}
+        >
+          <X size={16} />
+        </button>
+      )}
       <button aria-label="Submit search">
         <Search size={20} />
       </button>
-      {open && items.length > 0 && (
-        <ul id="search-results" className="search-results" role="listbox">
-          {items.map((p, i) => (
-            <li
-              key={p.id}
-              role="option"
-              id={`suggestion-${i}`}
-              aria-selected={active === i}
-            >
-              <Link href={`/product/${p.slug}`} onClick={() => setOpen(false)}>
-                <img
-                  src={p.media[0]?.url ?? "/illustrations/laptop.svg"}
-                  alt=""
-                />
-                <span>
-                  {p.name}
-                  <small>
-                    {p.skus[0] ? money(p.skus[0].price) : "Unavailable"}
-                  </small>
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+      {showing && (
+        <div className="search-panel">
+          <p className="search-caption" role="status">
+            {!current
+              ? "Searching…"
+              : current.error
+                ? "Suggestions unavailable. Submit to try the full search."
+                : items.length
+                  ? "Matching products"
+                  : "No matching products. Try a brand, model or another department."}
+          </p>
+          <ul id="search-results" className="search-results" role="listbox">
+            {items.map((p, i) => (
+              <li
+                key={p.id}
+                role="option"
+                id={`suggestion-${i}`}
+                aria-selected={active === i}
+              >
+                <Link
+                  href={`/product/${p.slug}?sku=${p.skus[0]?.id ?? ""}`}
+                  onClick={() => setOpen(false)}
+                >
+                  <img
+                    src={p.media[0]?.url ?? "/illustrations/laptop.svg"}
+                    alt=""
+                  />
+                  <span>
+                    {p.name}
+                    <small>
+                      {p.skus[0] ? money(p.skus[0].price) : "Unavailable"}
+                    </small>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <Link
+            className="search-all"
+            href={`/search?${new URLSearchParams({ q: q.trim(), category })}`}
+            onClick={() => setOpen(false)}
+          >
+            View all search results <ArrowRight size={16} />
+          </Link>
+        </div>
       )}
     </form>
   );

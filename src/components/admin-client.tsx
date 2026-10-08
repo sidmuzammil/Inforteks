@@ -10,6 +10,7 @@ import {
   ChosenImages,
 } from "./merchant-inputs";
 import { readPrices } from "@/lib/merchant-pricing";
+import { sampleProducts, type SampleProductId } from "@/lib/sample-products";
 import { MAX_IMAGE_BYTES } from "@/lib/uploads";
 import { ProductMediaEditor } from "./product-media-editor";
 import { Sparkles, Plus, ArrowRight, ExternalLink } from "lucide-react";
@@ -108,6 +109,9 @@ export function ProductEditor({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [sampleId, setSampleId] = useState<SampleProductId | null>(null);
+  const sample = sampleProducts.find((s) => s.id === sampleId);
+  const [sampleRevision, setSampleRevision] = useState(0);
   const [skuCount, setSkuCount] = useState(1);
   const [files, setFiles] = useState<File[]>([]);
   const [createdId, setCreatedId] = useState<string | null>(null);
@@ -120,14 +124,18 @@ export function ProductEditor({
     return () => window.removeEventListener("beforeunload", guard);
   }, [dirty]);
   const overview: Field[] = [
-    { name: "name", label: "Product name", value: product?.name },
+    {
+      name: "name",
+      label: "Product name",
+      value: product?.name ?? sample?.name,
+    },
     ...(!product
       ? [
           {
             name: "store",
             label: "Show in online store",
             type: "checkbox",
-            value: true,
+            value: !sample,
             help: "Turn off for Direct Sales only. This applies to all variants; stock stays shared. Drafts stay private until activated.",
           },
         ]
@@ -162,13 +170,13 @@ export function ProductEditor({
       name: "description",
       label: "Product description",
       type: "textarea",
-      value: product?.description,
+      value: product?.description ?? sample?.description,
     },
     {
       name: "highlights",
       label: "Highlights (one per line)",
       type: "textarea",
-      value: product?.highlights.join("\n"),
+      value: product?.highlights.join("\n") ?? sample?.highlights.join("\n"),
       required: false,
     },
   ];
@@ -216,6 +224,7 @@ export function ProductEditor({
           ? { id: createdId }
           : await api<{ id: string }>("admin/products", {
               ...common,
+              ...(sampleId ? { sampleTemplate: sampleId } : {}),
               brandId: fd.get("brandId"),
               categoryId: fd.get("categoryId"),
               specs: JSON.parse(String(fd.get("specs") ?? "{}")),
@@ -258,7 +267,80 @@ export function ProductEditor({
           </a>
         ))}
       </nav>
+      {!product && !createdId && (
+        <details className="draft-kit">
+          <summary>Sample draft starters</summary>
+          <p>
+            Original illustrative concepts. Choosing a starter only fills this
+            form. Saving creates a private sample draft with Online Store
+            visibility off and no stock. No price or warranty is invented.
+          </p>
+          <div className="draft-kit-grid">
+            {sampleProducts.map((starter) => (
+              <button
+                type="button"
+                key={starter.id}
+                onClick={() => {
+                  if (
+                    dirty &&
+                    !window.confirm(
+                      "Replace the unsaved form with this sample draft?",
+                    )
+                  )
+                    return;
+                  setSampleId(starter.id);
+                  setSampleRevision((revision) => revision + 1);
+                  setError("");
+                  setSkuCount(1);
+                  setFiles([]);
+                  setDirty(false);
+                }}
+              >
+                <img
+                  src={`/illustrations/${starter.image}.svg`}
+                  width="80"
+                  height="64"
+                  alt=""
+                />
+                <b>{starter.name}</b>
+                <small>{starter.category} · Draft only</small>
+              </button>
+            ))}
+          </div>
+          {sample && (
+            <button
+              type="button"
+              className="button"
+              onClick={() => {
+                if (
+                  dirty &&
+                  !window.confirm(
+                    "Discard unsaved sample edits and start a blank product?",
+                  )
+                )
+                  return;
+                setSampleId(null);
+                setSampleRevision((revision) => revision + 1);
+                setFiles([]);
+                setSkuCount(1);
+                setError("");
+                setDirty(false);
+              }}
+            >
+              Start blank product
+            </button>
+          )}
+        </details>
+      )}
+      {sample && (
+        <p className="notice">
+          Sample draft selected. Choose an existing or new brand and category.
+          Price and stock remain unset; this draft is excluded from the Online
+          Store.
+        </p>
+      )}
       <form
+        key={`${sampleId ?? "product"}-${sampleRevision}`}
         className="form-card form-stack"
         onSubmit={submit}
         onChange={() => setDirty(true)}
@@ -286,7 +368,7 @@ export function ProductEditor({
         </section>
         <SpecificationFields
           name="specs"
-          value={product?.specs}
+          value={product?.specs ?? sample?.specs}
           label="Product specifications"
         />
         {!product && (
@@ -325,7 +407,15 @@ export function ProductEditor({
                   <div className="form-grid" style={{ marginTop: 16 }}>
                     <label>
                       SKU code
-                      <input name={`sku_${i}`} required />
+                      <input
+                        name={`sku_${i}`}
+                        required
+                        defaultValue={
+                          sampleId
+                            ? `SAMPLE-${sampleId.toUpperCase()}-${i + 1}`
+                            : ""
+                        }
+                      />
                     </label>
                     {scopes.includes("pricing:write") && (
                       <PriceFields suffix={`_${i}`} />
@@ -387,7 +477,9 @@ export function ProductEditor({
         <p className="form-help">
           {product
             ? "Changes are prepared as an exact proposal. Review and approve to apply them; existing live content remains unchanged until then."
-            : "This saves an unpublished draft with your images. Review stock and publish in the next step."}
+            : sample
+              ? "This saves a private sample draft only. It does not publish or add stock."
+              : "This saves an unpublished draft with your images. Review stock and publish in the next step."}
         </p>
         <button className="button primary" disabled={busy}>
           {busy

@@ -25,7 +25,9 @@ export function HomeSectionView({
     );
   if (s.kind === "hero")
     return (
-      <section className={`hero-grid ${c.showSideCards ? "" : "hero-full"}`}>
+      <section
+        className={`hero-grid tone-${c.tone} ${c.showSideCards ? "" : "hero-full"}`}
+      >
         <div className="hero-main">
           <img
             className="hero-image"
@@ -79,7 +81,7 @@ export function HomeSectionView({
     );
   if (s.kind === "cta")
     return (
-      <section className="editorial-banner">
+      <section className={`editorial-banner tone-${c.tone}`}>
         <div>
           <span className="eyebrow">{c.eyebrow}</span>
           <h2>{s.title}</h2>
@@ -133,9 +135,13 @@ export function HomeSectionView({
           ))}
         </div>
       ) : (
-        <div className="product-grid">
+        <div
+          className={c.layout === "rail" ? "product-rail" : "product-grid"}
+          tabIndex={c.layout === "rail" ? 0 : undefined}
+          aria-label={c.layout === "rail" ? `${s.title} products` : undefined}
+        >
           {products.map((p) => (
-            <ProductCard key={p.id} product={p} />
+            <ProductCard key={p.id} product={p} preview={preview} />
           ))}
         </div>
       )}

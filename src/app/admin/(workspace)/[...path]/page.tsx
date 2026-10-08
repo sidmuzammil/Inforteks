@@ -1096,6 +1096,14 @@ export default async function AdminPage({
           <div className="panel admin-editor">
             {resource === "home-sections" ? (
               <HomeSectionEditor
+                categories={await db.category.findMany({
+                  select: { name: true, slug: true },
+                  orderBy: { position: "asc" },
+                })}
+                collections={await db.collection.findMany({
+                  select: { name: true, slug: true },
+                  orderBy: { name: "asc" },
+                })}
                 key={String(existing?.id ?? "new")}
                 values={json(existing) ?? {}}
               />

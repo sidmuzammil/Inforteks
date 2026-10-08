@@ -133,8 +133,12 @@ function ImageUpload({
 }
 export function HomeSectionEditor({
   values = {},
+  categories = [],
+  collections = [],
 }: {
   values?: Record<string, unknown>;
+  categories?: { name: string; slug: string }[];
+  collections?: { name: string; slug: string }[];
 }) {
   const router = useRouter();
   const [section, setSection] = useState<HomeSectionData>(() => ({
@@ -338,6 +342,95 @@ export function HomeSectionEditor({
           />
         </label>
       </div>
+      <section className="merchandising-controls">
+        <h2>Storefront presentation</h2>
+        <p className="form-help">
+          Use the same design on desktop and mobile. Preview changes before
+          saving.
+        </p>
+        <div className="form-grid">
+          {["hero", "cta"].includes(section.kind) && (
+            <label>
+              Banner colour
+              <select
+                value={section.content.tone}
+                onChange={(e) =>
+                  content({
+                    tone: e.target.value as HomeSectionData["content"]["tone"],
+                  })
+                }
+              >
+                <option value="navy">Midnight navy</option>
+                <option value="blue">Inforteks blue</option>
+                <option value="light">Soft ice</option>
+              </select>
+            </label>
+          )}
+          {["featured", "offers", "new", "collection"].includes(
+            section.kind,
+          ) && (
+            <>
+              <label>
+                Product layout
+                <select
+                  value={section.content.layout}
+                  onChange={(e) =>
+                    content({ layout: e.target.value as "grid" | "rail" })
+                  }
+                >
+                  <option value="grid">Responsive grid</option>
+                  <option value="rail">Scrollable product row</option>
+                </select>
+              </label>
+              <label>
+                Number of products
+                <input
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={section.content.productLimit}
+                  onChange={(e) =>
+                    content({ productLimit: Number(e.target.value) })
+                  }
+                />
+              </label>
+              <label>
+                Department selection
+                <select
+                  value={section.content.categorySlug}
+                  onChange={(e) => content({ categorySlug: e.target.value })}
+                >
+                  <option value="">All departments</option>
+                  {categories.map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Collection selection
+                <select
+                  value={section.content.collectionSlug}
+                  onChange={(e) => content({ collectionSlug: e.target.value })}
+                >
+                  <option value="">All collections</option>
+                  {collections.map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="form-help">
+                Selections combine. Only published Online Store products appear;
+                drafts and Direct Sales only products stay private. An empty
+                selection is hidden on the storefront.
+              </p>
+            </>
+          )}
+        </div>
+      </section>
       {["hero", "cta"].includes(section.kind) && (
         <>
           <div className="form-grid">

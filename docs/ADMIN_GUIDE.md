@@ -8,6 +8,10 @@ The app launcher and top menu open **Direct Sales** (office visits and orders ta
 
 Google sign-in, when configured, is only for customers. It cannot create, connect or sign into staff accounts. Existing email/password customers connect Google from Profile & security; staff continue using the account created by the Owner. See [Google activation](GOOGLE_SIGN_IN.md) for provider setup.
 
+## Storefront design and sample drafts
+
+See [storefront redesign](STOREFRONT_REDESIGN.md) for category navigation, search, banner themes, curated shopping sections and matching desktop/mobile previews. Product sections support department/collection selections, 1–12 products and grid/scrolling-row layouts. Products → Create product → Sample draft starters offers three illustrative concepts. Saving a starter creates only a private sample draft with `store=false`, no price and zero stock by default; nothing is seeded or published automatically.
+
 ## Catalogue workflow
 
 1. Open **Products → Create product**. Choose a brand/category or use **Create brand / Create category** directly in the editor, including on an empty store. Category attributes can define required product or SKU specifications.
