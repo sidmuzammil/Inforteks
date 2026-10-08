@@ -1,10 +1,22 @@
 # Railway deployment record
 
+## Quote catalogue staging web deployed — 8 October 2026
+
+The user applied staging patch `7e7c6828-733e-493c-bdd0-ff95cc4a3ac0` in the Railway dashboard. Web deployment `44dd2d92-9101-400a-872a-2ca9dd185cb2`, created at `2026-10-08T12:26:37.989Z`, reached **SUCCESS** on application commit `bc40ddde109625b876f4924dccf2a1b51f7ef534`. Its logs confirm both `20261008130000_product_quote_only` and `20261008131000_catalogue_source` applied successfully, all twelve migrations are applied, and Railway's `/api/ready` health check passed. The container started successfully. Build-only authentication warnings occurred without runtime secrets in the Docker build; no runtime authentication failure is established by those warnings.
+
+Staging preview: <https://web-staging-4569.up.railway.app>. Direct HTTP/browser verification remains unavailable from this managed environment: the generated staging host is not allowed, and the web connector also could not access its homepage or readiness URL. Railway deployment and health-check evidence does not replace the remaining storefront, authenticated admin, media and quote-inquiry smoke checks.
+
+The matching staging worker source is prepared in patch `8c64fdf5-7570-4ffe-a93b-0cfa2d529f54`: three non-destructive repository/branch/commit fields only, pinned to the same application commit. No secrets, variables, database settings, volumes or buckets change. Applying this worker patch through the connected tool was again canceled with “the user did not approve this action,” despite the user's deployment authorization. It remains staged for dashboard application; the previous worker remains online and compatible during this rollout.
+
+Production remains on web deployment `7dca78c7-396d-4d2f-badb-a7ca93fe2890` from 7 October. No production configuration or records were modified. Before production migration, obtain and verify the fresh backup required by `DEPLOYMENT_RAILWAY.md`; Railway CLI authentication is still unavailable and the connected MCP toolset exposes no backup operation. No new backup or restore is claimed. Complete staging checks and worker readiness before production web, then production worker.
+
+GitHub Actions [37769267653](https://github.com/sidmuzammil/Inforteks/actions/runs/37769267653) also passed for helper/documentation commit `a4fd101dffce5271c35c7fe382d906631d56cd78`; the runtime application and migrations are unchanged from `bc40ddd`. No researched products or photographs have been imported or published. Real image downloads, complete supplier coverage and an existing authenticated staff session remain launch prerequisites described in [catalogue launch](CATALOGUE_LAUNCH.md). No Owner reset or production seed was run.
+
 ## Quote catalogue release prepared — 8 October 2026
 
 Application commit `bc40ddde109625b876f4924dccf2a1b51f7ef534` is pushed on `storefront-redesign` in [PR #2](https://github.com/sidmuzammil/Inforteks/pull/2). Local verification passed 111 unit/integration tests, 19 browser journeys, static checks, generated API validation and the production build. GitHub Actions [37768182660](https://github.com/sidmuzammil/Inforteks/actions/runs/37768182660) passed the complete setup, static/database checks, browser suite and production build on that exact application commit.
 
-The existing staging patch `7e7c6828-733e-493c-bdd0-ff95cc4a3ac0` now pins web to that application commit. Inspection shows only repository, branch, commit and an empty image-source removal; it is non-destructive and changes no credentials, variables, volumes, buckets or production configuration. The patch has **not been applied**. Staging's previous web/worker/Postgres remain online. No new migration, deployment or catalogue import has run remotely.
+At preparation time, staging patch `7e7c6828-733e-493c-bdd0-ff95cc4a3ac0` pinned web to that application commit. Inspection showed only repository, branch, commit and an empty image-source removal; it was non-destructive and changed no credentials, variables, volumes, buckets or production configuration. Its later application and migration results are recorded above.
 
 The prior deployment tool rejection below remains part of the record. The expanded release also requires the fresh backup prescribed by `DEPLOYMENT_RAILWAY.md`, verified real images, complete supplier coverage and an authenticated existing staff session for the normal import/publication workflow. The current managed environment has no configured secret bindings and denies the source/photo and Railway storefront hosts. See [catalogue launch](CATALOGUE_LAUNCH.md) for the exact remaining steps. No Owner reset, production seed or production record changes were performed.
 
@@ -14,9 +26,9 @@ Application commit `25896cc09e09012dc3a81cc91e29531fd28b4edf` is pushed on `stor
 
 The restored Railway CLI login returned Unauthorized. Through the connected Railway service, staging web source was prepared as the exact repository/branch/commit above, in pending patch `7e7c6828-733e-493c-bdd0-ff95cc4a3ac0`. The reviewed patch contains only three source fields; it changes no environment variables, databases, volumes, buckets, migrations or start commands. Source is pinned to the reviewed commit, so subsequent branch pushes do not silently deploy.
 
-Applying that patch was rejected by the tool approval layer: “Cancelled — the user did not approve this action. No changes were made.” The patch remains staged, no new staging build was started, and production was not modified. The user has been asked to resolve that approval. After it is resolved, apply staging, observe terminal SUCCESS and verify its storefront/readiness before preparing the same pinned release for production. Do not reset the Owner or seed either production catalogue or sample products. Workers do not require this UI release.
+Applying that earlier patch was rejected by the tool approval layer: “Cancelled — the user did not approve this action. No changes were made.” This was a tool-layer rejection despite deployment authorization. At that time no staging build started and production was not modified. The expanded quote catalogue release and later dashboard application supersede this preparation record. Do not reset the Owner or seed either production catalogue or sample products.
 
-Existing live deployment IDs below remain the latest observed deployments. Public readiness URLs were unavailable through the web connector in this session; no new remote HTTP verification is claimed.
+Deployment IDs below are the historical 7 October state; see the latest rollout record above for current staging status. Public readiness URLs were unavailable through the web connector in this session; no new remote HTTP verification is claimed.
 
 Verified on 7 October 2026 UTC. This records observed deployment state, not a completed retail launch.
 
