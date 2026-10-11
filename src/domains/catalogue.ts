@@ -113,13 +113,30 @@ export function publicProduct(p: FullProduct, preview = false) {
   };
 }
 export type PublicProduct = ReturnType<typeof publicProduct>;
+export function staffProductPreview(p: FullProduct, actor: Actor) {
+  requireScope(actor, "catalog:read");
+  const preview = publicProduct(p, true);
+  return {
+    ...preview,
+    skus: preview.skus.map((sku) => ({
+      ...sku,
+      price: actor.scopes.includes("pricing:read") ? sku.price : null,
+      compareAt: actor.scopes.includes("pricing:read") ? sku.compareAt : null,
+      available: actor.scopes.includes("inventory:read") ? sku.available : 0,
+    })),
+  };
+}
 export async function getProduct(slug: string, preview?: Actor) {
   if (preview) requireScope(preview, "catalog:read");
   const p = await db.product.findFirst({
     where: { slug, ...(preview ? {} : onlineProductWhere) },
     include: includeProduct,
   });
-  return p ? publicProduct(p, Boolean(preview)) : null;
+  return p
+    ? preview
+      ? staffProductPreview(p, preview)
+      : publicProduct(p)
+    : null;
 }
 export const searchInput = z.object({
   q: z.string().max(100).default(""),
@@ -160,7 +177,7 @@ export async function catalogue(input: Record<string, unknown> = {}) {
   if (f.q) {
     const term = `%${f.q.replace(/[\\%_]/g, "\\$&")}%`;
     conditions.push(
-      Prisma.sql`(p.name ILIKE ${term} OR p.model ILIKE ${term} OR s.code ILIKE ${term} OR s.mpn ILIKE ${term} OR b.name ILIKE ${term} OR s.specs::text ILIKE ${term})`,
+      Prisma.sql`(p.name ILIKE ${term} OR p.model ILIKE ${term} OR s.code ILIKE ${term} OR s.mpn ILIKE ${term} OR b.name ILIKE ${term} OR p.specs::text ILIKE ${term} OR s.specs::text ILIKE ${term} OR s.options::text ILIKE ${term})`,
     );
   }
   if (f.category)

@@ -65,7 +65,10 @@ export function publicCart(cart: Awaited<ReturnType<typeof getCart>>) {
         id: cart.id,
         items: cart.items.map((l) => {
           const visible =
-            isOnlineProduct(l.sku.product) && !l.sku.product.quoteOnly;
+            l.sku.active &&
+            l.sku.price !== null &&
+            isOnlineProduct(l.sku.product) &&
+            !l.sku.product.quoteOnly;
           const media = visible ? l.sku.product.media[0] : undefined;
           return {
             id: l.id,
@@ -91,6 +94,18 @@ export async function ensureCart(token?: string, userId?: string) {
   if (current) {
     if (userId && !current.userId) {
       await db.$transaction(async (tx) => {
+        // The guest lookup happened before this transaction. Claim only an
+        // unowned cart, before merging any account's private saved items.
+        // A concurrent sign-in must never overwrite the winning owner.
+        const claimed = await tx.cart.updateMany({
+          where: { id: current.id, userId: null },
+          data: { userId },
+        });
+        invariant(
+          claimed.count === 1,
+          409,
+          "Your cart changed during sign-in. Reload your cart and try again.",
+        );
         const others = await tx.cart.findMany({
           where: { userId, id: { not: current.id } },
           include: { items: true },
@@ -119,7 +134,6 @@ export async function ensureCart(token?: string, userId?: string) {
         await tx.cart.deleteMany({
           where: { id: { in: others.map((c) => c.id) } },
         });
-        await tx.cart.update({ where: { id: current.id }, data: { userId } });
       });
     }
     const currentToken =
@@ -530,6 +544,7 @@ export async function ownedOrder(
         },
       ],
     },
+    omit: { guestTokenHash: true },
     include: {
       items: true,
       shipments: true,

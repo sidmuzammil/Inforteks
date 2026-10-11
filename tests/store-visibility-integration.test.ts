@@ -26,6 +26,7 @@ import {
 import { adminList } from "../src/domains/administration";
 import { GET, POST } from "../src/app/api/v1/[...path]/route";
 import sitemap from "../src/app/sitemap";
+import { GET as mediaGET } from "../src/app/media/[id]/route";
 const key = `store-${randomUUID()}`;
 const address = {
   name: "Office buyer",
@@ -154,6 +155,34 @@ afterAll(async () => {
     });
   vi.unstubAllEnvs();
   await db.$disconnect();
+});
+it("denies anonymous image access after hiding its category while retaining private staff access", async () => {
+  await change(true);
+  const read = (authenticated = false) =>
+    mediaGET(
+      new Request(`${origin}/media/${imageId}`, {
+        headers: authenticated ? { Cookie: cookie } : {},
+      }),
+      { params: Promise.resolve({ id: imageId }) },
+    );
+  try {
+    expect((await read()).status).toBe(200);
+    await db.category.update({
+      where: { id: categoryId },
+      data: { visible: false },
+    });
+    expect((await read()).status).toBe(404);
+    const staff = await read(true);
+    expect(staff.status).toBe(200);
+    expect(staff.headers.get("cache-control")).toBe("private, no-store");
+    expect((await readImage(imageId, actor)).public).toBe(false);
+  } finally {
+    await db.category.update({
+      where: { id: categoryId },
+      data: { visible: true },
+    });
+    await change(false);
+  }
 });
 it("activates an offline-only product without exposing either SKU, images, search facets or sitemap", async () => {
   expect(

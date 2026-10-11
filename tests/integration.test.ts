@@ -377,6 +377,43 @@ describe("shared services against PostgreSQL", () => {
     expect(
       (await db.sku.findUniqueOrThrow({ where: { id: skuId } })).onHand,
     ).toBe(0);
+    await db.user.update({
+      where: { id: editor.id },
+      data: { role: "MANAGER" },
+    });
+    const delegated = await propose(
+      await actorForUser(editor.id),
+      "return.receive",
+      r.id,
+      {
+        disposition: "RESTOCK",
+      },
+    );
+    await db.user.update({
+      where: { id: editor.id },
+      data: { role: "SUPPORT" },
+    });
+    try {
+      await expect(approve(owner, delegated.id)).rejects.toMatchObject({
+        status: 403,
+      });
+      expect(
+        (await db.sku.findUniqueOrThrow({ where: { id: skuId } })).onHand,
+      ).toBe(0);
+      expect(
+        (await db.returnRequest.findUniqueOrThrow({ where: { id: r.id } }))
+          .status,
+      ).toBe("APPROVED");
+      expect(
+        (await db.proposal.findUniqueOrThrow({ where: { id: delegated.id } }))
+          .status,
+      ).toBe("PENDING");
+    } finally {
+      await db.user.update({
+        where: { id: editor.id },
+        data: { role: "EDITOR" },
+      });
+    }
     const p = await propose(owner, "return.receive", r.id, {
       disposition: "RESTOCK",
     });

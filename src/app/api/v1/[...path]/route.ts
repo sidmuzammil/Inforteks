@@ -561,6 +561,9 @@ async function dispatch(
               ? s.reserved
               : undefined,
             price: actor.scopes.includes("pricing:read") ? s.price : undefined,
+            compareAt: actor.scopes.includes("pricing:read")
+              ? s.compareAt
+              : undefined,
           })),
         });
       }

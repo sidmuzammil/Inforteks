@@ -17,6 +17,8 @@ import { auth } from "@/lib/auth";
 import { slugify, json } from "@/lib/utils";
 import { createProduct, productInput } from "./catalogue";
 import type { Prisma } from "@/generated/prisma/client";
+import { approvalScopes } from "@/lib/approval-permissions";
+import { canReadProposal } from "./approvals";
 
 export const modules = [
   {
@@ -142,7 +144,7 @@ export const modules = [
   {
     slug: "proposals",
     label: "Approvals",
-    scope: "ai:use",
+    scope: approvalScopes,
     description: "Review exact changes before they become live.",
   },
   {
@@ -164,15 +166,24 @@ export const modules = [
     description: "Append-only activity history for business operations.",
   },
 ] as const;
+export function requireModuleAccess(actor: Actor, resource: string) {
+  const m = modules.find((m) => m.slug === resource);
+  invariant(m, 404, "Module not found.");
+  if (typeof m.scope === "string") requireScope(actor, m.scope);
+  else
+    invariant(
+      m.scope.some((scope) => actor.scopes.includes(scope)),
+      403,
+      "Approval access requires permission for a business operation.",
+    );
+}
 export async function adminList(
   actor: Actor,
   resource: string,
   page = 1,
   q = "",
 ) {
-  const m = modules.find((m) => m.slug === resource);
-  invariant(m, 404, "Module not found.");
-  requireScope(actor, m.scope as Permission);
+  requireModuleAccess(actor, resource);
   const range = {
     take: 30,
     skip: (Math.max(1, Math.min(page, 1000)) - 1) * 30,
@@ -202,6 +213,9 @@ export async function adminList(
             ? s.reserved
             : undefined,
           price: actor.scopes.includes("pricing:read") ? s.price : undefined,
+          compareAt: actor.scopes.includes("pricing:read")
+            ? s.compareAt
+            : undefined,
         })),
       }));
     }
@@ -329,14 +343,16 @@ export async function adminList(
         where: { actorId: actor.id },
         orderBy: { createdAt: "desc" },
       });
-    case "proposals":
-      return db.proposal.findMany({
+    case "proposals": {
+      const proposals = await db.proposal.findMany({
         ...range,
         where: {
           OR: [{ actorId: actor.id }, ...(actor.role === "OWNER" ? [{}] : [])],
         },
         orderBy: { createdAt: "desc" },
       });
+      return proposals.filter((proposal) => canReadProposal(actor, proposal));
+    }
     case "jobs":
       return db.job.findMany({
         ...range,

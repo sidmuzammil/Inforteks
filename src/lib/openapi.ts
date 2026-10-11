@@ -536,7 +536,7 @@ export const apiOperations: OperationDoc[] = [
     path: "/admin/proposals/{id}/approve",
     id: "approveProposal",
     summary:
-      "Human session only. Current operation scope, versions and expiry rechecked.",
+      "Human session only. All required current scopes, versions and expiry rechecked. Returns an approval receipt, not the unrestricted target record.",
   },
   {
     method: "post",
@@ -589,7 +589,6 @@ export const apiOperations: OperationDoc[] = [
     "audit-events": "audit:read",
     settings: "integrations:manage",
     reports: "reports:read",
-    proposals: "ai:use",
   }).map(([r, scope]) => ({
     method: "get" as const,
     path: `/admin/${r}`,
@@ -597,6 +596,13 @@ export const apiOperations: OperationDoc[] = [
     scope,
     summary: "Permission-filtered list, 30 records per page.",
   })),
+  {
+    method: "get",
+    path: "/admin/proposals",
+    id: "list_proposals",
+    summary:
+      "Own proposals (Owner may review all), filtered by current operation permissions. AI access is not required.",
+  },
   {
     method: "post",
     path: "/admin/api-keys",

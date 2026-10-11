@@ -253,21 +253,41 @@ async function snapshot(tx: Tx, op: Operation, id: string) {
   invariant(o, 404, "Order not found.");
   return o;
 }
+function requiredProposalScopes(
+  operation: string,
+  payload: unknown,
+): Permission[] {
+  invariant(Object.hasOwn(policy, operation), 400, "Unsupported operation.");
+  const op = operation as Operation;
+  const required: Permission[] = [policy[op].scope];
+  if (
+    op === "return.receive" &&
+    policy[op].schema.parse(payload).disposition === "RESTOCK"
+  )
+    required.push("inventory:adjust");
+  return required;
+}
+export function canReadProposal(
+  actor: Actor,
+  proposal: { actorId: string; operation: string; payload: unknown },
+) {
+  if (proposal.actorId !== actor.id && actor.role !== "OWNER") return false;
+  if (!Object.hasOwn(policy, proposal.operation)) return false;
+  return requiredProposalScopes(proposal.operation, proposal.payload).every(
+    (scope) => actor.scopes.includes(scope),
+  );
+}
 export async function propose(
   actor: Actor,
   operation: string,
   targetId: string,
   raw: unknown,
 ) {
-  invariant(operation in policy, 400, "Unsupported operation.");
+  invariant(Object.hasOwn(policy, operation), 400, "Unsupported operation.");
   const op = operation as Operation;
-  requireScope(actor, policy[op].scope);
   const payload = policy[op].schema.parse(raw);
-  if (
-    op === "return.receive" &&
-    (payload as { disposition: string }).disposition === "RESTOCK"
-  )
-    requireScope(actor, "inventory:adjust");
+  for (const scope of requiredProposalScopes(op, payload))
+    requireScope(actor, scope);
   return db.$transaction(async (tx) => {
     const before = await snapshot(tx, op, targetId);
     if (op === "product.publish") await validatePublication(tx, targetId);
@@ -303,17 +323,20 @@ export async function approve(actor: Actor, id: string) {
         "Proposal expired or was already used.",
       );
       const op = p.operation as Operation;
-      requireScope(current, policy[op].scope as Permission);
+      const required = requiredProposalScopes(op, p.payload);
+      for (const scope of required) requireScope(current, scope);
       // Revocation must also invalidate queued or delegated authority.
       const initiator = await tx.user.findUnique({ where: { id: p.actorId } });
-      if (initiator)
-        requireScope(await actorForUser(p.actorId), policy[op].scope);
-      else {
+      if (initiator) {
+        const initiatingActor = await actorForUser(p.actorId);
+        for (const scope of required) requireScope(initiatingActor, scope);
+      } else {
         const client = await tx.apiClient.findUnique({
           where: { id: p.actorId },
         });
         invariant(
-          client?.active && client.scopes.includes(policy[op].scope),
+          client?.active &&
+            required.every((scope) => client.scopes.includes(scope)),
           403,
           "Initiator no longer has permission.",
         );
@@ -330,9 +353,16 @@ export async function approve(actor: Actor, id: string) {
         where: { id },
         data: { status: "APPROVED", approverId: actor.id },
       });
-      const result = await execute(tx, current, op, p.targetId, data, id);
+      await execute(tx, current, op, p.targetId, data, id);
       await audit(tx, current, op, p.targetId, before, data, id);
-      return result;
+      // Mutation authority does not grant read access to every field returned
+      // by Prisma. Clients refresh through the scoped read endpoints instead.
+      return {
+        id,
+        operation: op,
+        targetId: p.targetId,
+        status: "APPROVED" as const,
+      };
     },
     { timeout: 15000 },
   );

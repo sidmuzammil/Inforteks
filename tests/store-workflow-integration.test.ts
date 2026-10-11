@@ -295,9 +295,11 @@ describe("HTTP store and administration workflows", () => {
       (await call(`/account/orders/${order.id}`, "GET", undefined, stranger))
         .status,
     ).toBe(404);
-    await data(
+    const customerOrder = await data<{ id: string }>(
       await call(`/account/orders/${order.id}`, "GET", undefined, customer),
     );
+    expect(customerOrder.id).toBe(order.id);
+    expect(customerOrder).not.toHaveProperty("guestTokenHash");
     const staffOrder = await data<{
       items: { id: string; quantity: number }[];
     }>(await call(`/admin/orders/${order.id}`, "GET", undefined, owner));

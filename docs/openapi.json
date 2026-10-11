@@ -12901,8 +12901,8 @@
       },
       "get": {
         "operationId": "list_proposals",
-        "summary": "Permission-filtered list, 30 records per page.",
-        "x-required-scope": "ai:use",
+        "summary": "Own proposals (Owner may review all), filtered by current operation permissions. AI access is not required.",
+        "x-required-scope": null,
         "parameters": [],
         "security": [
           {
@@ -13029,7 +13029,7 @@
     "/admin/proposals/{id}/approve": {
       "post": {
         "operationId": "approveProposal",
-        "summary": "Human session only. Current operation scope, versions and expiry rechecked.",
+        "summary": "Human session only. All required current scopes, versions and expiry rechecked. Returns an approval receipt, not the unrestricted target record.",
         "x-required-scope": null,
         "parameters": [
           {

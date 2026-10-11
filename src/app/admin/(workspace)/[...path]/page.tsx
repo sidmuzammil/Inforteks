@@ -11,7 +11,13 @@ import { notFound, redirect } from "next/navigation";
 import { Plus, ArrowUpRight, FileText, ShieldCheck } from "lucide-react";
 import { staffPageActor } from "@/lib/session";
 import { db } from "@/lib/db";
-import { modules, adminList, dashboard } from "@/domains/administration";
+import {
+  modules,
+  adminList,
+  dashboard,
+  requireModuleAccess,
+} from "@/domains/administration";
+import { canReadProposal } from "@/domains/approvals";
 import {
   roles,
   staffRoleLabels,
@@ -19,7 +25,7 @@ import {
   type Permission,
 } from "@/domains/identity";
 import { providerStatus } from "@/domains/ai";
-import { includeProduct, publicProduct } from "@/domains/catalogue";
+import { includeProduct, staffProductPreview } from "@/domains/catalogue";
 import { AppError } from "@/lib/errors";
 import { json, money, date } from "@/lib/utils";
 import {
@@ -152,7 +158,7 @@ export default async function AdminPage({
         actor.scopes.includes("direct_sales:read")
       )
     )
-      requireScope(actor, mod.scope as Permission);
+      requireModuleAccess(actor, resource);
     if (resource === "products" && id) {
       const [categories, brands] = await Promise.all([
         db.category.findMany({ orderBy: { name: "asc" } }),
@@ -180,7 +186,7 @@ export default async function AdminPage({
       });
       if (!p) notFound();
       if (action === "preview") {
-        const safe = publicProduct(p, true);
+        const safe = staffProductPreview(p, actor);
         return (
           <>
             <Heading
@@ -205,11 +211,13 @@ export default async function AdminPage({
                     <div key={s.id}>
                       <span>{s.code}</span>
                       <b>
-                        {safe.quoteOnly
-                          ? "Request a quote"
-                          : s.price === null
-                            ? "Price not set"
-                            : money(s.price)}
+                        {!actor.scopes.includes("pricing:read")
+                          ? "Price restricted"
+                          : safe.quoteOnly
+                            ? "Request a quote"
+                            : s.price === null
+                              ? "Price not set"
+                              : money(s.price)}
                       </b>
                     </div>
                   ))}
@@ -258,7 +266,7 @@ export default async function AdminPage({
     }
     if (resource === "proposals" && id) {
       const p = await db.proposal.findUnique({ where: { id } });
-      if (!p || (p.actorId !== actor.id && actor.role !== "OWNER")) notFound();
+      if (!p || !canReadProposal(actor, p)) notFound();
       const orderProposal = [
         "order.fulfil",
         "order.cancel",
