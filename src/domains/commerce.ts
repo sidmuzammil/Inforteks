@@ -613,6 +613,10 @@ export async function fulfil(
     409,
     "Order cannot be fulfilled.",
   );
+  // Different orders can share SKUs while their shipment lines use opposite
+  // orders. Match checkout/cancellation lock ordering before any stock write,
+  // keeping the reviewed shipment payload in its original order.
+  await tx.$queryRaw`SELECT s.id FROM "Sku" s JOIN "OrderItem" oi ON oi."skuId"=s.id WHERE oi."orderId"=${orderId} ORDER BY s.id FOR UPDATE OF s`;
   for (const l of data.items) {
     const item = order.items.find((i) => i.id === l.itemId);
     invariant(

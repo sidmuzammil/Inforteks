@@ -6384,7 +6384,7 @@
     "/storefront/products": {
       "get": {
         "operationId": "listProducts",
-        "summary": "Published catalogue; q, category, brand, ram, storage, min/max AED, availability, sort and page filters.",
+        "summary": "Published catalogue; q, category, brand, spec.<key>, legacy ram/storage, min/max AED, availability, sort and page filters. facets.specifications contains category-aware controls from actual public scalar attributes; all specification filters must match one configuration.",
         "x-required-scope": null,
         "parameters": [
           {
@@ -6727,7 +6727,7 @@
     "/storefront/search": {
       "get": {
         "operationId": "searchProducts",
-        "summary": "Bounded catalogue search and facets.",
+        "summary": "Bounded catalogue search and category-aware facets. Use spec.<key>=<exact stored value>; product facts are overridden by SKU options, then SKU specifications. Facet choices retain eligible alternatives for empty-result recovery.",
         "x-required-scope": null,
         "parameters": [
           {
@@ -13163,7 +13163,7 @@
     "/admin/proposals/{id}/reject": {
       "post": {
         "operationId": "rejectProposal",
-        "summary": "Initiating human or Owner may reject.",
+        "summary": "Current initiating staff or Owner may reject a pending proposal. Serializes with approval and audits the decision; terminal proposals return 409. Success returns {rejected: true}.",
         "x-required-scope": null,
         "parameters": [
           {

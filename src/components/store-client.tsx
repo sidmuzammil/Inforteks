@@ -39,23 +39,37 @@ export async function api<T = unknown>(
   method?: string,
   headers?: Record<string, string>,
 ): Promise<T> {
-  const response = await fetch(
-    path.startsWith("/api/") ? path : `/api/v1/${path}`,
-    {
-      method: method ?? (body === undefined ? "GET" : "POST"),
-      headers:
-        body instanceof FormData
-          ? headers
-          : { "Content-Type": "application/json", ...headers },
-      body:
-        body === undefined
-          ? undefined
-          : body instanceof FormData
-            ? body
-            : JSON.stringify(body),
-    },
-  );
-  const result = await response.json();
+  let response: Response;
+  try {
+    response = await fetch(
+      path.startsWith("/api/") ? path : `/api/v1/${path}`,
+      {
+        method: method ?? (body === undefined ? "GET" : "POST"),
+        headers:
+          body instanceof FormData
+            ? headers
+            : { "Content-Type": "application/json", ...headers },
+        body:
+          body === undefined
+            ? undefined
+            : body instanceof FormData
+              ? body
+              : JSON.stringify(body),
+      },
+    );
+  } catch {
+    throw new Error(
+      "The connection was interrupted. Check your connection and the latest state before trying again.",
+    );
+  }
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    throw new Error(
+      "The store returned an incomplete response. Check the latest state before trying again.",
+    );
+  }
   if (!response.ok)
     throw new Error(
       result.error?.issues?.length

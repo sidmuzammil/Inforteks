@@ -3,10 +3,16 @@ import { PackageSearch, X } from "lucide-react";
 import { catalogue } from "@/domains/catalogue";
 import { ProductCard, Breadcrumbs } from "./store";
 import { FilterToggle } from "./store-client";
+import {
+  catalogueFacetLabel,
+  catalogueFacetSelections,
+  catalogueFacetValue,
+  isCatalogueFacetParameter,
+} from "@/lib/catalogue-facets";
 export async function CataloguePage({
   title,
   subtitle,
-  query,
+  query: inputQuery,
   base,
 }: {
   title: string;
@@ -14,15 +20,22 @@ export async function CataloguePage({
   query: Record<string, string>;
   base: string;
 }) {
-  const result = await catalogue(query);
+  const result = await catalogue(inputQuery);
+  const query = Object.fromEntries(
+    Object.entries(inputQuery).filter(
+      ([key, value]) =>
+        !["ram", "storage"].includes(key) &&
+        (!isCatalogueFacetParameter(key) || value !== ""),
+    ),
+  );
+  for (const facet of catalogueFacetSelections(inputQuery))
+    query[facet.parameter] = facet.value;
   const known = [
     "q",
     "category",
     "collection",
     "min",
     "max",
-    "ram",
-    "storage",
     "available",
     "brand",
     "sort",
@@ -30,10 +43,11 @@ export async function CataloguePage({
     "offers",
     "limit",
   ];
+  const isKnown = (key: string) =>
+    known.includes(key) || isCatalogueFacetParameter(key);
   const lockedBrand = base.startsWith("/brand/");
   const refinements = [
-    "ram",
-    "storage",
+    ...Object.keys(query).filter(isCatalogueFacetParameter),
     "min",
     "max",
     "available",
@@ -52,8 +66,7 @@ export async function CataloguePage({
   };
   const clearHref = hrefFor(
     Object.entries(query).filter(
-      ([key, value]) =>
-        known.includes(key) && !refinements.includes(key) && value,
+      ([key, value]) => isKnown(key) && !refinements.includes(key) && value,
     ),
   );
   const filterLabel = (key: string, value: string) => {
@@ -62,8 +75,12 @@ export async function CataloguePage({
         result.facets.brands.find((brand) => brand.slug === value)?.name ??
         value
       );
-    if (key === "ram") return `${value} GB memory`;
-    if (key === "storage") return `${value} GB storage`;
+    if (isCatalogueFacetParameter(key)) {
+      const facet = result.facets.specifications.find(
+        (facet) => facet.parameter === key,
+      );
+      return `${facet?.label ?? catalogueFacetLabel(key.slice(5))}: ${catalogueFacetValue(value, facet?.unit ?? null)}`;
+    }
     if (key === "min") return `From AED ${value}`;
     if (key === "max") return `Up to AED ${value}`;
     if (key === "available") return "In stock only";
@@ -71,7 +88,7 @@ export async function CataloguePage({
   };
   const update = (k: string, v: string) => {
     const q = new URLSearchParams(
-      Object.entries(query).filter(([key]) => known.includes(key)),
+      Object.entries(query).filter(([key]) => isKnown(key)),
     );
     if (v) q.set(k, v);
     else q.delete(k);
@@ -178,40 +195,45 @@ export async function CataloguePage({
                 />
               </div>
             </fieldset>
-            {result.facets.ram.length > 0 && (
-              <fieldset>
-                <legend>Memory</legend>
+            {result.facets.specifications.map((facet) => (
+              <fieldset key={facet.parameter}>
+                <legend>{facet.label}</legend>
                 <select
-                  name="ram"
-                  defaultValue={query.ram ?? ""}
-                  aria-label="Memory"
+                  name={facet.parameter}
+                  defaultValue={query[facet.parameter] ?? ""}
+                  aria-label={facet.label}
                 >
-                  <option value="">All memory sizes</option>
-                  {result.facets.ram.map((v) => (
-                    <option key={v} value={v!}>
-                      {v} GB
+                  <option value="">All values</option>
+                  {query[facet.parameter] &&
+                    !facet.values.some(
+                      ({ value }) => value === query[facet.parameter],
+                    ) && (
+                      <option value={query[facet.parameter]}>
+                        {catalogueFacetValue(
+                          query[facet.parameter],
+                          facet.unit,
+                        )}
+                      </option>
+                    )}
+                  {facet.values.map(({ value }) => (
+                    <option key={value} value={value}>
+                      {catalogueFacetValue(value, facet.unit)}
                     </option>
                   ))}
                 </select>
               </fieldset>
-            )}
-            {result.facets.storage.length > 0 && (
-              <fieldset>
-                <legend>Storage</legend>
-                <select
-                  name="storage"
-                  defaultValue={query.storage ?? ""}
-                  aria-label="Storage"
-                >
-                  <option value="">All capacities</option>
-                  {result.facets.storage.map((v) => (
-                    <option key={v} value={v!}>
-                      {v} GB
-                    </option>
-                  ))}
-                </select>
-              </fieldset>
-            )}
+            ))}
+            {Object.entries(query)
+              .filter(
+                ([key]) =>
+                  isCatalogueFacetParameter(key) &&
+                  !result.facets.specifications.some(
+                    (facet) => facet.parameter === key,
+                  ),
+              )
+              .map(([key, value]) => (
+                <input key={key} type="hidden" name={key} value={value} />
+              ))}
             <fieldset>
               <legend>Availability</legend>
               <label>
@@ -249,7 +271,7 @@ export async function CataloguePage({
             </span>
             <form action={base} className="catalogue-sort">
               {Object.entries(query)
-                .filter(([k]) => known.includes(k) && k !== "sort")
+                .filter(([k]) => isKnown(k) && k !== "sort")
                 .map(([k, v]) => (
                   <input key={k} type="hidden" name={k} value={v} />
                 ))}

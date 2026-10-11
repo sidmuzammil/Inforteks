@@ -230,34 +230,63 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
     (DeliveryAddress & { id: string })[]
   >([]);
   const [cart, setCart] = useState<Cart | null>(null);
+  const [cartError, setCartError] = useState("");
+  const [cartLoading, setCartLoading] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [chosenRegion, setRegion] = useState<string | null>(null);
   const region = chosenRegion ?? delivery.emirate ?? "Dubai";
   const countryAvailable = delivery.country === "AE";
   const [coupon, setCoupon] = useState("");
-  const [quote, setQuote] = useState<Quote | null>(null);
-  const key = useRef("");
+  const [quoteAttempt, setQuoteAttempt] = useState(0);
+  const [quoteResult, setQuoteResult] = useState<{
+    input: string;
+    quote?: Quote;
+    error?: string;
+  } | null>(null);
+  const quoteInput = JSON.stringify({
+    cart,
+    region,
+    coupon,
+    country: delivery.country,
+    attempt: quoteAttempt,
+    cartLoading,
+    cartError,
+  });
+  const quote = quoteResult?.input === quoteInput ? quoteResult.quote : null;
+  const quoteError = quoteResult?.input === quoteInput ? quoteResult.error : "";
+  const orderAttempt = useRef<{
+    key: string;
+    body: string;
+    address: DeliveryAddress;
+  } | null>(null);
+  const [orderUnconfirmed, setOrderUnconfirmed] = useState(false);
   const router = useRouter();
   const shop = useShop();
   async function load() {
+    setCartLoading(true);
+    setCartError("");
+    setError("");
     try {
       setCart(await api<Cart>("storefront/carts"));
     } catch (e) {
-      setError((e as Error).message);
+      setCartError((e as Error).message);
+    } finally {
+      setCartLoading(false);
     }
   }
   useEffect(() => {
     void api<Cart>("storefront/carts")
       .then(setCart)
-      .catch((e) => setError(e.message));
-    key.current = crypto.randomUUID();
+      .catch((e) => setCartError(e.message))
+      .finally(() => setCartLoading(false));
     void api<(DeliveryAddress & { id: string })[]>("account/addresses")
       .then(setAddresses)
       .catch(() => {});
   }, []);
   useEffect(() => {
-    if (!cart?.items.length || !countryAvailable) return;
+    if (!cart?.items.length || !countryAvailable || cartLoading || cartError)
+      return;
     let cancelled = false;
     const timer = setTimeout(() => {
       api<Quote>("storefront/carts/quote", {
@@ -266,14 +295,12 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
       })
         .then((q) => {
           if (!cancelled) {
-            setQuote(q);
-            setError("");
+            setQuoteResult({ input: quoteInput, quote: q });
           }
         })
         .catch((e) => {
           if (!cancelled) {
-            setQuote(null);
-            setError(e.message);
+            setQuoteResult({ input: quoteInput, error: e.message });
           }
         });
     }, 250);
@@ -281,9 +308,18 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [cart, region, coupon, countryAvailable]);
+  }, [
+    cart,
+    region,
+    coupon,
+    countryAvailable,
+    cartLoading,
+    cartError,
+    quoteInput,
+  ]);
   async function update(skuId: string, quantity: number) {
     setBusy(true);
+    setError("");
     try {
       await api("storefront/carts", { skuId, quantity }, "PATCH");
       await load();
@@ -297,9 +333,18 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
   if (!cart)
     return (
       <div className="page-container">
-        <p className="notice" role="status">
-          {error || "Loading your cart…"}
+        <p className="notice" role={cartError ? "alert" : "status"}>
+          {cartError || "Loading your cart…"}
         </p>
+        {cartError && (
+          <button
+            className="button"
+            disabled={cartLoading}
+            onClick={() => void load()}
+          >
+            Retry loading cart
+          </button>
+        )}
       </div>
     );
   if (!cart.items.length)
@@ -323,32 +368,56 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
     );
   async function placeOrder(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!countryAvailable || busy) return;
+    if (
+      busy ||
+      (!orderAttempt.current &&
+        (cartLoading ||
+          cartError ||
+          !countryAvailable ||
+          !quote?.paymentMethods.length))
+    )
+      return;
     setBusy(true);
     setError("");
     const fd = new FormData(e.currentTarget);
+    let rejection = "";
     try {
-      const address = readDeliveryAddress(fd);
+      if (!orderAttempt.current) {
+        const address = readDeliveryAddress(fd);
+        orderAttempt.current = {
+          key: crypto.randomUUID(),
+          address,
+          body: JSON.stringify({
+            country: delivery.country,
+            email: fd.get("email"),
+            address,
+            paymentMethod: fd.get("paymentMethod"),
+            ...(coupon ? { coupon } : {}),
+          }),
+        };
+      }
+      const attempt = orderAttempt.current;
       const r = await fetch("/api/v1/storefront/checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Idempotency-Key": key.current,
+          "Idempotency-Key": attempt.key,
         },
-        body: JSON.stringify({
-          country: delivery.country,
-          email: fd.get("email"),
-          address,
-          paymentMethod: fd.get("paymentMethod"),
-          ...(coupon ? { coupon } : {}),
-        }),
+        body: attempt.body,
       });
       const data = await r.json();
       if (!r.ok) {
-        if (r.status < 500) key.current = crypto.randomUUID();
-        throw new Error(data.error?.message ?? "Checkout failed.");
+        // A recovery request can fail before reaching the saved order (for
+        // example rate limiting). Never discard an already uncertain attempt.
+        if (r.status < 500 && !orderUnconfirmed) orderAttempt.current = null;
+        rejection = data.error?.message ?? "Checkout failed.";
+        throw new Error(rejection);
       }
-      await shop.refresh();
+      // A cart badge refresh must not hide a successfully placed order.
+      void shop.refresh().catch(() => {});
+      const address = attempt.address;
+      orderAttempt.current = null;
+      setOrderUnconfirmed(false);
       saveDeliveryLocation({
         country: "AE",
         emirate: address.emirate,
@@ -358,9 +427,14 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
       router.push(`/order-confirmation/${data.data.reference}`);
       router.refresh();
     } catch (e) {
-      setError((e as Error).message);
-      // Preserve the idempotency key after network/server failures: the order
-      // may already exist even if its response did not reach this browser.
+      setOrderUnconfirmed(Boolean(orderAttempt.current));
+      setError(
+        orderAttempt.current
+          ? `We couldn’t confirm your order. Check its status below before changing your details or placing another order.${rejection ? ` ${rejection}` : ""}`
+          : (e as Error).message,
+      );
+      // Recheck the exact attempted payload and key after an uncertain response.
+      // Editing the payload would prevent recovery of an already saved order.
     } finally {
       setBusy(false);
     }
@@ -389,6 +463,20 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
           {error}
         </p>
       )}
+      {cartError && (
+        <div>
+          <p className="form-error" role="alert">
+            {cartError}
+          </p>
+          <button
+            className="button"
+            disabled={cartLoading || busy}
+            onClick={() => void load()}
+          >
+            Retry loading cart
+          </button>
+        </div>
+      )}
       <div className="checkout-layout">
         <div>
           {checkout ? (
@@ -397,58 +485,68 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
               className="form-card form-stack"
               onSubmit={placeOrder}
             >
-              <h2>Contact & delivery</h2>
-              <Fields
-                fields={[
-                  { name: "email", label: "Email address", type: "email" },
-                ]}
-              />
-              <DeliveryAddressFields
-                emirate={region}
-                saved={addresses}
-                onEmirateChange={(emirate) => {
-                  setRegion(emirate);
-                  saveDeliveryLocation({
-                    country: "AE",
-                    emirate,
-                    source: "manual",
-                  });
-                }}
-              />
-              <h3>Payment method</h3>
-              {quote?.paymentMethods.length ? (
-                quote.paymentMethods.map((m, i) => (
-                  <label key={m} className="notice">
-                    <span>
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value={m}
-                        defaultChecked={i === 0}
-                        required
-                      />{" "}
-                      {m === "SIMULATOR"
-                        ? "Development simulator — no money is transferred"
-                        : "Offline payment — arrange with the store"}
-                    </span>
-                  </label>
-                ))
-              ) : (
-                <div className="notice warning">
-                  No operational payment method is enabled. Checkout will become
-                  available after the merchant configures payments.
-                </div>
-              )}
-              <label className="form-help">
-                <span>
-                  <input type="checkbox" required /> I have reviewed the order
-                  and the{" "}
-                  <Link href="/terms-conditions" className="text-button">
-                    terms & conditions
-                  </Link>
-                  .
-                </span>
-              </label>
+              <fieldset
+                disabled={busy || orderUnconfirmed}
+                className="form-stack"
+                style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
+              >
+                <h2>Contact & delivery</h2>
+                <Fields
+                  fields={[
+                    { name: "email", label: "Email address", type: "email" },
+                  ]}
+                />
+                <DeliveryAddressFields
+                  emirate={region}
+                  saved={addresses}
+                  onEmirateChange={(emirate) => {
+                    setRegion(emirate);
+                    saveDeliveryLocation({
+                      country: "AE",
+                      emirate,
+                      source: "manual",
+                    });
+                  }}
+                />
+                <h3>Payment method</h3>
+                {quote?.paymentMethods.length ? (
+                  quote.paymentMethods.map((m, i) => (
+                    <label key={m} className="notice">
+                      <span>
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value={m}
+                          defaultChecked={i === 0}
+                          required
+                        />{" "}
+                        {m === "SIMULATOR"
+                          ? "Development simulator — no money is transferred"
+                          : "Offline payment — arrange with the store"}
+                      </span>
+                    </label>
+                  ))
+                ) : quote ? (
+                  <div className="notice warning">
+                    No operational payment method is enabled. Checkout will
+                    become available after the merchant configures payments.
+                  </div>
+                ) : (
+                  <p className="form-help">
+                    Payment methods will appear with your updated total.
+                  </p>
+                )}
+                <label className="form-help">
+                  <span>
+                    <input type="checkbox" required /> I have reviewed the order
+                    and the{" "}
+                    <Link href="/terms-conditions" className="text-button">
+                      terms & conditions
+                    </Link>
+                    .
+                  </span>
+                </label>
+              </fieldset>
             </form>
           ) : (
             <div>
@@ -532,7 +630,12 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
             ))}
           <label>
             Deliver to
-            <select value={region} onChange={(e) => setRegion(e.target.value)}>
+            <select
+              aria-label="Deliver to"
+              disabled={busy || orderUnconfirmed}
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+            >
               {emirates.map((e) => (
                 <option key={e}>{e}</option>
               ))}
@@ -541,6 +644,7 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
           <label style={{ marginTop: 15 }}>
             Promo code
             <input
+              disabled={busy || orderUnconfirmed}
               value={coupon}
               onChange={(e) => setCoupon(e.target.value.toUpperCase())}
               placeholder="Enter code"
@@ -580,18 +684,48 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
               </div>
               <p className="form-help">{quote.shipping.estimate}</p>
             </>
+          ) : quoteError ? (
+            <div>
+              <p className="form-error" role="alert">
+                {quoteError}
+              </p>
+              <button
+                type="button"
+                className="button"
+                onClick={() => setQuoteAttempt((attempt) => attempt + 1)}
+              >
+                Retry order total
+              </button>
+            </div>
           ) : (
-            <p className="notice">Calculating your order…</p>
+            <p className="notice" role="status">
+              {cartError
+                ? "Refresh your cart to calculate the current total."
+                : countryAvailable
+                  ? "Calculating your order…"
+                  : "Choose UAE delivery to calculate your order."}
+            </p>
           )}
           {checkout ? (
             <button
               className="button primary"
               form="checkout-form"
               disabled={
-                busy || !countryAvailable || !quote?.paymentMethods.length
+                busy ||
+                cartLoading ||
+                (!orderUnconfirmed &&
+                  (Boolean(cartError) ||
+                    !countryAvailable ||
+                    !quote?.paymentMethods.length))
               }
             >
-              {busy ? "Placing your order…" : "Place order"}
+              {busy
+                ? orderUnconfirmed
+                  ? "Checking your order…"
+                  : "Placing your order…"
+                : orderUnconfirmed
+                  ? "Check order status"
+                  : "Place order"}
               <ArrowRight size={16} />
             </button>
           ) : (

@@ -6,6 +6,12 @@ import { invariant } from "@/lib/errors";
 import { audit, requireScope, type Actor } from "./identity";
 import { slugify } from "@/lib/utils";
 import { productMediaOrder } from "@/lib/product-media";
+import {
+  catalogueFacetLabel,
+  catalogueFacetLimit,
+  catalogueFacetSelections,
+  catalogueFacetValueLimit,
+} from "@/lib/catalogue-facets";
 
 const spec = z.record(
   z.string().regex(/^[a-zA-Z0-9_ ]{1,40}$/),
@@ -158,6 +164,7 @@ export const searchInput = z.object({
 });
 export async function catalogue(input: Record<string, unknown> = {}) {
   const f = searchInput.parse(input);
+  const selectedFacets = catalogueFacetSelections(input);
   const pricedOnly =
     (input.min !== undefined && input.min !== "") ||
     (input.max !== undefined && input.max !== "") ||
@@ -185,9 +192,6 @@ export async function catalogue(input: Record<string, unknown> = {}) {
       Prisma.sql`(c.slug = ${f.category} OR c."parentId" = (SELECT id FROM "Category" WHERE slug = ${f.category}))`,
     );
   if (f.brand) conditions.push(Prisma.sql`b.slug = ${f.brand}`);
-  if (f.ram) conditions.push(Prisma.sql`s.specs->>'ram' = ${f.ram}`);
-  if (f.storage)
-    conditions.push(Prisma.sql`s.specs->>'storage' = ${f.storage}`);
   if (f.available === "true")
     conditions.push(Prisma.sql`s."onHand" > s.reserved`);
   if (f.featured === "true") conditions.push(Prisma.sql`p.featured = true`);
@@ -196,7 +200,22 @@ export async function catalogue(input: Record<string, unknown> = {}) {
     conditions.push(
       Prisma.sql`EXISTS (SELECT 1 FROM "CollectionProduct" cp JOIN "Collection" co ON co.id = cp."collectionId" WHERE cp."productId" = p.id AND co.slug = ${f.collection})`,
     );
-  const from = Prisma.sql`FROM "Product" p JOIN "Sku" s ON s."productId" = p.id JOIN "Brand" b ON b.id = p."brandId" JOIN "Category" c ON c.id = p."categoryId" WHERE ${Prisma.join(conditions, " AND ")}`;
+  // Specifications shown on a configuration use the same precedence as comparison:
+  // product facts, then variant options, then the SKU's more specific facts.
+  const joins = Prisma.sql`FROM "Product" p JOIN "Sku" s ON s."productId" = p.id JOIN "Brand" b ON b.id = p."brandId" JOIN "Category" c ON c.id = p."categoryId"
+    CROSS JOIN LATERAL (SELECT
+      (CASE WHEN jsonb_typeof(p.specs) = 'object' THEN p.specs ELSE '{}'::jsonb END) ||
+      (CASE WHEN jsonb_typeof(s.options) = 'object' THEN s.options ELSE '{}'::jsonb END) ||
+      (CASE WHEN jsonb_typeof(s.specs) = 'object' THEN s.specs ELSE '{}'::jsonb END) AS attributes
+    ) facts`;
+  const baseConditions = Prisma.join(conditions, " AND ");
+  // Keep category/search-eligible alternatives available even when the selected
+  // combination has no matches. The match query still constrains one SKU.
+  for (const facet of selectedFacets)
+    conditions.push(Prisma.sql`(jsonb_typeof(facts.attributes -> ${facet.key}) IN ('string', 'number')
+      AND facts.attributes ->> ${facet.key} = ${facet.value}
+      AND NOT EXISTS (SELECT 1 FROM "Attribute" a WHERE a."categoryId" = c.id AND a.key = ${facet.key} AND a.filterable = false))`);
+  const from = Prisma.sql`${joins} WHERE ${Prisma.join(conditions, " AND ")}`;
   const sort =
     f.sort === "price-asc"
       ? Prisma.sql`price ASC NULLS LAST, id`
@@ -215,8 +234,36 @@ export async function catalogue(input: Record<string, unknown> = {}) {
     db.$queryRaw<{ name: string; slug: string; count: bigint }[]>(
       Prisma.sql`SELECT b.name,b.slug,count(DISTINCT p.id) AS count ${from} GROUP BY b.id ORDER BY b.name`,
     ),
-    db.$queryRaw<{ ram: string | null; storage: string | null }[]>(
-      Prisma.sql`SELECT DISTINCT s.specs->>'ram' AS ram,s.specs->>'storage' AS storage ${from} LIMIT 100`,
+    db.$queryRaw<
+      {
+        key: string;
+        label: string | null;
+        unit: string | null;
+        values: { value: string; count: number }[];
+      }[]
+    >(
+      Prisma.sql`WITH facet_values AS (
+        SELECT field.key, field.value #>> '{}' AS value, count(DISTINCT p.id)::int AS count,
+          CASE WHEN count(DISTINCT COALESCE(a.label, '')) = 1 THEN max(a.label) END AS label,
+          CASE WHEN count(DISTINCT COALESCE(a.unit, '')) = 1 THEN max(a.unit) END AS unit,
+          bool_or(a.id IS NOT NULL) AS configured
+        ${joins}
+        CROSS JOIN LATERAL jsonb_each(facts.attributes) field
+        LEFT JOIN "Attribute" a ON a."categoryId" = c.id AND a.key = field.key
+        WHERE ${baseConditions} AND COALESCE(a.filterable, true)
+          AND field.key ~ '^[a-zA-Z0-9_ ]{1,40}$' AND btrim(field.key) <> ''
+          AND lower(field.key) NOT IN ('dataset', '__proto__', 'constructor', 'prototype')
+          AND jsonb_typeof(field.value) IN ('string', 'number')
+          AND length(field.value #>> '{}') BETWEEN 1 AND 200 AND btrim(field.value #>> '{}') <> ''
+        GROUP BY field.key, field.value #>> '{}'
+      ) SELECT key,
+          CASE WHEN count(DISTINCT COALESCE(label, '')) = 1 THEN max(label) END AS label,
+          CASE WHEN count(DISTINCT COALESCE(unit, '')) = 1 THEN max(unit) END AS unit,
+          jsonb_agg(jsonb_build_object('value', value, 'count', count) ORDER BY value) AS values
+        FROM facet_values GROUP BY key HAVING count(*) <= ${catalogueFacetValueLimit}
+        ORDER BY key = ANY(${selectedFacets.map((facet) => facet.key)}::text[]) DESC,
+          bool_or(configured) DESC, sum(count) DESC, key
+        LIMIT ${catalogueFacetLimit}`,
     ),
   ]);
   const records = await db.product.findMany({
@@ -232,6 +279,14 @@ export async function catalogue(input: Record<string, unknown> = {}) {
     );
     return p;
   });
+  const specifications = specFacets.map((facet) => ({
+    ...facet,
+    parameter: `spec.${facet.key}`,
+    label: facet.label || catalogueFacetLabel(facet.key),
+    values: facet.values.sort((a, b) =>
+      a.value.localeCompare(b.value, "en", { numeric: true }),
+    ),
+  }));
   return {
     products,
     total: Number(count[0].count),
@@ -239,8 +294,16 @@ export async function catalogue(input: Record<string, unknown> = {}) {
     pages: Math.ceil(Number(count[0].count) / f.limit),
     facets: {
       brands: brandFacets.map((b) => ({ ...b, count: Number(b.count) })),
-      ram: [...new Set(specFacets.map((s) => s.ram).filter(Boolean))],
-      storage: [...new Set(specFacets.map((s) => s.storage).filter(Boolean))],
+      // Preserve the public response's original fields for existing API clients.
+      ram:
+        specifications
+          .find((facet) => facet.key === "ram")
+          ?.values.map(({ value }) => value) ?? [],
+      storage:
+        specifications
+          .find((facet) => facet.key === "storage")
+          ?.values.map(({ value }) => value) ?? [],
+      specifications,
     },
   };
 }

@@ -18,7 +18,7 @@ import { slugify, json } from "@/lib/utils";
 import { createProduct, productInput } from "./catalogue";
 import type { Prisma } from "@/generated/prisma/client";
 import { approvalScopes } from "@/lib/approval-permissions";
-import { canReadProposal } from "./approvals";
+import { canReadProposal, proposalReadWhere } from "./approvals";
 
 export const modules = [
   {
@@ -346,9 +346,7 @@ export async function adminList(
     case "proposals": {
       const proposals = await db.proposal.findMany({
         ...range,
-        where: {
-          OR: [{ actorId: actor.id }, ...(actor.role === "OWNER" ? [{}] : [])],
-        },
+        where: proposalReadWhere(actor),
         orderBy: { createdAt: "desc" },
       });
       return proposals.filter((proposal) => canReadProposal(actor, proposal));

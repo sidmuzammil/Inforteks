@@ -4,6 +4,7 @@ import { invariant } from "@/lib/errors";
 import {
   audit,
   requireScope,
+  requireCurrentKeyAuthority,
   actorForUser,
   type Actor,
   type Permission,
@@ -277,6 +278,19 @@ export function canReadProposal(
     (scope) => actor.scopes.includes(scope),
   );
 }
+export function proposalReadWhere(actor: Actor): Prisma.ProposalWhereInput {
+  return {
+    ...(actor.role === "OWNER" ? {} : { actorId: actor.id }),
+    OR: Object.entries(policy)
+      .filter(([, p]) => actor.scopes.includes(p.scope))
+      .map(([operation]) =>
+        operation === "return.receive" &&
+        !actor.scopes.includes("inventory:adjust")
+          ? { operation, payload: { path: ["disposition"], equals: "DAMAGED" } }
+          : { operation },
+      ),
+  };
+}
 export async function propose(
   actor: Actor,
   operation: string,
@@ -286,14 +300,25 @@ export async function propose(
   invariant(Object.hasOwn(policy, operation), 400, "Unsupported operation.");
   const op = operation as Operation;
   const payload = policy[op].schema.parse(raw);
-  for (const scope of requiredProposalScopes(op, payload))
-    requireScope(actor, scope);
+  const required = requiredProposalScopes(op, payload);
+  for (const scope of required) requireScope(actor, scope);
   return db.$transaction(async (tx) => {
+    // AI delegation preserves keyId even when it changes the actor's source.
+    const fromKey = actor.source === "api" || actor.keyId !== undefined;
+    const keyExpiresAt = fromKey
+      ? await requireCurrentKeyAuthority(tx, actor.id, actor.keyId, required)
+      : undefined;
     const before = await snapshot(tx, op, targetId);
     if (op === "product.publish") await validatePublication(tx, targetId);
+    invariant(
+      !keyExpiresAt || keyExpiresAt > new Date(),
+      403,
+      "Original API key expired. Submit a new proposal with an active key.",
+    );
     const p = await tx.proposal.create({
       data: {
         actorId: actor.id,
+        originatingKeyId: fromKey ? actor.keyId : null,
         operation: op,
         targetId,
         payload: json<Prisma.InputJsonValue>(payload),
@@ -312,7 +337,6 @@ export async function approve(actor: Actor, id: string) {
     403,
     "An authenticated human must approve this change.",
   );
-  const current = await actorForUser(actor.id);
   return db.$transaction(
     async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${id},3))`;
@@ -322,24 +346,40 @@ export async function approve(actor: Actor, id: string) {
         409,
         "Proposal expired or was already used.",
       );
+      // Lock staff participants in a stable order before checking their current
+      // grants. Role changes then serialize with approval, including any wait
+      // for the target row. Key-backed initiators are checked separately below.
+      const staffIds = new Set([actor.id]);
+      if (!p.originatingKeyId) staffIds.add(p.actorId);
+      for (const userId of [...staffIds].sort())
+        await tx.$queryRaw`SELECT id FROM "User" WHERE id=${userId} FOR SHARE`;
+      const current = await actorForUser(actor.id, tx);
       const op = p.operation as Operation;
       const required = requiredProposalScopes(op, p.payload);
       for (const scope of required) requireScope(current, scope);
-      // Revocation must also invalidate queued or delegated authority.
-      const initiator = await tx.user.findUnique({ where: { id: p.actorId } });
-      if (initiator) {
-        const initiatingActor = await actorForUser(p.actorId);
-        for (const scope of required) requireScope(initiatingActor, scope);
+      // Key provenance takes precedence over actor lookup. A replacement key
+      // must never revive work submitted by a revoked/expired original key.
+      let keyExpiresAt: Date | undefined;
+      if (p.originatingKeyId) {
+        keyExpiresAt = await requireCurrentKeyAuthority(
+          tx,
+          p.actorId,
+          p.originatingKeyId,
+          required,
+        );
       } else {
-        const client = await tx.apiClient.findUnique({
+        const initiator = await tx.user.findUnique({
           where: { id: p.actorId },
         });
+        // Legacy API proposals have no trustworthy key attribution. Staff
+        // proposals remain valid; integrations must submit a fresh preview.
         invariant(
-          client?.active &&
-            required.every((scope) => client.scopes.includes(scope)),
+          initiator,
           403,
-          "Initiator no longer has permission.",
+          "Original API key is unknown. Submit a new proposal with an active key.",
         );
+        const initiatingActor = await actorForUser(p.actorId, tx);
+        for (const scope of required) requireScope(initiatingActor, scope);
       }
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${p.targetId},4))`;
       const before = await snapshot(tx, op, p.targetId);
@@ -348,11 +388,24 @@ export async function approve(actor: Actor, id: string) {
         409,
         "This record changed. Create a fresh preview.",
       );
+      // Row locks stabilize permissions, but time can pass while waiting for
+      // the target. Check both deadlines again immediately before applying.
+      invariant(
+        !keyExpiresAt || keyExpiresAt > new Date(),
+        403,
+        "Original API key expired. Submit a new proposal with an active key.",
+      );
+      invariant(
+        p.expiresAt > new Date(),
+        409,
+        "Proposal expired. Create a fresh preview.",
+      );
       const data = policy[op].schema.parse(p.payload);
-      await tx.proposal.update({
-        where: { id },
+      const applied = await tx.proposal.updateMany({
+        where: { id, status: "PENDING" },
         data: { status: "APPROVED", approverId: actor.id },
       });
+      invariant(applied.count === 1, 409, "Proposal was already decided.");
       await execute(tx, current, op, p.targetId, data, id);
       await audit(tx, current, op, p.targetId, before, data, id);
       // Mutation authority does not grant read access to every field returned
@@ -363,6 +416,51 @@ export async function approve(actor: Actor, id: string) {
         targetId: p.targetId,
         status: "APPROVED" as const,
       };
+    },
+    { timeout: 15000 },
+  );
+}
+export async function reject(actor: Actor, id: string) {
+  invariant(
+    actor.human && actor.source !== "ai",
+    403,
+    "An authenticated human must review this change.",
+  );
+  return db.$transaction(
+    async (tx) => {
+      // Approval and rejection are competing terminal decisions, so both must
+      // hold the same proposal lock before reading or changing its status.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${id},3))`;
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id=${actor.id} FOR SHARE`;
+      const current = await actorForUser(actor.id, tx);
+      invariant(
+        current.scopes.length > 0 &&
+          !["CUSTOMER", "STAFF_DISABLED"].includes(current.role ?? ""),
+        403,
+        "Active staff access is required.",
+      );
+      const p = await tx.proposal.findUnique({ where: { id } });
+      invariant(
+        p && (p.actorId === current.id || current.role === "OWNER"),
+        404,
+        "Proposal not found.",
+      );
+      invariant(p.status === "PENDING", 409, "Proposal was already decided.");
+      const rejected = await tx.proposal.updateMany({
+        where: { id, status: "PENDING" },
+        data: { status: "REJECTED", approverId: current.id },
+      });
+      invariant(rejected.count === 1, 409, "Proposal was already decided.");
+      await audit(
+        tx,
+        current,
+        "proposal.reject",
+        p.targetId,
+        { status: p.status },
+        { status: "REJECTED", operation: p.operation },
+        p.id,
+      );
+      return { rejected: true };
     },
     { timeout: 15000 },
   );

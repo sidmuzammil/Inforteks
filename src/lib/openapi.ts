@@ -312,7 +312,7 @@ export const apiOperations: OperationDoc[] = [
     path: "/storefront/products",
     id: "listProducts",
     summary:
-      "Published catalogue; q, category, brand, ram, storage, min/max AED, availability, sort and page filters.",
+      "Published catalogue; q, category, brand, spec.<key>, legacy ram/storage, min/max AED, availability, sort and page filters. facets.specifications contains category-aware controls from actual public scalar attributes; all specification filters must match one configuration.",
   },
   {
     method: "get",
@@ -324,7 +324,8 @@ export const apiOperations: OperationDoc[] = [
     method: "get",
     path: "/storefront/search",
     id: "searchProducts",
-    summary: "Bounded catalogue search and facets.",
+    summary:
+      "Bounded catalogue search and category-aware facets. Use spec.<key>=<exact stored value>; product facts are overridden by SKU options, then SKU specifications. Facet choices retain eligible alternatives for empty-result recovery.",
   },
   ...["categories", "brands", "collections"].map((r) => ({
     method: "get" as const,
@@ -542,7 +543,8 @@ export const apiOperations: OperationDoc[] = [
     method: "post",
     path: "/admin/proposals/{id}/reject",
     id: "rejectProposal",
-    summary: "Initiating human or Owner may reject.",
+    summary:
+      "Current initiating staff or Owner may reject a pending proposal. Serializes with approval and audits the decision; terminal proposals return 409. Success returns {rejected: true}.",
   },
   ...Object.entries({
     categories: "catalog:write",

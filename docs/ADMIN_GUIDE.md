@@ -78,6 +78,8 @@ The exact registry is `src/domains/identity.ts`. Create individual staff account
 
 Owners can create named scoped API clients, choose expiry and copy the one-time key. Store it in the integration's secret manager. Revoke compromised keys immediately. Current rotation uses issuance of a replacement client/key followed by revocation; a dedicated overlapping rotation workflow is future work.
 
+Revoking or expiring an integration key also prevents approval of its pending proposals. Each proposal stays tied to the exact original key: a replacement key does not revive it. Disabling the client or removing any required scope from the key or client also blocks approval. Failed approval changes no business record and leaves the proposal pending until its normal expiry; resubmit using an authorized key and review the fresh proposal. A completed approval is not undone by later revocation. Integration proposals created before key-provenance tracking must be resubmitted after the upgrade; existing staff proposals keep their normal permission, expiry and version checks.
+
 ## Account security and recovery
 
 Staff and customers can change their password under **Account → Profile & security** using their current password; changing it signs out other devices. Use unique passwords of 12–128 characters. The Owner can also revoke a colleague’s sessions from Staff & access.

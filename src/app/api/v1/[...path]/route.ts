@@ -61,7 +61,7 @@ import {
   permissions,
   roles,
 } from "@/domains/identity";
-import { propose, approve } from "@/domains/approvals";
+import { propose, approve, reject } from "@/domains/approvals";
 import {
   adminList,
   saveResource,
@@ -605,20 +605,7 @@ async function dispatch(
     }
     if (resource === "proposals" && method === "POST") {
       if (id && action === "approve") return ok(await approve(actor, id));
-      if (id && action === "reject") {
-        invariant(actor.human, 403, "Human review required.");
-        const p = await db.proposal.findUnique({ where: { id } });
-        invariant(
-          p && (p.actorId === actor.id || actor.role === "OWNER"),
-          404,
-          "Proposal not found.",
-        );
-        await db.proposal.updateMany({
-          where: { id, status: "PENDING" },
-          data: { status: "REJECTED", approverId: actor.id },
-        });
-        return ok({ rejected: true });
-      }
+      if (id && action === "reject") return ok(await reject(actor, id));
       const d = z
         .object({
           operation: z.string(),

@@ -538,6 +538,7 @@ model ApiKey {
   revokedAt  DateTime?
   lastUsedAt DateTime?
   createdAt  DateTime @default(now())
+  proposals  Proposal[]
 }
 model AuditEvent {
   id         String @id @default(cuid())
@@ -554,6 +555,8 @@ model AuditEvent {
 model Proposal {
   id        String @id @default(cuid())
   actorId   String
+  originatingKeyId String?
+  originatingKey ApiKey? @relation(fields: [originatingKeyId], references: [id], onDelete: Restrict)
   operation String
   targetId  String
   payload   Json
@@ -563,6 +566,7 @@ model Proposal {
   approverId String?
   expiresAt DateTime
   createdAt DateTime @default(now())
+  @@index([originatingKeyId])
 }
 model Idempotency {
   id          String @id @default(cuid())
