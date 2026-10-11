@@ -2,6 +2,8 @@
 
 Updated 11 October 2026. The user prohibits staging deployment and owns final production deployment, domain connection and public launch. Keep both pending Railway patches unchanged. The recorded staging deployment retry was a historical event before that hold; no new retry is requested or authorized.
 
+Fresh saved-environment check on 11 October: the supported proxy still returned CONNECT 403 for the production Railway host (`curl` HTTP 000), before any application response. The documented Node environment-proxy route also failed before returning an HTTP response. No network settings or deployments were changed. Payment interface polish is approved now; real provider configuration is deferred. No provider credentials or activation are needed for that interface work.
+
 ## Essential access and evidence
 
 | Input                                | Exact requirement                                                                                                                                                                                                                                          | Why it is needed                                                                                                                                                                                                                                               |

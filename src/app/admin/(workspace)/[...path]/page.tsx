@@ -42,6 +42,8 @@ import { Gallery } from "@/components/store-client";
 import { apiOperations, openapi } from "@/lib/openapi";
 import { HomeSectionEditor } from "@/components/home-section-editor";
 import { CatalogueImport } from "@/components/catalogue-import";
+import { AdminPaymentReadiness } from "@/components/admin-payment-readiness";
+import { paymentMethods } from "@/domains/commerce";
 
 const writeScope = (resource: string): Permission =>
   ["categories", "brands", "attributes", "collections"].includes(resource)
@@ -766,6 +768,7 @@ export default async function AdminPage({
             title="Make Inforteks yours."
             description="Store identity, tax configuration and integration readiness."
           />
+          <AdminPaymentReadiness methods={paymentMethods()} />
           <div className="integration-grid">
             {[
               {
@@ -775,14 +778,6 @@ export default async function AdminPage({
                     ? "Configured"
                     : "Not connected",
                 note: "OpenAI and Anthropic adapters. Models and keys stay on the server.",
-              },
-              {
-                name: "Payments",
-                status:
-                  process.env.OFFLINE_PAYMENTS_ENABLED === "true"
-                    ? "Offline enabled"
-                    : "Live provider not connected",
-                note: "The development simulator is rejected in production.",
               },
               {
                 name: "Storage",

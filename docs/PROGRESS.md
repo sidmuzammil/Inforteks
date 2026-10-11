@@ -8,6 +8,8 @@ Implemented quote-only products, original banner artwork, refined responsive sto
 
 ## Implemented
 
+- Checkout has numbered delivery/payment/review sections, keyboard-accessible method cards, explicit unavailable card payments, mobile order-summary navigation, and focused inline address errors. Only supported enabled methods permit submission; selected methods survive total recalculation. Settings reflects actual runtime availability through a read-only payment readiness panel. No card adapter, credential entry, payment activation or automated refund execution is included.
+
 - Category-aware specification filters derive from existing product facts, SKU options and SKU specifications, with category labels/units and single-configuration matching. Desktop/mobile controls retain eligible alternatives for empty-result recovery; existing RAM/storage links remain supported.
 - Storefront redesign with database-driven grouped category navigation, responsive department panel, scoped search with explicit feedback, revised product cards and editable banner themes/product layouts. Curated section filters share the public/preview catalogue path. Three original sample starters save private drafts only; no production catalogue seed. See STOREFRONT_REDESIGN.md.
 

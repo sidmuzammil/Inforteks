@@ -36,6 +36,8 @@ To fix an existing product's photos, open **Products → your product → Media*
 
 Orders expose their immutable purchased configuration, quantity, totals and status. Development simulator orders transfer no money and remain pending. Offline payment recording is an explicit staff action with a reason/reference; it is not a card provider integration.
 
+Settings shows a read-only Payment setup panel using the same enabled-method checks as checkout. It distinguishes offline collection, the local development simulator, unavailable card payments and unavailable automated refunds. Provider controls are disabled; this page does not collect credentials or change payment configuration. Quote inquiries and permission-protected Direct Sales payment recording retain their separate workflows. Card provider configuration is deferred at the merchant's request.
+
 Fulfil only the quantities actually dispatched and provide the carrier/tracking information available. Partial fulfilment is supported. Cancelling an unfulfilled order releases its reservations; cancellation after shipment is rejected. The worker expires unpaid, unfulfilled reservations after 24 hours.
 
 Customers can request returns against eligible fulfilled quantities. Staff review each request, then separately record receipt as damaged or restockable. Restocking requires inventory adjustment permission as well as return permission. A return does not automatically refund money. Refund requests are recorded for review; execution deliberately reports that a provider is not connected.
