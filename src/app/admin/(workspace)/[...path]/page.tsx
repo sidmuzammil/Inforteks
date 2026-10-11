@@ -475,6 +475,7 @@ export default async function AdminPage({
                   method="PATCH"
                   payload={{ status: "APPROVED" }}
                   label="Approve request"
+                  refreshOnError
                 />
                 <ActionButton
                   endpoint={`admin/returns/${id}`}
@@ -482,6 +483,7 @@ export default async function AdminPage({
                   payload={{ status: "REJECTED" }}
                   label="Reject request"
                   danger
+                  refreshOnError
                 />
               </div>
             )}
@@ -1291,6 +1293,12 @@ export default async function AdminPage({
       query.q ?? "",
     )) as Record<string, unknown>[];
     const rows = Array.isArray(records) ? records : [];
+    const productSearch = resource === "products" && Boolean(query.q);
+    const pageHref = (page: number) =>
+      `?${new URLSearchParams({
+        ...(query.q ? { q: query.q } : {}),
+        page: String(page),
+      })}`;
     const columns: Record<string, string[]> = {
       products: ["name", "status", "store", "category", "updatedAt"],
       categories: ["name", "slug", "visible", "position"],
@@ -1483,20 +1491,28 @@ export default async function AdminPage({
           ) : (
             <div className="empty-state">
               <FileText size={30} />
-              <h3>A fresh start.</h3>
+              <h3>
+                {productSearch ? "No matching products." : "A fresh start."}
+              </h3>
               <p>
-                No records yet. New activity will appear here as your store
-                grows.
+                {productSearch
+                  ? "Try a different product name or clear the search to see all products."
+                  : "No records yet. New activity will appear here as your store grows."}
               </p>
+              {productSearch && (
+                <Link href="/admin/products" className="button">
+                  Clear search
+                </Link>
+              )}
             </div>
           )}
           <nav className="pagination" aria-label="Admin pages">
             {Number(query.page ?? 1) > 1 && (
-              <Link href={`?page=${Number(query.page) - 1}`}>Previous</Link>
+              <Link href={pageHref(Number(query.page) - 1)}>Previous</Link>
             )}
             <span className="form-help">Page {query.page ?? 1}</span>
             {rows.length === 30 && (
-              <Link href={`?page=${Number(query.page ?? 1) + 1}`}>Next</Link>
+              <Link href={pageHref(Number(query.page ?? 1) + 1)}>Next</Link>
             )}
           </nav>
         </div>

@@ -6,6 +6,8 @@ The latest user instruction is to prepare the storefront and admin for readiness
 
 The intended candidate continues PR2's marketplace storefront and navy/jade/pearl theme. It preserves the existing logo, Owner, business records, draft samples, independent Online Store and Direct Sales, shared inventory, CRM, Contacts and `Product.store` visibility. No production seed/reset or new provider purchase is authorized by this preparation.
 
+The staging retry recorded below was the historical supported retry before the deployment hold. No new staging retry is authorized or required. Rehearse pending migrations on an isolated restored copy, preserving current production records and disabling outbound providers; do not demand staging deployment as a prerequisite under the current instruction. [Launch inputs](LAUNCH_INPUTS.md) separates required access/facts from optional features.
+
 ## Findings register
 
 Severity describes impact, not proof that an issue was exploited. This is a bounded source/test review, not a claim that every possible defect has been found.
@@ -99,3 +101,29 @@ Candidate `81c0750e2c5c6bb2dc4f7afac1670b33cb71dc7a` subsequently passed every s
 - **ADMIN-03 — unavailable order actions:** seven incorrect controls appeared across expired, cancelled, partially shipped and fully shipped order cases. Shipment, cancellation and payment forms now use the same existing status/quantity conditions as the domains, while retaining their independent permissions. A browser matrix covers eight order states plus Support/Sales boundaries; no business policy changes.
 
 Final local follow-up verification passed **178 unit/database tests across 36 files**, **all 56 browser journeys with no skips**, TypeScript, ESLint, formatting, 129-operation OpenAPI validation and the optimized build with both database URLs unreachable. The local browser server used explicit fake Google fixture credentials; no real consent/token exchange was performed. CI now also sets both build database URLs unreachable. PR2 records the final candidate and its separate exact-commit CI result. The source review does not resolve the separately listed deployment, access, catalogue or provider prerequisites.
+
+## Independent-review corrections
+
+The parent independently reviewed candidate `4c3937d` after its exact CI passed and identified the following two corrections. These are subsequent source changes and require their own exact-commit CI result in PR2.
+
+- **UX-08 — incomplete checkout receipts:** replacing an actual committed HTTP 201 response with `{data:{}}` sent the browser to `/order-confirmation/undefined` and discarded the original request identity. Checkout now validates nonempty ID/reference and constructs its confirmation URL before clearing the attempt or performing success-side effects. Malformed success responses retain the exact body/key for explicit recovery. Browser regressions verify one committed order, one idempotency record, one reservation and restored guest-cookie access, including missing/blank receipt fields. Full reload/tab closure recovery remains outside scope.
+- **STOCK-02 — further fulfilment versus return restock:** a quantity-two order, one shipped unit and an approved one-unit return deterministically produced PostgreSQL `40P01` / Prisma `P2034` when further fulfilment acquired SKU then order-item locks and RESTOCK acquired them in reverse order. RESTOCK now takes all order SKU locks in ascending ID order before any item lock, matching fulfilment. Both queue orders pass with correct stock/reservation totals, two shipments, one return movement and preserved purchased-item snapshots. This establishes a reproduced transaction deadlock, not evidence of production corruption.
+
+The bounded storefront review also reproduced and corrected four concrete UX gaps:
+
+- Product detail and previews now use the same effective facts as facets/comparison: product specifications, then SKU options, then SKU specifications. Networking ports/options no longer contradict the selected filter.
+- Explicit Search submission uses the full query; only Enter on a visible highlighted suggestion selects that product. Dismissing suggestions clears the old highlight. Desktop/mobile tests cover button, keyboard and outside-dismissal paths.
+- A manual delivery-emirate selection invalidates pending geolocation detection, so its delayed callback cannot erase the user's choice.
+- The product-image dialog has an accessible product-specific name.
+
+All four storefront cases failed before their fixes and passed afterward, together with three existing search/location checks. The complete unit/database suite passed **180 tests across 36 files** after the stock correction. Final combined browser/build/static results and exact source CI are recorded with PR2; earlier results are not substituted for the new candidate.
+
+Two admin gaps were also reproduced and fixed: product-list pagination dropped the active search query and its empty state incorrectly implied there were no records, while committed return approve/reject responses could be lost and leave the page showing REQUESTED. Page links now retain the encoded search, empty matches offer a clear-search link, and those two return controls opt into read-only reconciliation without replaying mutations. Five browser cases passed, covering both page directions, empty recovery, actual committed approve/reject responses being aborted, and a request that never committed. The four previously broken paths failed before correction; stock and audit checks confirm a single decision and no inventory mutation.
+
+### Isolated local restore and migration rehearsal
+
+On 11 October, a new loopback database was migrated through the recorded ten-migration production baseline using the real Prisma deploy command. Local synthetic fixtures covered Owner/customer roles and ownership, draft/demo/store visibility, SKU quantities and reservations, independent ONLINE/DIRECT orders and immutable snapshots, business contacts/CRM, private media references and legacy human/API proposals. No web/worker or outbound provider was connected to the rehearsal databases.
+
+A private mode-600 `pg_dump` was restored into a second new database. All public-table row/count hashes, old column definitions, constraints/indexes and fixture relationships matched. Applying the three pending migrations produced thirteen successful migration records while preserving all old rows/columns across **47 tables**, including the original ten migration records. `Product.quoteOnly` defaulted to false, `CatalogueSource` was empty and both legacy proposal keys remained null. A local sample-media copy retained its hash.
+
+Private evidence remains under `.data/release-rehearsal/run-20261011-PDQyOR/` with `report.json`, manifests, logs and the dump; existing development/test databases and snapshots were untouched. This demonstrates the additive source migrations on a small local synthetic dataset. It is **not** a production backup, production-data restore, private object-storage check, PITR-coverage proof or production-scale lock-duration measurement. Fresh production database/media recovery evidence and a verified isolated restore are still required before user-controlled production migration. Staging deployment remains prohibited.

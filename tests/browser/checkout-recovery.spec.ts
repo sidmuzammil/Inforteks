@@ -3,9 +3,11 @@ import { randomUUID } from "node:crypto";
 import { test, expect, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { db } from "../../src/lib/db";
+import { hash } from "../../src/domains/identity";
 
 const key = `checkout-recovery-${randomUUID()}`;
 const email = `${key}@example.test`;
+const orderEmails = new Set([email]);
 let productId = "",
   categoryId = "",
   brandId = "",
@@ -43,7 +45,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   if (!localFixtures) return;
   const orders = await db.order.findMany({
-    where: { email },
+    where: { email: { in: [...orderEmails] } },
     select: { id: true },
   });
   const ids = orders.map((order) => order.id);
@@ -73,8 +75,8 @@ async function prepareCart(page: Page) {
   const cart = await page.request.get("/api/v1/storefront/carts");
   carts.add((await cart.json()).data.id);
 }
-async function fillCheckout(page: Page) {
-  await page.getByLabel("Email address", { exact: true }).fill(email);
+async function fillCheckout(page: Page, orderEmail = email) {
+  await page.getByLabel("Email address", { exact: true }).fill(orderEmail);
   await page
     .getByLabel("Full name", { exact: true })
     .fill("Local recovery test");
@@ -255,3 +257,110 @@ test("lost checkout response rechecks the exact order once and preserves its sto
     (await db.sku.findUniqueOrThrow({ where: { id: skuId } })).reserved,
   ).toBe(1);
 });
+
+for (const responseShape of [
+  "empty",
+  "missing-id",
+  "blank-reference",
+  "surrogate-reference",
+] as const)
+  test(`incomplete committed checkout response (${responseShape}) retains its exact recovery request and guest access`, async ({
+    page,
+  }) => {
+    const orderEmail = `${responseShape}-${email}`;
+    orderEmails.add(orderEmail);
+    const reservedBefore = (
+      await db.sku.findUniqueOrThrow({ where: { id: skuId } })
+    ).reserved;
+    await prepareCart(page);
+    await page.goto("/checkout");
+    await fillCheckout(page, orderEmail);
+    const requests: { key: string | undefined; body: string | null }[] = [];
+    const responseIds: string[] = [];
+    await page.route("**/api/v1/storefront/checkout", async (route) => {
+      requests.push({
+        key: route.request().headers()["idempotency-key"],
+        body: route.request().postData(),
+      });
+      const response = await route.fetch();
+      expect(response.status()).toBe(201);
+      const confirmed = (await response.json()).data;
+      responseIds.push(confirmed.id);
+      if (requests.length === 1) {
+        // The order really committed. Discard route.fetch's cookie artifact too,
+        // so retry must restore guest access through the real response headers.
+        await page.context().clearCookies({ name: /^ift-order-/ });
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            data:
+              responseShape === "empty"
+                ? {}
+                : responseShape === "missing-id"
+                  ? { reference: confirmed.reference }
+                  : {
+                      id: confirmed.id,
+                      reference:
+                        responseShape === "blank-reference" ? " " : "\ud800",
+                    },
+          }),
+        });
+      } else await route.fulfill({ response });
+    });
+    await page
+      .getByRole("button", { name: "Place order", exact: true })
+      .click();
+    await expect
+      .poll(() => db.order.count({ where: { email: orderEmail } }))
+      .toBe(1);
+    await expect(page.locator("main").getByRole("alert")).toContainText(
+      "couldn’t confirm your order",
+    );
+    await expect(page).toHaveURL(/\/checkout$/);
+    await expect(
+      page.getByLabel("Email address", { exact: true }),
+    ).toBeDisabled();
+    await expect(page.getByLabel("Promo code", { exact: true })).toBeDisabled();
+    expect(
+      (await page.context().cookies()).filter((cookie) =>
+        cookie.name.startsWith("ift-order-"),
+      ),
+    ).toEqual([]);
+    const order = await db.order.findFirstOrThrow({
+      where: { email: orderEmail },
+      select: { id: true, reference: true, guestTokenHash: true },
+    });
+    await page
+      .getByRole("button", { name: "Check order status", exact: true })
+      .click();
+    await expect(page).toHaveURL(`/order-confirmation/${order.reference}`);
+    await expect(
+      page.getByRole("heading", { name: "Your order is in." }),
+    ).toBeVisible();
+    expect(requests).toHaveLength(2);
+    expect(requests[0].key).toBeTruthy();
+    expect(requests[1]).toEqual(requests[0]);
+    expect(responseIds).toEqual([order.id, order.id]);
+    expect(await db.order.count({ where: { email: orderEmail } })).toBe(1);
+    expect(
+      await db.idempotency.count({
+        where: { operation: "checkout", key: requests[0].key },
+      }),
+    ).toBe(1);
+    expect(
+      await db.reservation.findMany({
+        where: { orderId: order.id },
+        select: { skuId: true, quantity: true },
+      }),
+    ).toEqual([{ skuId, quantity: 1 }]);
+    expect(
+      (await db.sku.findUniqueOrThrow({ where: { id: skuId } })).reserved,
+    ).toBe(reservedBefore + 1);
+    const cookie = (await page.context().cookies()).find(
+      (value) => value.name === `ift-order-${order.id}`,
+    );
+    expect(cookie).toBeDefined();
+    expect(cookie?.httpOnly).toBe(true);
+    expect(hash(cookie!.value)).toBe(order.guestTokenHash);
+  });

@@ -1,5 +1,13 @@
 # Railway deployment record
 
+## Current release boundary — 11 October 2026
+
+Source preparation continues in [PR2](https://github.com/sidmuzammil/Inforteks/pull/2); use its current exact commit and terminal CI result rather than the historical candidate pins below. The user prohibits staging deployment and owns final production deployment, domain connection and public launch. Neither pending Railway patch has been changed by this audit: staging `8c64fdf5-7570-4ffe-a93b-0cfa2d529f54` and production `365b25db-a9e3-4791-b4b4-3767e391b4f3` still pin old `1e2e201e`, excluding the audit fixes.
+
+The supported staging deployment retry was a historical event before this hold. Railway returned `INVALID_ARGUMENT`: "These staged changes require two-factor verification, which isn't available over an API/MCP token. Apply them from the Railway dashboard." No deployment started, and no alternate route or further retry was attempted. This provider error is distinct from the earlier approval-layer denial and from the separate proxy CONNECT 403 preventing application/photo-host verification.
+
+All six platform services were online with unchanged deployment IDs at the last read. That is not live application verification. Production's recorded ten-migration baseline has three additive changes pending. Rehearse these on an isolated restored copy with outbound providers disabled; staging deployment is not required by the current instruction. A fresh production database/media recovery point and demonstrated isolated restore remain unverified. See [release evidence](RELEASE_EVIDENCE_CHECKLIST.md) and [essential versus optional launch inputs](LAUNCH_INPUTS.md). The older dated sections below are historical evidence, not current authorization or current source pins.
+
 ## Marketplace and navy/jade theme revision prepared — 8 October 2026
 
 The additional storefront revision is implemented with compact marketplace navigation, dense shopping shelves, mobile filters, product detail panels and matching admin previews. Before publication, the user requested an independent colour identity; the final theme uses deep navy, jade green and soft pearl. This revision changes presentation only and adds no migration or production data. Local verification is recorded in `TEST_REPORT.md`; exact source CI and the final staging pin are tracked in [PR #2](https://github.com/sidmuzammil/Inforteks/pull/2).

@@ -413,6 +413,15 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
         rejection = data.error?.message ?? "Checkout failed.";
         throw new Error(rejection);
       }
+      const order = data?.data;
+      if (
+        typeof order?.id !== "string" ||
+        !order.id.trim() ||
+        typeof order.reference !== "string" ||
+        !order.reference.trim()
+      )
+        throw new Error("The order confirmation response was incomplete.");
+      const confirmationHref = `/order-confirmation/${encodeURIComponent(order.reference)}`;
       // A cart badge refresh must not hide a successfully placed order.
       void shop.refresh().catch(() => {});
       const address = attempt.address;
@@ -424,7 +433,7 @@ export function CartPage({ checkout = false }: { checkout?: boolean }) {
         area: address.area,
         source: "manual",
       });
-      router.push(`/order-confirmation/${data.data.reference}`);
+      router.push(confirmationHref);
       router.refresh();
     } catch (e) {
       setOrderUnconfirmed(Boolean(orderAttempt.current));

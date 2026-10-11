@@ -220,13 +220,16 @@ export function DeliveryLocationPicker({
               <select
                 aria-label="Delivery emirate"
                 value={location.emirate ?? ""}
-                onChange={(event) =>
+                onChange={(event) => {
+                  ++detection.current;
+                  setBusy(false);
+                  setNotice("");
                   saveDeliveryLocation({
                     country: "AE",
                     emirate: event.target.value,
                     source: "manual",
-                  })
-                }
+                  });
+                }}
               >
                 <option value="">Choose an emirate</option>
                 {emirates.map((name) => (

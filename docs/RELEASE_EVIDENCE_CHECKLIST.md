@@ -2,6 +2,8 @@
 
 Updated 11 October 2026. User-owned final deployment/domain launch; no staging deployment or pending-patch changes. Deadline: readiness review by the end of 12 October Asia/Dubai; parent owns the 11 October 21:30 Dubai report.
 
+The [launch inputs](LAUNCH_INPUTS.md) separate essential access/merchant facts from optional integrations. The Railway staging retry described below is historical and occurred before the deployment hold; it is not a new request to deploy. Use an isolated restore/migration rehearsal under the current boundary.
+
 ## Source preparation — testable here
 
 | Check                          | Required evidence                                                                                  | Current evidence / remaining work                                                                                                                                                                                                                                          |
@@ -17,6 +19,7 @@ Updated 11 October 2026. User-owned final deployment/domain launch; no staging d
 
 ## Operational prerequisites — blocked on access/evidence
 
+- [x] Local synthetic restore/migration rehearsal: a ten-migration baseline dumped/restored into a new isolated database, then all three pending migrations applied. All old rows/columns across 47 tables and fixture ownership/inventory/CRM relationships were preserved. Local media-copy hash matched. This is source-migration evidence only; the production recovery items below remain open.
 - [ ] Fresh production database recovery point and media backup. Record source/time/retention privately; a listed snapshot is not restore proof.
 - [ ] Restore into an isolated destination with outbound providers disabled. Compare migrations, record counts, Owner/customer ownership, inventory/reservations and media samples. Never restore over production to test recovery.
 - [ ] Supported cloud environment configuration allows required application and approved photo/source hosts. Current generated Railway-host attempts fail at proxy CONNECT 403, before reaching the application.

@@ -39,6 +39,11 @@ export async function receiveReturn(
     409,
     "Approve the return before recording receipt.",
   );
+  if (disposition === "RESTOCK") {
+    // Further fulfilment locks SKUs before order items. Match that order before
+    // taking any item lock, and preserve the reviewed return-line order.
+    await tx.$queryRaw`SELECT s.id FROM "Sku" s JOIN "OrderItem" oi ON oi."skuId"=s.id WHERE oi."orderId"=${r.orderId} ORDER BY s.id FOR UPDATE OF s`;
+  }
   for (const line of r.items as { itemId: string; quantity: number }[]) {
     await tx.$queryRaw`SELECT id FROM "OrderItem" WHERE id=${line.itemId} FOR UPDATE`;
     const item = await tx.orderItem.findFirst({

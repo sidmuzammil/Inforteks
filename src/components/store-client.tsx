@@ -688,7 +688,10 @@ export function SearchBox({
   }, [q, category, key]);
   useEffect(() => {
     const close = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
+      if (!root.current?.contains(event.target as Node)) {
+        setOpen(false);
+        setActive(-1);
+      }
     };
     document.addEventListener("pointerdown", close);
     return () => document.removeEventListener("pointerdown", close);
@@ -701,16 +704,14 @@ export function SearchBox({
       className="search-box marketplace-search"
       role="search"
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
-      }}
-      onSubmit={(event) => {
-        if (active >= 0 && items[active]) {
-          event.preventDefault();
-          router.push(
-            `/product/${items[active].slug}?sku=${items[active].skus[0]?.id ?? ""}`,
-          );
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setOpen(false);
+          setActive(-1);
         }
+      }}
+      onSubmit={() => {
         setOpen(false);
+        setActive(-1);
       }}
     >
       <select
@@ -752,6 +753,20 @@ export function SearchBox({
         }
         autoComplete="off"
         onKeyDown={(event) => {
+          if (
+            event.key === "Enter" &&
+            !event.nativeEvent.isComposing &&
+            showing &&
+            active >= 0 &&
+            items[active]
+          ) {
+            event.preventDefault();
+            setOpen(false);
+            setActive(-1);
+            router.push(
+              `/product/${items[active].slug}?sku=${items[active].skus[0]?.id ?? ""}`,
+            );
+          }
           if (event.key === "ArrowDown") {
             event.preventDefault();
             setOpen(true);
@@ -806,7 +821,10 @@ export function SearchBox({
               >
                 <Link
                   href={`/product/${p.slug}?sku=${p.skus[0]?.id ?? ""}`}
-                  onClick={() => setOpen(false)}
+                  onClick={() => {
+                    setOpen(false);
+                    setActive(-1);
+                  }}
                 >
                   {p.media[0] && <img src={p.media[0].url} alt="" />}
                   <span>
@@ -826,7 +844,10 @@ export function SearchBox({
           <Link
             className="search-all"
             href={`/search?${new URLSearchParams({ q: q.trim(), category })}`}
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              setOpen(false);
+              setActive(-1);
+            }}
           >
             View all search results <ArrowRight size={16} />
           </Link>
@@ -945,6 +966,7 @@ export function ProductPurchase({
     );
   const specs = {
     ...(product.specs as Record<string, unknown>),
+    ...(sku.options as Record<string, unknown>),
     ...(sku.specs as Record<string, unknown>),
   };
   return (
@@ -1137,7 +1159,12 @@ export function Gallery({ product }: { product: PublicProduct }) {
           </button>
         ))}
       </div>
-      <dialog ref={ref} className="image-dialog" onClose={() => setZoom(false)}>
+      <dialog
+        ref={ref}
+        className="image-dialog"
+        aria-label={`Product image: ${product.name}`}
+        onClose={() => setZoom(false)}
+      >
         {zoom && (
           <>
             <button

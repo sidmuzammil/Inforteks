@@ -5,7 +5,13 @@ import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { db } from "../src/lib/db";
 import { actorForUser, type Actor } from "../src/domains/identity";
 import { approve, propose } from "../src/domains/approvals";
-import { checkout, ensureCart, setCartItem } from "../src/domains/commerce";
+import {
+  checkout,
+  ensureCart,
+  requestReturn,
+  setCartItem,
+} from "../src/domains/commerce";
+import { reviewReturn } from "../src/domains/returns";
 import {
   createDirectOrder,
   quoteDirectOrder,
@@ -85,6 +91,7 @@ afterAll(async () => {
   });
   await db.shipment.deleteMany({ where: { orderId } });
   await db.reservation.deleteMany({ where: { orderId } });
+  await db.returnRequest.deleteMany({ where: { orderId } });
   await db.orderItem.deleteMany({ where: { orderId } });
   await db.order.deleteMany({ where: { id: orderId } });
   await db.businessCustomer.deleteMany({
@@ -290,6 +297,121 @@ it("fulfils online and direct orders sharing multiple SKUs without a lock-order 
     }),
   ).toBe(4);
 });
+
+it.each(["fulfil", "restock"] as const)(
+  "completes further fulfilment and an approved return restock with %s first",
+  async (first) => {
+    const [sku] = await stock(2, 1);
+    const cart = await onlineCart([sku.id], 2);
+    const order = await checkout(cart.id, owner.id, checkoutBody, randomUUID());
+    const item = await db.orderItem.findFirstOrThrow({
+      where: { orderId: order.id },
+    });
+    const shipmentPayload = {
+      carrier: "Isolated partial shipment",
+      items: [{ itemId: item.id, quantity: 1 }],
+    };
+    const initialShipment = await propose(
+      owner,
+      "order.fulfil",
+      order.id,
+      shipmentPayload,
+    );
+    await approve(owner, initialShipment.id);
+    const returned = await requestReturn(
+      owner.id,
+      {
+        orderId: order.id,
+        itemId: item.id,
+        quantity: 1,
+        reason: "Inspected partial shipment return",
+      },
+      randomUUID(),
+    );
+    await reviewReturn(owner, returned.id, { status: "APPROVED" });
+    const shipment = await propose(
+      owner,
+      "order.fulfil",
+      order.id,
+      shipmentPayload,
+    );
+    const receipt = await propose(owner, "return.receive", returned.id, {
+      disposition: "RESTOCK",
+    });
+    const proposals =
+      first === "fulfil" ? [shipment, receipt] : [receipt, shipment];
+    // Queue both actions behind the SKU. Taking OrderItem before SKU in the
+    // receipt creates a cycle when fulfilment acquires the SKU first.
+    const results = await contend(
+      "Sku",
+      sku.id,
+      proposals.map((proposal) => () => approve(owner, proposal.id)),
+    );
+    expect(results.filter((result) => result.status === "rejected")).toEqual(
+      [],
+    );
+    for (const proposal of proposals) {
+      expect(
+        await db.proposal.findUniqueOrThrow({ where: { id: proposal.id } }),
+      ).toMatchObject({ status: "APPROVED" });
+      await expect(approve(owner, proposal.id)).rejects.toMatchObject({
+        status: 409,
+      });
+    }
+    expect(
+      await db.order.findUniqueOrThrow({ where: { id: order.id } }),
+    ).toMatchObject({
+      status: "COMPLETED",
+      fulfillmentStatus: "FULFILLED",
+      expiresAt: null,
+    });
+    expect(
+      await db.orderItem.findUniqueOrThrow({ where: { id: item.id } }),
+    ).toMatchObject({
+      quantity: 2,
+      fulfilled: 2,
+      returned: 1,
+      snapshot: item.snapshot,
+      unitPrice: item.unitPrice,
+      total: item.total,
+    });
+    expect(
+      await db.sku.findUniqueOrThrow({ where: { id: sku.id } }),
+    ).toMatchObject({ onHand: 1, reserved: 0 });
+    expect(
+      await db.reservation.findUniqueOrThrow({
+        where: { orderId_skuId: { orderId: order.id, skuId: sku.id } },
+      }),
+    ).toMatchObject({ quantity: 2, consumed: 2, released: 0 });
+    expect(
+      await db.returnRequest.findUniqueOrThrow({ where: { id: returned.id } }),
+    ).toMatchObject({ status: "RECEIVED", disposition: "RESTOCK" });
+    expect(
+      await db.shipment.findMany({
+        where: { orderId: order.id },
+        select: { items: true },
+      }),
+    ).toEqual([
+      { items: shipmentPayload.items },
+      { items: shipmentPayload.items },
+    ]);
+    expect(
+      await db.inventoryMovement.findMany({
+        where: { skuId: sku.id },
+        orderBy: [{ delta: "asc" }],
+        select: { delta: true, reason: true, reference: true },
+      }),
+    ).toEqual([
+      { delta: -1, reason: "Shipment", reference: order.reference },
+      { delta: -1, reason: "Shipment", reference: order.reference },
+      {
+        delta: 1,
+        reason: "Inspected return received and restocked",
+        reference: returned.id,
+      },
+    ]);
+  },
+);
 
 it("rolls back a losing cross-channel multi-SKU order and permits the same request after cancellation frees stock", async () => {
   const skus = await stock(1);

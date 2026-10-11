@@ -4,6 +4,8 @@ Railway is the intended host for the storefront, admin, worker, PostgreSQL and p
 
 See the [deployment record](RAILWAY_STATUS.md) for the current Railway URLs, verified checks and remaining launch steps.
 
+**Current release boundary — 11 October 2026:** the user prohibits staging deployment and owns final production deployment, domain connection and public launch. Do not apply either pending Railway patch. The setup procedures below describe platform operation, not authorization to run them. For this existing release, rehearse the three additive migrations on an isolated restored copy with outbound providers disabled, verify preserved records/media, and present the exact tested source to the user. An isolated local rehearsal does not replace a fresh production backup and demonstrated restore. Preserve the existing Owner; do not repeat initial bootstrap. See [launch inputs](LAUNCH_INPUTS.md).
+
 ## Service layout
 
 Use one Inforteks project with separate `staging` and `production` environments. Each environment must have its own database, media bucket and authentication secrets. Public registration never creates staff accounts.

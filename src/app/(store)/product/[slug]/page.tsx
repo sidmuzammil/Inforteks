@@ -40,6 +40,7 @@ export default async function Product({
   const selectedSku = p.skus.find((item) => item.id === sku) ?? p.skus[0];
   const specifications = Object.entries({
     ...(p.specs as Record<string, unknown>),
+    ...(selectedSku?.options as Record<string, unknown>),
     ...(selectedSku?.specs as Record<string, unknown>),
   }).filter(
     ([key, value]) => key !== "dataset" && value !== null && value !== "",
