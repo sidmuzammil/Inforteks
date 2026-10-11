@@ -96,6 +96,10 @@ test("editor draft preview hides restricted values at desktop and mobile widths"
   page,
 }) => {
   await db.user.update({ where: { id: userId }, data: { role: "EDITOR" } });
+  await db.sku.updateMany({
+    where: { productId },
+    data: { price: 15321, compareAt: 25432 },
+  });
   await page.goto("/admin/login");
   await page.getByLabel("Email address", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
