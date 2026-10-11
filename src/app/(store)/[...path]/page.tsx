@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AddressBook } from "@/components/delivery-address";
 import { AddressSummary } from "@/components/address-summary";
+import { CustomerReturnForm } from "@/components/customer-return-form";
 import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import {
@@ -12,6 +13,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { db } from "@/lib/db";
+import { AppError } from "@/lib/errors";
 import { getSession } from "@/lib/session";
 import { ownedOrder } from "@/domains/commerce";
 import { money, date } from "@/lib/utils";
@@ -38,6 +40,12 @@ import { safeReturnPath } from "@/lib/auth-navigation";
 import { emailDeliveryEnabled } from "@/lib/email-policy";
 import { googleSignInEnabled, googleSignInError } from "@/lib/google-auth";
 import type { Metadata } from "next";
+
+function handleOrderLookupError(error: unknown): never {
+  if (error instanceof AppError && error.status === 404) notFound();
+  throw error;
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -423,9 +431,8 @@ export default async function Page({
     if (!record) notFound();
     const token = (await cookies()).get(`ift-order-${record.id}`)?.value;
     const order = await ownedOrder(slug, session?.user.id, token).catch(
-      () => null,
+      handleOrderLookupError,
     );
-    if (!order) notFound();
     return (
       <div className="page-container store-confirmation-page">
         <div className="page-heading">
@@ -501,8 +508,9 @@ export default async function Page({
     const actor = await actorForUser(session.user.id);
     let content: React.ReactNode;
     if (slug === "orders" && id) {
-      const order = await ownedOrder(id, session.user.id).catch(() => null);
-      if (!order) notFound();
+      const order = await ownedOrder(id, session.user.id).catch(
+        handleOrderLookupError,
+      );
       content = (
         <>
           <h2>{order.reference}</h2>
@@ -528,32 +536,15 @@ export default async function Page({
           {order.items.some((i) => i.fulfilled > i.returned) && (
             <div className="editor-section">
               <h2>Request a return</h2>
-              <MutationForm
-                endpoint="account/returns"
-                label="Submit request"
-                fields={[
-                  { name: "orderId", label: "Order ID", value: order.id },
-                  {
-                    name: "itemId",
-                    label: "Item",
-                    type: "select",
-                    options: order.items
-                      .filter((i) => i.fulfilled > i.returned)
-                      .map((i) => ({
-                        value: i.id,
-                        label: (i.snapshot as { name: string }).name,
-                      })),
-                  },
-                  {
-                    name: "quantity",
-                    label: "Quantity",
-                    type: "number",
-                    value: 1,
-                    min: 1,
-                  },
-                  { name: "reason", label: "Reason", type: "textarea" },
-                ]}
-                success="Return request saved. A return request does not issue a refund."
+              <CustomerReturnForm
+                key={order.id}
+                orderId={order.id}
+                items={order.items
+                  .filter((item) => item.fulfilled > item.returned)
+                  .map((item) => ({
+                    id: item.id,
+                    name: (item.snapshot as { name: string }).name,
+                  }))}
               />
             </div>
           )}

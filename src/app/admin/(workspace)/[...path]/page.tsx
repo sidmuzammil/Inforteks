@@ -368,11 +368,13 @@ export default async function AdminPage({
                 <ActionButton
                   endpoint={`admin/proposals/${id}/approve`}
                   label="Approve & apply change"
+                  refreshOnError
                 />
                 <ActionButton
                   endpoint={`admin/proposals/${id}/reject`}
                   label="Reject"
                   danger
+                  refreshOnError
                 />
               </div>
             )}
@@ -630,8 +632,8 @@ export default async function AdminPage({
             style={{ marginTop: 24 }}
           >
             {actor.scopes.includes("fulfillments:write") &&
-              o.status !== "CANCELLED" &&
-              o.fulfillmentStatus !== "FULFILLED" && (
+              ["PLACED", "PROCESSING"].includes(o.status) &&
+              o.items.some((i) => i.fulfilled < i.quantity) && (
                 <div className="panel">
                   <h2 style={{ marginBottom: 18 }}>Prepare shipment</h2>
                   <OrderFulfilment
@@ -647,7 +649,8 @@ export default async function AdminPage({
                 </div>
               )}
             {actor.scopes.includes("orders:cancel") &&
-              !["CANCELLED", "COMPLETED"].includes(o.status) && (
+              !["CANCELLED", "COMPLETED", "EXPIRED"].includes(o.status) &&
+              o.items.every((i) => i.fulfilled === 0) && (
                 <div className="panel">
                   <h2 style={{ marginBottom: 18 }}>Cancel order</h2>
                   <ProposalForm
@@ -664,7 +667,8 @@ export default async function AdminPage({
               )}
             {actor.scopes.includes("payments:record") &&
               o.paymentMethod === "OFFLINE" &&
-              o.paymentStatus === "PENDING" && (
+              o.paymentStatus === "PENDING" &&
+              ["PLACED", "PROCESSING", "COMPLETED"].includes(o.status) && (
                 <div className="panel">
                   <h2 style={{ marginBottom: 18 }}>Record verified payment</h2>
                   <ProposalForm

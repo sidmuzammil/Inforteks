@@ -20,6 +20,8 @@ The result includes products, total, pages and filtered facets. `min` and `max` 
 
 POST or PATCH that body to `/storefront/carts` to set the exact quantity. Zero removes a line. Retain the HTTP-only cart cookie. Quote using `/storefront/carts/quote` with `emirate` and optional `coupon`. Checkout requires `Idempotency-Key` plus email, validated delivery address and an enabled payment method; reuse the same key and exact body after an uncertain response.
 
+`POST /account/returns` accepts an optional `Idempotency-Key` of 8–128 characters. The customer form always supplies it and preserves the exact body/key while a response is uncertain. Reusing that key for the same customer and payload returns the original request with 201; changing the payload returns 409. Ownership is checked before replay, and competing distinct requests still obey the remaining returnable-quantity limit. Omitting the header preserves the existing non-idempotent API behavior. A return request does not issue a refund.
+
 To stage a price change, POST `/admin/proposals`:
 
 ```json
@@ -46,7 +48,7 @@ Delivery addresses accept separate `area`, `zone`, `postalCode` and an optional 
 
 ## Contract coverage
 
-The generated registry documents 102 operations. Core checkout, product creation, carts, image upload and ordering, proposal creation and several common mutations include request schemas. Some generic admin resource bodies and response payloads still use descriptive/generic schemas; this is not yet a complete generated client contract for every table. Zod domain validators are authoritative, and `src/lib/api-client.ts` provides a small typed caller. Add concrete schemas and contract tests when expanding an integration.
+The generated registry documents 129 operations. Core checkout, customer return requests, product creation, carts, image upload and ordering, proposal creation and several common mutations include request schemas. Some generic admin resource bodies and response payloads still use descriptive/generic schemas; this is not yet a complete generated client contract for every table. Zod domain validators are authoritative, and `src/lib/api-client.ts` provides a small typed caller. Add concrete schemas and contract tests when expanding an integration.
 
 No live payment webhook, courier API or executed-refund endpoint is implemented. The refund execution route intentionally returns 503. A missing provider must never be interpreted as success. Contact inquiries are durably saved but are not automatically emailed.
 

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, useEffect, useTransition, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -23,6 +23,7 @@ export function ActionButton({
   method = "POST",
   proposal = false,
   danger = false,
+  refreshOnError = false,
 }: {
   endpoint: string;
   payload?: unknown;
@@ -30,15 +31,17 @@ export function ActionButton({
   method?: string;
   proposal?: boolean;
   danger?: boolean;
+  refreshOnError?: boolean;
 }) {
   const router = useRouter();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [refreshing, startRefresh] = useTransition();
   return (
     <>
       <button
         className={`button ${danger ? "" : "primary"}`}
-        disabled={busy}
+        disabled={busy || refreshing}
         onClick={async () => {
           setBusy(true);
           setError("");
@@ -48,12 +51,15 @@ export function ActionButton({
             else router.refresh();
           } catch (e) {
             setError((e as Error).message);
+            // A terminal decision may have committed before its response was
+            // lost. Reconcile by reading the page; never replay its mutation.
+            if (refreshOnError) startRefresh(() => router.refresh());
           } finally {
             setBusy(false);
           }
         }}
       >
-        {busy ? "Working…" : label}
+        {refreshing ? "Checking latest status…" : busy ? "Working…" : label}
       </button>
       {error && (
         <p className="form-error" role="alert">

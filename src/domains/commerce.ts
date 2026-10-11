@@ -556,16 +556,20 @@ export async function ownedOrder(
   invariant(order, 404, "Order not found or access has expired.");
   return order;
 }
-export async function requestReturn(userId: string, raw: unknown) {
-  const data = z
-    .object({
-      orderId: z.string(),
-      itemId: z.string(),
-      quantity: z.number().int().positive(),
-      reason: z.string().min(10).max(1000),
-    })
-    .strict()
-    .parse(raw);
+export const returnRequestInput = z
+  .object({
+    orderId: z.string(),
+    itemId: z.string(),
+    quantity: z.number().int().positive(),
+    reason: z.string().min(10).max(1000),
+  })
+  .strict();
+export async function requestReturn(
+  userId: string,
+  raw: unknown,
+  key?: string,
+) {
+  const data = returnRequestInput.parse(raw);
   return db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${data.orderId},2))`;
     const order = await tx.order.findFirst({
@@ -573,24 +577,31 @@ export async function requestReturn(userId: string, raw: unknown) {
       include: { items: true, returns: true },
     });
     invariant(order, 404, "Order not found.");
-    const item = order.items.find((i) => i.id === data.itemId);
-    const pending = order.returns
-      .filter((r) => !["REJECTED", "RECEIVED"].includes(r.status))
-      .flatMap((r) => r.items as { itemId: string; quantity: number }[])
-      .filter((i) => i.itemId === data.itemId)
-      .reduce((a, i) => a + i.quantity, 0);
-    invariant(
-      item && data.quantity <= item.fulfilled - item.returned - pending,
-      422,
-      "Quantity exceeds the remaining returnable items.",
-    );
-    return tx.returnRequest.create({
-      data: {
-        orderId: order.id,
-        reason: data.reason,
-        items: [{ itemId: data.itemId, quantity: data.quantity }],
-      },
-    });
+    const create = async () => {
+      const item = order.items.find((i) => i.id === data.itemId);
+      const pending = order.returns
+        .filter((r) => !["REJECTED", "RECEIVED"].includes(r.status))
+        .flatMap((r) => r.items as { itemId: string; quantity: number }[])
+        .filter((i) => i.itemId === data.itemId)
+        .reduce((a, i) => a + i.quantity, 0);
+      invariant(
+        item && data.quantity <= item.fulfilled - item.returned - pending,
+        422,
+        "Quantity exceeds the remaining returnable items.",
+      );
+      return tx.returnRequest.create({
+        data: {
+          orderId: order.id,
+          reason: data.reason,
+          items: [{ itemId: data.itemId, quantity: data.quantity }],
+        },
+      });
+    };
+    // Legacy callers may omit a key; any supplied key must be valid. Ownership
+    // is checked above even for a replay, before returning its saved result.
+    return key === undefined
+      ? create()
+      : idempotent(tx, userId, "return.request", key, data, create);
   });
 }
 export async function fulfil(

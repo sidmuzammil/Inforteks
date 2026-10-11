@@ -1,5 +1,15 @@
 # Verification report
 
+## Release audit and recovery — 11 October 2026
+
+GitHub Actions [38128613183](https://github.com/sidmuzammil/Inforteks/actions/runs/38128613183) passed every step on candidate `81c0750e2c5c6bb2dc4f7afac1670b33cb71dc7a`: setup, static/database checks, the browser suite with local Google fixture configuration, and production build. Local evidence for that candidate is 165 unit/database tests across 34 files, TypeScript, lint, formatting and OpenAPI validation (129 operations). The full local browser run passed 46 journeys with one Google fixture skip; all three strengthened checkout recovery cases passed afterward. Subsequent source changes require their own exact-commit CI; PR2 records the final candidate.
+
+The final follow-up passed **178 unit/database tests across 36 files** and **all 56 Chromium journeys with no skips** locally. TypeScript, ESLint, formatting, 129-operation OpenAPI validation and production build with both database URLs unreachable passed. New regressions reproduce and fix duplicate Direct Sales orders and customer return requests after committed responses are lost, stale proposal-decision screens, incorrect missing-order errors and unavailable staff order controls. Browser checks preserve real sign-in rate limits and use fake Google fixture credentials. The final PR head requires its own terminal CI result; the earlier candidate's run does not cover this follow-up.
+
+A read-only smoke check of that optimized standalone build visited 17 routes at 1440px, 390px and 320px (51 visits): no horizontal page overflow, uncaught JavaScript errors or broken visible images. Fourteen HTTP checks verified public empty states, demo/archived-product exclusion, private admin denial, archived-media denial and static assets. Filter-chip removal preserved category/sort at each width. Connections enforced PostgreSQL read-only mode; no fixtures were created by the smoke check. The guest saved-address lookup produces a handled 401. Local HTTP authentication and local storage correctly fail production readiness with 503; those settings were not disguised as valid production configuration. No eligible non-demo products were present, so this does not prove merchant product-photo delivery or real purchases.
+
+The audit and evidence checklist record remaining access, backup/restore, migration, catalogue and provider prerequisites. No deployment, pending Railway patch, domain or production business record was changed. Local and CI fixtures do not establish real Google consent, email delivery or payment processing.
+
 ## Marketplace layout and original colour theme — 8 October 2026
 
 The new storefront uses deep navy, jade green and soft pearl across the header, navigation, product cards, banners, product pages and isolated admin previews. Its marketplace structure was researched against Microless; the final colours and brand presentation are Inforteks-specific. No product data or infrastructure setting is changed by this presentation revision.

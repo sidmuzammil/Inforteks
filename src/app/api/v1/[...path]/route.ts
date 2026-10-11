@@ -305,7 +305,14 @@ async function dispatch(
           }),
         );
       invariant(method === "POST", 405, "Method not allowed.");
-      return ok(await requestReturn(userId, await body()), 201);
+      return ok(
+        await requestReturn(
+          userId,
+          await body(),
+          req.headers.get("idempotency-key") ?? undefined,
+        ),
+        201,
+      );
     }
     if (resource === "wishlist") {
       if (method === "GET") {

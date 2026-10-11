@@ -12,7 +12,11 @@ import {
   catalogueImportInput,
   catalogueImportCommitInput,
 } from "@/lib/catalogue-manifest";
-import { addressInput, checkoutInput } from "@/domains/commerce";
+import {
+  addressInput,
+  checkoutInput,
+  returnRequestInput,
+} from "@/domains/commerce";
 import { productMediaInput } from "@/lib/product-media";
 import { locationLookupInput } from "@/domains/geocoding";
 import {
@@ -382,7 +386,10 @@ export const apiOperations: OperationDoc[] = [
     method: "post" as const,
     path: `/account/${r}`,
     id: `createAccount${r}`,
-    summary: `Customer-owned ${r}; session and Origin required.`,
+    summary:
+      r === "returns"
+        ? "Customer-owned return request; session and Origin required. Optional Idempotency-Key binds the exact payload to the current customer, replays the original result and rejects changed payloads with 409. Unkeyed clients retain non-idempotent behavior. Does not issue a refund."
+        : `Customer-owned ${r}; session and Origin required.`,
   })),
   {
     method: "patch",
@@ -719,6 +726,7 @@ const requestSchemas: Record<string, unknown> = {
   },
   createOrder: z.toJSONSchema(checkoutInput),
   createAccountaddresses: z.toJSONSchema(addressInput),
+  createAccountreturns: z.toJSONSchema(returnRequestInput),
   setCartItem: {
     type: "object",
     required: ["skuId", "quantity"],
@@ -829,6 +837,15 @@ for (const o of apiOperations) {
       schema: { type: "string", minLength: 8, maxLength: 128 },
       description:
         "Reuse exactly for a retried checkout. A changed payload requires a new key.",
+    });
+  if (o.id === "createAccountreturns")
+    parameters.push({
+      name: "Idempotency-Key",
+      in: "header",
+      required: false,
+      schema: { type: "string", minLength: 8, maxLength: 128 },
+      description:
+        "Retain the same key and exact body after an uncertain response. A replay returns the original request with 201; a changed payload returns 409. Omitted keys retain legacy non-idempotent behavior.",
     });
   if (
     [

@@ -266,8 +266,11 @@ export function DirectOrderBuilder({
   const [searchedCustomers, setSearchedCustomers] = useState(false),
     [searchedProducts, setSearchedProducts] = useState(false);
   const key = useRef("");
+  const orderAttempt = useRef<{ key: string; body: string } | null>(null);
+  const [orderUnconfirmed, setOrderUnconfirmed] = useState(false);
   const locked = useRef(false);
   const [confirmed, setConfirmed] = useState(false);
+  const editingDisabled = busy || orderUnconfirmed;
   const payload = {
     customerId: customer?.id ?? "",
     customerVersion: customer?.version ?? 0,
@@ -321,7 +324,7 @@ export function DirectOrderBuilder({
     );
   }
   async function review() {
-    if (locked.current) return;
+    if (locked.current || orderAttempt.current) return;
     locked.current = true;
     setBusy(true);
     setError("");
@@ -346,21 +349,61 @@ export function DirectOrderBuilder({
     }
   }
   async function place() {
-    if (!quote || !confirmed || locked.current) return;
+    if (locked.current || (!orderAttempt.current && (!quote || !confirmed)))
+      return;
     locked.current = true;
     setBusy(true);
     setError("");
+    const recovering = orderUnconfirmed;
     try {
-      const order = await api<{ id: string }>(
-        "admin/direct-sales/orders",
-        { ...payload, reviewedQuote: quote.reviewedQuote, confirmed: true },
-        "POST",
-        { "Idempotency-Key": key.current },
-      );
-      router.push(`/admin/direct-sales/orders/${order.id}`);
+      if (!orderAttempt.current)
+        orderAttempt.current = {
+          key: key.current,
+          body: JSON.stringify({
+            ...payload,
+            reviewedQuote: quote!.reviewedQuote,
+            confirmed: true,
+          }),
+        };
+      const attempt = orderAttempt.current;
+      const response = await fetch("/api/v1/admin/direct-sales/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": attempt.key,
+        },
+        body: attempt.body,
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        // A first definitive refusal can be corrected. During recovery even a
+        // 4xx (for example a rate limit before idempotency lookup) cannot tell
+        // us whether the original request already committed.
+        if (response.status < 500 && !recovering) orderAttempt.current = null;
+        throw new Error(
+          result?.error?.issues?.length
+            ? result.error.issues
+                .map(
+                  (issue: { path: (string | number)[]; message: string }) =>
+                    `${issue.path.join(" → ")}: ${issue.message}`,
+                )
+                .join(". ")
+            : (result?.error?.message ?? "Unable to save the order."),
+        );
+      }
+      if (typeof result?.data?.id !== "string")
+        throw new Error("The store returned an incomplete order response.");
+      orderAttempt.current = null;
+      setOrderUnconfirmed(false);
+      router.push(`/admin/direct-sales/orders/${result.data.id}`);
       router.refresh();
     } catch (e) {
-      setError((e as Error).message);
+      setOrderUnconfirmed(Boolean(orderAttempt.current));
+      setError(
+        orderAttempt.current
+          ? "We couldn’t confirm this direct order. Check its status below before changing details or confirming another order."
+          : (e as Error).message,
+      );
       locked.current = false;
       setBusy(false);
     }
@@ -387,7 +430,7 @@ export function DirectOrderBuilder({
               {customer && !opportunity && (
                 <button
                   className="text-button"
-                  disabled={busy}
+                  disabled={editingDisabled}
                   onClick={() => {
                     setCustomer(undefined);
                     invalidate();
@@ -417,12 +460,13 @@ export function DirectOrderBuilder({
                   </label>
                   <input
                     id="office-search"
+                    disabled={editingDisabled}
                     value={customerSearch}
                     onChange={(e) => setCustomerSearch(e.target.value)}
                     placeholder="Company, contact, email or phone"
                     maxLength={160}
                   />
-                  <button className="button" disabled={busy}>
+                  <button className="button" disabled={editingDisabled}>
                     <Search size={16} />
                     Find office
                   </button>
@@ -434,7 +478,7 @@ export function DirectOrderBuilder({
                       <button
                         className="sales-search-result"
                         key={c.id}
-                        disabled={busy}
+                        disabled={editingDisabled}
                         onClick={() => {
                           setCustomer(c);
                           setNewOffice(false);
@@ -458,7 +502,7 @@ export function DirectOrderBuilder({
                 )}
                 <button
                   className="button"
-                  disabled={busy}
+                  disabled={editingDisabled}
                   onClick={() => setNewOffice(!newOffice)}
                 >
                   <Plus size={16} />
@@ -497,12 +541,13 @@ export function DirectOrderBuilder({
               </label>
               <input
                 id="direct-product-search"
+                disabled={editingDisabled}
                 value={productSearch}
                 onChange={(e) => setProductSearch(e.target.value)}
                 maxLength={160}
                 placeholder="Search product name or SKU"
               />
-              <button className="button" disabled={busy}>
+              <button className="button" disabled={editingDisabled}>
                 <Search size={16} />
                 Find products
               </button>
@@ -513,7 +558,7 @@ export function DirectOrderBuilder({
                   className="sales-search-result"
                   key={p.id}
                   disabled={
-                    busy ||
+                    editingDisabled ||
                     p.available < 1 ||
                     (lines.length >= 50 && !lines.some((l) => l.id === p.id))
                   }
@@ -560,7 +605,7 @@ export function DirectOrderBuilder({
                         min={1}
                         max={99}
                         value={l.quantity}
-                        disabled={busy}
+                        disabled={editingDisabled}
                         onChange={(e) => {
                           invalidate();
                           setLines(
@@ -577,7 +622,7 @@ export function DirectOrderBuilder({
                     <button
                       className="icon-button"
                       aria-label={`Remove ${l.code}`}
-                      disabled={busy}
+                      disabled={editingDisabled}
                       onClick={() => {
                         invalidate();
                         setLines(lines.filter((item) => item.id !== l.id));
@@ -602,7 +647,7 @@ export function DirectOrderBuilder({
                 Coupon code (optional)
                 <input
                   value={coupon}
-                  disabled={busy}
+                  disabled={editingDisabled}
                   maxLength={40}
                   onChange={(e) => {
                     invalidate();
@@ -614,7 +659,7 @@ export function DirectOrderBuilder({
                 Internal order note
                 <textarea
                   value={note}
-                  disabled={busy}
+                  disabled={editingDisabled}
                   maxLength={1000}
                   onChange={(e) => {
                     invalidate();
@@ -665,7 +710,7 @@ export function DirectOrderBuilder({
                 <input
                   type="checkbox"
                   checked={confirmed}
-                  disabled={busy}
+                  disabled={editingDisabled}
                   onChange={(e) => setConfirmed(e.target.checked)}
                 />
                 I confirmed these items, the delivery address and total with the
@@ -673,13 +718,23 @@ export function DirectOrderBuilder({
               </label>
               <button
                 className="button primary"
-                disabled={busy || !confirmed}
+                disabled={busy || (!orderUnconfirmed && !confirmed)}
                 onClick={place}
               >
-                {busy ? "Saving order…" : "Confirm direct order"}
+                {busy
+                  ? orderUnconfirmed
+                    ? "Checking order…"
+                    : "Saving order…"
+                  : orderUnconfirmed
+                    ? "Check order status"
+                    : "Confirm direct order"}
                 <ArrowRight size={16} />
               </button>
-              <button className="text-button" disabled={busy} onClick={review}>
+              <button
+                className="text-button"
+                disabled={editingDisabled}
+                onClick={review}
+              >
                 Refresh prices & review
               </button>
             </>
@@ -697,7 +752,7 @@ export function DirectOrderBuilder({
               </div>
               <button
                 className="button primary"
-                disabled={busy || !customer || !lines.length}
+                disabled={editingDisabled || !customer || !lines.length}
                 onClick={review}
               >
                 {busy ? "Checking…" : "Review order total"}
