@@ -3592,6 +3592,10 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+.storefront-shell .home-front-slot {
+  display: grid;
+  min-width: 0;
+}
 .storefront-shell .home-front-main {
   display: flex;
   flex-direction: column;

@@ -204,6 +204,14 @@ test("product banners support keyboard, slide selection and mobile swipe without
   await expectSlide(region, 0);
   await expect(region).toContainText("Request a quote");
   await expect(region).not.toContainText(/AED|In stock|Out of stock/);
+  const front = page.getByRole("region", { name: "Discover Inforteks" });
+  await expect(
+    front.getByRole("navigation", { name: "Departments" }),
+  ).toBeVisible();
+  await expect(
+    front.getByRole("link", { name: /Request a quote/ }),
+  ).toHaveAttribute("href", "/contact");
+  await expect(front.getByRole("link", { name: /Track order/ })).toBeVisible();
   await page.screenshot({
     path: ".data/screenshots/product-carousel-desktop.png",
     animations: "disabled",

@@ -112,12 +112,20 @@ export function HomeSectionView({
       <div
         className={`hero-composition marketplace-hero ${sideCards.length ? "has-side-banners" : ""}`}
       >
-        {slides.length ? (
+        {slides.length && sideCards.length ? (
           <ProductHeroCarousel
             slides={slides}
             autoplay={c.autoplay}
             preview={preview}
           />
+        ) : slides.length ? (
+          <HomeFront categories={categories}>
+            <ProductHeroCarousel
+              slides={slides}
+              autoplay={c.autoplay}
+              preview={preview}
+            />
+          </HomeFront>
         ) : legacyBanner ? (
           <section
             className={`hero-main hero-legacy tone-${c.tone}`}

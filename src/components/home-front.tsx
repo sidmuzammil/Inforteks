@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
   ArrowUpRight,
   BadgePercent,
@@ -21,11 +22,18 @@ const shortcuts = [
 ];
 
 /**
- * The above-the-fold shopping panel shown when no product or banner slides are
- * configured: departments, shortcuts and the quote route stay in view without
- * scrolling. It contains no artwork, so it never implies product photography.
+ * The above-the-fold shopping panel: departments, shortcuts and the quote route
+ * stay in view without scrolling. Configured product slides take the middle
+ * column; without them it shows a text panel with no artwork, so it never
+ * implies product photography.
  */
-export function HomeFront({ categories }: { categories: Department[] }) {
+export function HomeFront({
+  categories,
+  children,
+}: {
+  categories: Department[];
+  children?: ReactNode;
+}) {
   const departments = categories.slice(0, 10);
   return (
     <section className="home-front" aria-label="Discover Inforteks">
@@ -51,32 +59,36 @@ export function HomeFront({ categories }: { categories: Department[] }) {
           </Link>
         </nav>
       )}
-      <div className="home-front-main">
-        <span className="eyebrow">IT products for home and business</span>
-        <h1>Everything for your workspace, in one place.</h1>
-        <p>
-          Shop laptops, monitors, printers, networking and accessories online,
-          or ask our team for a business quotation.
-        </p>
-        <div className="home-front-actions">
-          <Link href="/search" className="button primary">
-            Shop all products <ArrowUpRight size={17} />
-          </Link>
-          <Link href="/categories" className="button home-front-outline">
-            Browse departments
-          </Link>
+      {children ? (
+        <div className="home-front-slot">{children}</div>
+      ) : (
+        <div className="home-front-main">
+          <span className="eyebrow">IT products for home and business</span>
+          <h1>Everything for your workspace, in one place.</h1>
+          <p>
+            Shop laptops, monitors, printers, networking and accessories online,
+            or ask our team for a business quotation.
+          </p>
+          <div className="home-front-actions">
+            <Link href="/search" className="button primary">
+              Shop all products <ArrowUpRight size={17} />
+            </Link>
+            <Link href="/categories" className="button home-front-outline">
+              Browse departments
+            </Link>
+          </div>
+          <ul className="home-front-shortcuts">
+            {shortcuts.map(({ href, label, Icon }) => (
+              <li key={href}>
+                <Link href={href}>
+                  <Icon size={18} aria-hidden="true" />
+                  {label}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul className="home-front-shortcuts">
-          {shortcuts.map(({ href, label, Icon }) => (
-            <li key={href}>
-              <Link href={href}>
-                <Icon size={18} aria-hidden="true" />
-                {label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </div>
+      )}
       <div className="home-front-side">
         <Link href="/contact" className="home-front-card quote">
           <ClipboardList size={22} aria-hidden="true" />
