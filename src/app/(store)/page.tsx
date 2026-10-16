@@ -111,6 +111,7 @@ export default async function Home() {
               categories={categories}
               products={products}
               heroProducts={heroProducts}
+              front={index === heroIndex}
             />
             {index === heroIndex && <Benefits strip />}
           </Fragment>

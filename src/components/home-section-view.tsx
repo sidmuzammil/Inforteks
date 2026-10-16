@@ -92,7 +92,8 @@ export function HomeSectionView({
   heroProducts = [],
   categories = [],
   preview = false,
-}: SectionPreviewData & { preview?: boolean }) {
+  front = true,
+}: SectionPreviewData & { preview?: boolean; front?: boolean }) {
   const c = s.content;
   if (s.kind === "html")
     return (
@@ -112,7 +113,7 @@ export function HomeSectionView({
       <div
         className={`hero-composition marketplace-hero ${sideCards.length ? "has-side-banners" : ""}`}
       >
-        {slides.length && sideCards.length ? (
+        {slides.length && (sideCards.length || !front) ? (
           <ProductHeroCarousel
             slides={slides}
             autoplay={c.autoplay}
@@ -151,9 +152,9 @@ export function HomeSectionView({
               <div className="hero-foot">{c.footer}</div>
             </div>
           </section>
-        ) : (
+        ) : front ? (
           <HomeFront categories={categories} />
-        )}
+        ) : null}
         {sideCards.length > 0 && (
           <div className="hero-side real-side-banners">
             {sideCards.map((card, i) => (

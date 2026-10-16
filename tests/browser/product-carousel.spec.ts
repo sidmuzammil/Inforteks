@@ -204,7 +204,12 @@ test("product banners support keyboard, slide selection and mobile swipe without
   await expectSlide(region, 0);
   await expect(region).toContainText("Request a quote");
   await expect(region).not.toContainText(/AED|In stock|Out of stock/);
-  const front = page.getByRole("region", { name: "Discover Inforteks" });
+  const front = page
+    .getByRole("region", { name: "Discover Inforteks" })
+    .filter({ has: region });
+  await expect(
+    page.getByRole("navigation", { name: "Departments" }),
+  ).toHaveCount(1);
   await expect(
     front.getByRole("navigation", { name: "Departments" }),
   ).toBeVisible();
