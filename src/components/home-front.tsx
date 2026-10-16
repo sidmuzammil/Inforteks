@@ -36,7 +36,10 @@ export function HomeFront({
 }) {
   const departments = categories.slice(0, 10);
   return (
-    <section className="home-front" aria-label="Discover Inforteks">
+    <section
+      className={`home-front${departments.length ? "" : " no-departments"}`}
+      aria-label="Discover Inforteks"
+    >
       {departments.length > 0 && (
         <nav className="home-front-departments" aria-label="Departments">
           <h2>Departments</h2>
