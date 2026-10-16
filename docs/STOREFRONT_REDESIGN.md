@@ -20,6 +20,10 @@ Desktop navigation is driven by visible categories, with parent/child groups in 
 
 Product cards emphasize brand, name, highlights, AED price, genuine previous-price savings, availability, cart, wishlist and comparison. Sample cards carry an explicit illustrative label. Responsive category tiles, banners, shopping grids/rows and brand links use the existing catalogue and checkout.
 
+## Everything in view — 16 October 2026
+
+The homepage now follows the department-store density of https://www.alershadonline.com/ while keeping the Inforteks palette, copy and catalogue. Without configured hero slides, the first screen shows a department list, the main shopping actions (all products, departments, offers, new arrivals, brands, compare) and two service cards for business quotes and order tracking. The help strip sits directly under the hero instead of above the footer. After the configured sections, every visible top-level department with published Online Store products gets its own scrolling shelf with a "View all" link, unless a configured section already filters that department. The same public catalogue query is used, so drafts, Direct-only products and hidden categories stay excluded. No new delivery, warranty or pricing promises were added.
+
 ## Online Store controls
 
 Open Online Store → Homepage → Edit & preview. Existing sections and their saved copy, schedules, media and visibility remain intact. Banners offer Midnight navy, Jade green and Soft pearl themes. The existing stored `blue` tone value remains backward compatible and is presented as Jade green. Product sections offer a responsive grid or horizontal row, 1–12 products, and optional department and collection filters. Filters combine with the section's Featured, Discounted or New arrivals selection. Curated shopping sections use newest matching products.

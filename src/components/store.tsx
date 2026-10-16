@@ -123,9 +123,11 @@ export function Breadcrumbs({
     </nav>
   );
 }
-export function Benefits() {
+export function Benefits({ strip = false }: { strip?: boolean }) {
   return (
-    <div className="benefits marketplace-benefits container">
+    <div
+      className={`benefits marketplace-benefits ${strip ? "benefits-strip" : "container"}`}
+    >
       <div>
         <Box />
         <span>

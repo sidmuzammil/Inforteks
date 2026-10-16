@@ -65,13 +65,16 @@ test("storefront layouts, navigation and images at four viewport widths", async 
       .first();
     await expect(
       discovery.getByRole("heading", {
-        name: "Find your next essential.",
+        name: "Everything for your workspace, in one place.",
         exact: true,
       }),
     ).toBeVisible();
     await expect(
       discovery.getByRole("link", { name: "Browse departments", exact: true }),
     ).toHaveAttribute("href", "/categories");
+    await expect(
+      discovery.getByRole("link", { name: "Request a quote" }),
+    ).toHaveAttribute("href", "/contact");
     await expect(discovery.locator("img")).toHaveCount(0);
     await expect(
       page.locator(

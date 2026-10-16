@@ -831,8 +831,12 @@
   gap: 14px;
   margin-bottom: 16px;
 }
+.storefront-shell .section-heading > div {
+  min-width: 0;
+}
 .storefront-shell .section-heading h2 {
   max-width: none;
+  overflow-wrap: anywhere;
   color: #203446;
   font-size: 21px;
   line-height: 1.2;
@@ -3528,5 +3532,245 @@
   }
   .storefront-shell .directory-card {
     padding: 13px;
+  }
+}
+
+/* Above-the-fold shopping panel: departments, shortcuts and quotes in view. */
+.storefront-shell .home-front {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr) 260px;
+  gap: 14px;
+  align-items: stretch;
+}
+.storefront-shell .home-front-departments {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--market-line);
+  border-radius: 3px;
+  background: #fff;
+}
+.storefront-shell .home-front-departments h2 {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--market-line);
+  color: var(--market-ink);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+.storefront-shell .home-front-departments ul {
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+}
+.storefront-shell .home-front-departments li a {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 7px 14px;
+  color: #203446;
+  font-size: 12px;
+  font-weight: 550;
+}
+.storefront-shell .home-front-departments li a:hover,
+.storefront-shell .home-front-departments li a:focus-visible {
+  background: #f0f8f5;
+  color: var(--market-accent-hover);
+}
+.storefront-shell .home-front-departments li a > svg:last-child {
+  color: #8a99a6;
+}
+.storefront-shell .home-front-all {
+  margin-top: auto;
+  padding: 11px 14px;
+  border-top: 1px solid var(--market-line);
+  color: var(--market-accent-hover);
+  font-size: 12px;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.storefront-shell .home-front-main {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+  padding: 34px 38px;
+  border-radius: 3px;
+  background: linear-gradient(135deg, #0c1d32 0%, #12324a 62%, #0f4c49 100%);
+  color: #fff;
+}
+.storefront-shell .home-front-main .eyebrow {
+  color: var(--market-on-dark);
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.storefront-shell .home-front-main h1 {
+  max-width: 560px;
+  color: #fff;
+  font-size: 36px;
+  line-height: 1.12;
+  font-weight: 750;
+  letter-spacing: -0.8px;
+}
+.storefront-shell .home-front-main p {
+  max-width: 520px;
+  color: #d5e1e8;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.storefront-shell .home-front-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.storefront-shell .home-front-actions .button.primary {
+  background: #10a08f;
+  border-color: #10a08f;
+}
+.storefront-shell .home-front-actions .button.primary:hover {
+  background: #0d8a7c;
+  border-color: #0d8a7c;
+}
+.storefront-shell .home-front-outline {
+  border: 1px solid #ffffff66;
+  background: transparent;
+  color: #fff;
+}
+.storefront-shell .home-front-outline:hover {
+  border-color: #fff;
+  background: #ffffff14;
+}
+.storefront-shell .home-front-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.storefront-shell .home-front-shortcuts a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid #ffffff2e;
+  border-radius: 3px;
+  background: #ffffff0f;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+.storefront-shell .home-front-shortcuts a:hover {
+  border-color: var(--market-on-dark);
+  background: #ffffff1f;
+}
+.storefront-shell .home-front-shortcuts svg {
+  color: var(--market-on-dark);
+}
+.storefront-shell .home-front-side {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 14px;
+}
+.storefront-shell .home-front-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px;
+  border: 1px solid var(--market-line);
+  border-radius: 3px;
+  background: #f5f8f9;
+  color: #203446;
+}
+.storefront-shell .home-front-card.quote {
+  border-color: #b9ddd2;
+  background: #eaf6f2;
+}
+.storefront-shell .home-front-card svg {
+  color: var(--market-accent);
+}
+.storefront-shell .home-front-card b {
+  font-size: 15px;
+  font-weight: 700;
+}
+.storefront-shell .home-front-card small {
+  color: var(--market-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.storefront-shell .home-front-card span {
+  margin-top: auto;
+  color: var(--market-accent-hover);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.storefront-shell .home-front-card:hover {
+  border-color: #5e9e8c;
+}
+.storefront-shell .benefits.benefits-strip {
+  margin-top: 14px;
+  padding: 14px 18px;
+  border: 1px solid var(--market-line);
+  border-radius: 3px;
+  background: #fff;
+}
+.storefront-shell .benefits.benefits-strip > div {
+  align-items: center;
+}
+@media (max-width: 1200px) {
+  .storefront-shell .home-front {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .storefront-shell .home-front-side {
+    grid-column: 1 / -1;
+    grid-template-rows: none;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 960px) {
+  .storefront-shell .home-front {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .storefront-shell .home-front-departments {
+    display: none;
+  }
+  .storefront-shell .home-front-main {
+    padding: 26px 22px;
+  }
+  .storefront-shell .home-front-main h1 {
+    font-size: 28px;
+  }
+  .storefront-shell .home-front-shortcuts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .storefront-shell .home-front-main h1 {
+    font-size: 24px;
+  }
+  .storefront-shell .home-front-main p {
+    font-size: 13px;
+  }
+  .storefront-shell .home-front-side {
+    gap: 10px;
+  }
+  .storefront-shell .home-front-card {
+    padding: 13px;
+  }
+  .storefront-shell .home-front-card b {
+    font-size: 13px;
+  }
+  .storefront-shell .home-front-card small {
+    display: none;
+  }
+  .storefront-shell .benefits.benefits-strip {
+    padding: 12px;
   }
 }
