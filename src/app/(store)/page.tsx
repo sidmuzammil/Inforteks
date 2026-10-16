@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { catalogue } from "@/domains/catalogue";
@@ -28,7 +29,7 @@ export default async function Home() {
       where: { visible: true, parentId: null },
       orderBy: { position: "asc" },
     }),
-    db.brand.findMany({ take: 7, orderBy: { name: "asc" } }),
+    db.brand.findMany({ take: 12, orderBy: { name: "asc" } }),
   ]);
   const prepared = await Promise.all(
     sections.map(async (section) => {
@@ -54,6 +55,29 @@ export default async function Home() {
   const catalogueShelf = prepared.some(({ products }) => products.length)
     ? null
     : await catalogue({ sort: "newest", limit: 12 });
+  // Like a department store floor, every top-level department with published
+  // products gets its own shelf unless an existing section already curates it.
+  const curated = new Set(
+    prepared.map(({ section }) => section.content.categorySlug).filter(Boolean),
+  );
+  const departmentShelves = (
+    await Promise.all(
+      categories
+        .filter((category) => !curated.has(category.slug))
+        .slice(0, 10)
+        .map(async (category) => ({
+          category,
+          selection: await catalogue({
+            category: category.slug,
+            sort: "newest",
+            limit: 12,
+          }),
+        })),
+    )
+  ).filter(({ selection }) => selection.products.length > 0);
+  const heroIndex = prepared.findIndex(
+    ({ section }) => section.kind === "hero",
+  );
   const showCategoryShortcuts =
     categories.length > 0 &&
     !prepared.some(({ section }) => section.kind === "categories");
@@ -79,32 +103,55 @@ export default async function Home() {
             </Link>
           </nav>
         )}
-        {prepared.map(({ section, products, heroProducts }) => (
-          <HomeSectionView
-            key={section.id}
-            section={section}
-            categories={categories}
-            products={products}
-            heroProducts={heroProducts}
-          />
+        {heroIndex < 0 && <Benefits strip />}
+        {prepared.map(({ section, products, heroProducts }, index) => (
+          <Fragment key={section.id}>
+            <HomeSectionView
+              section={section}
+              categories={categories}
+              products={products}
+              heroProducts={heroProducts}
+            />
+            {index === heroIndex && <Benefits strip />}
+          </Fragment>
         ))}
-        {catalogueShelf && catalogueShelf.products.length > 0 && (
+        {catalogueShelf &&
+          !departmentShelves.length &&
+          catalogueShelf.products.length > 0 && (
+            <HomeSectionView
+              section={{
+                kind: "collection",
+                title: "Discover our products",
+                subtitle: "Browse the latest additions to Inforteks",
+                href: "/search",
+                buttonLabel: `View all ${catalogueShelf.total} products`,
+                bannerMediaId: null,
+                position: 0,
+                visible: true,
+                content: { ...defaultContent, productLimit: 12 },
+              }}
+              products={catalogueShelf.products}
+              categories={[]}
+            />
+          )}
+        {departmentShelves.map(({ category, selection }) => (
           <HomeSectionView
+            key={category.id}
             section={{
               kind: "collection",
-              title: "Discover our products",
-              subtitle: "Browse the latest additions to Inforteks",
-              href: "/search",
-              buttonLabel: `View all ${catalogueShelf.total} products`,
+              title: category.name,
+              subtitle: `${selection.total} ${selection.total === 1 ? "product" : "products"}`,
+              href: `/category/${category.slug}`,
+              buttonLabel: `View all ${category.name}`,
               bannerMediaId: null,
               position: 0,
               visible: true,
-              content: { ...defaultContent, productLimit: 12 },
+              content: { ...defaultContent, layout: "rail", productLimit: 12 },
             }}
-            products={catalogueShelf.products}
+            products={selection.products}
             categories={[]}
           />
-        )}
+        ))}
         {brands.length > 0 && (
           <section className="brands-strip marketplace-brands">
             <h2>Shop by brand</h2>
@@ -118,7 +165,6 @@ export default async function Home() {
           </section>
         )}
       </div>
-      <Benefits />
     </>
   );
 }

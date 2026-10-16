@@ -4,6 +4,7 @@ import type { HomeSectionData } from "@/lib/home-sections";
 import type { PublicProduct } from "@/domains/catalogue";
 import { ProductCard, SectionHeading } from "./catalogue-cards";
 import { DepartmentIcon } from "./department-icon";
+import { HomeFront } from "./home-front";
 import {
   ProductHeroCarousel,
   type ProductHeroSlide,
@@ -143,19 +144,7 @@ export function HomeSectionView({
             </div>
           </section>
         ) : (
-          <section className="store-discovery" aria-label="Discover Inforteks">
-            <div>
-              <span className="eyebrow">EXPLORE INFORTEKS</span>
-              <h1>Find your next essential.</h1>
-              <p>
-                Explore our departments or search for the product you have in
-                mind.
-              </p>
-            </div>
-            <Link href="/categories" className="button primary">
-              Browse departments <ArrowUpRight size={18} />
-            </Link>
-          </section>
+          <HomeFront categories={categories} />
         )}
         {sideCards.length > 0 && (
           <div className="hero-side real-side-banners">
