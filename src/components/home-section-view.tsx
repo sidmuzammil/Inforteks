@@ -92,7 +92,8 @@ export function HomeSectionView({
   heroProducts = [],
   categories = [],
   preview = false,
-}: SectionPreviewData & { preview?: boolean }) {
+  front = true,
+}: SectionPreviewData & { preview?: boolean; front?: boolean }) {
   const c = s.content;
   if (s.kind === "html")
     return (
@@ -108,16 +109,27 @@ export function HomeSectionView({
       ? c.sideCards.filter((card) => card.mediaId)
       : [];
     const legacyBanner = !c.heroSlides.length && s.bannerMediaId;
+    // Only the first hero carries the shopping panel; a later hero with no
+    // slide or banner left to show would be an empty frame, so it is hidden.
+    if (!front && !slides.length && !legacyBanner) return null;
     return (
       <div
         className={`hero-composition marketplace-hero ${sideCards.length ? "has-side-banners" : ""}`}
       >
-        {slides.length ? (
+        {slides.length && (sideCards.length || !front) ? (
           <ProductHeroCarousel
             slides={slides}
             autoplay={c.autoplay}
             preview={preview}
           />
+        ) : slides.length ? (
+          <HomeFront categories={categories}>
+            <ProductHeroCarousel
+              slides={slides}
+              autoplay={c.autoplay}
+              preview={preview}
+            />
+          </HomeFront>
         ) : legacyBanner ? (
           <section
             className={`hero-main hero-legacy tone-${c.tone}`}
@@ -143,9 +155,9 @@ export function HomeSectionView({
               <div className="hero-foot">{c.footer}</div>
             </div>
           </section>
-        ) : (
+        ) : front ? (
           <HomeFront categories={categories} />
-        )}
+        ) : null}
         {sideCards.length > 0 && (
           <div className="hero-side real-side-banners">
             {sideCards.map((card, i) => (

@@ -3592,6 +3592,13 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+.storefront-shell .home-front.no-departments {
+  grid-template-columns: minmax(0, 1fr) 260px;
+}
+.storefront-shell .home-front-slot {
+  display: grid;
+  min-width: 0;
+}
 .storefront-shell .home-front-main {
   display: flex;
   flex-direction: column;
@@ -3727,6 +3734,9 @@
 @media (max-width: 1200px) {
   .storefront-shell .home-front {
     grid-template-columns: 220px minmax(0, 1fr);
+  }
+  .storefront-shell .home-front.no-departments {
+    grid-template-columns: minmax(0, 1fr);
   }
   .storefront-shell .home-front-side {
     grid-column: 1 / -1;

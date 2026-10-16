@@ -290,7 +290,8 @@ export async function previewHomeSection(actor: Actor, raw: unknown) {
     productSectionKinds.includes(section.kind)
       ? catalogue(sectionProductQuery(section))
       : null,
-    section.kind === "categories"
+    // Heroes preview with the same departments panel the storefront shows.
+    section.kind === "categories" || section.kind === "hero"
       ? db.category.findMany({
           where: { visible: true, parentId: null },
           orderBy: { position: "asc" },
