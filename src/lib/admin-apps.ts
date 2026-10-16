@@ -1,3 +1,5 @@
+import { approvalScopes } from "./approval-permissions";
+
 export type AdminLink = {
   href: string;
   label: string;
@@ -201,7 +203,11 @@ export const adminApps: AdminApp[] = [
       { href: "/admin/orders", label: "All orders", scope: "orders:read" },
       { href: "/admin/returns", label: "Returns", scope: "returns:write" },
       { href: "/admin/reports", label: "Reports", scope: "reports:read" },
-      { href: "/admin/proposals", label: "Approvals", scope: "ai:use" },
+      {
+        href: "/admin/proposals",
+        label: "Approvals",
+        any: [...approvalScopes],
+      },
       { href: "/admin/assistant", label: "AI assistant", scope: "ai:use" },
       { href: "/admin/jobs", label: "Background jobs", scope: "audit:read" },
     ],

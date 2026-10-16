@@ -100,6 +100,8 @@ export type Actor = {
   source: "admin" | "api" | "ai" | "customer" | "system";
   human: boolean;
   role?: string;
+  // Credential provenance, distinct from the integration client's identity.
+  keyId?: string;
 };
 export const hash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
@@ -112,8 +114,8 @@ export function requireScope(actor: Actor, scope: Permission) {
     "FORBIDDEN",
   );
 }
-export async function actorForUser(id: string): Promise<Actor> {
-  const u = await db.user.findUnique({ where: { id } });
+export async function actorForUser(id: string, tx: Tx = db): Promise<Actor> {
+  const u = await tx.user.findUnique({ where: { id } });
   invariant(u, 401, "Please sign in.");
   return {
     id,
@@ -140,10 +142,49 @@ export async function authenticateKey(token: string): Promise<Actor> {
   });
   return {
     id: key.clientId,
+    keyId: key.id,
     scopes: key.scopes.filter((s) => key.client.scopes.includes(s)),
     source: "api",
     human: false,
   };
+}
+export async function requireCurrentKeyAuthority(
+  tx: Tx,
+  clientId: string,
+  keyId: string | null | undefined,
+  required: readonly Permission[],
+) {
+  invariant(
+    keyId,
+    403,
+    "Original API key is unknown. Submit a new proposal with an active key.",
+  );
+  // Keep both authority records stable through proposal creation/application.
+  // Revocation and scope/activity updates serialize with these shared locks.
+  await tx.$queryRaw`SELECT id FROM "ApiClient" WHERE id=${clientId} FOR SHARE`;
+  await tx.$queryRaw`SELECT id FROM "ApiKey" WHERE id=${keyId} AND "clientId"=${clientId} FOR SHARE`;
+  const key = await tx.apiKey.findFirst({
+    where: { id: keyId, clientId },
+    select: {
+      revokedAt: true,
+      expiresAt: true,
+      scopes: true,
+      client: { select: { active: true, scopes: true } },
+    },
+  });
+  invariant(
+    key &&
+      !key.revokedAt &&
+      key.expiresAt > new Date() &&
+      key.client.active &&
+      required.every(
+        (scope) =>
+          key.scopes.includes(scope) && key.client.scopes.includes(scope),
+      ),
+    403,
+    "Original API key or client no longer has permission. Submit a new proposal with an active key.",
+  );
+  return key.expiresAt;
 }
 export async function audit(
   tx: Tx,

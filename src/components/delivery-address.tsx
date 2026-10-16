@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { LocateFixed, MapPin } from "lucide-react";
 import { api } from "./store-client";
@@ -42,12 +42,15 @@ export function DeliveryAddressFields({
   onEmirateChange,
   initial,
   saved = [],
+  errors = {},
 }: {
   emirate: string;
   onEmirateChange: (value: string) => void;
   initial?: SavedAddress;
   saved?: SavedAddress[];
+  errors?: Record<string, string>;
 }) {
+  const fieldId = useId();
   const [fields, setFields] = useState(
     () =>
       ({
@@ -70,6 +73,7 @@ export function DeliveryAddressFields({
   const [notice, setNotice] = useState("");
   const [googleSuggestion, setGoogleSuggestion] = useState(false);
   const [lookupEnabled, setLookupEnabled] = useState(false);
+  const [lookupReady, setLookupReady] = useState(false);
   const generation = useRef(0);
   const mounted = useRef(true);
   useEffect(() => {
@@ -79,7 +83,10 @@ export function DeliveryAddressFields({
       .then((r) => {
         if (active) setLookupEnabled(r.enabled);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (active) setLookupReady(true);
+      });
     return () => {
       active = false;
       mounted.current = false;
@@ -237,7 +244,9 @@ export function DeliveryAddressFields({
         <button
           type="button"
           className="button"
-          disabled={busy}
+          // Wait for capability discovery so the click uses the displayed
+          // lookup consent and cannot capture the initial disabled state.
+          disabled={busy || !lookupReady}
           onClick={() => void detect()}
         >
           <LocateFixed size={18} />
@@ -321,9 +330,31 @@ export function DeliveryAddressFields({
               maxLength={maxLength}
               autoComplete={autoComplete}
               type={name === "phone" ? "tel" : "text"}
+              aria-invalid={Boolean(errors[name]) || undefined}
+              aria-describedby={
+                [
+                  name === "phone" ? `${fieldId}-phone-help` : "",
+                  errors[name] ? `${fieldId}-${name}-error` : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ") || undefined
+              }
               value={fields[name]}
               onChange={(e) => setFields({ ...fields, [name]: e.target.value })}
             />
+            {name === "phone" && (
+              <small className="form-help" id={`${fieldId}-phone-help`}>
+                Start with +971, for example +971 50 123 4567.
+              </small>
+            )}
+            {errors[name] && (
+              <small
+                className="address-field-error"
+                id={`${fieldId}-${name}-error`}
+              >
+                {errors[name]}
+              </small>
+            )}
           </label>
         ))}
         <label>
@@ -373,6 +404,17 @@ export function DeliveryAddressFields({
               required={required}
               maxLength={maxLength}
               autoComplete={autoComplete}
+              aria-invalid={Boolean(errors[name]) || undefined}
+              aria-describedby={
+                [
+                  name === "postalCode" || name === "line1"
+                    ? `${fieldId}-${name}-help`
+                    : "",
+                  errors[name] ? `${fieldId}-${name}-error` : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ") || undefined
+              }
               value={fields[name]}
               onChange={(e) => {
                 changed();
@@ -380,14 +422,22 @@ export function DeliveryAddressFields({
               }}
             />
             {name === "postalCode" && (
-              <small className="form-help">
+              <small className="form-help" id={`${fieldId}-postalCode-help`}>
                 Leave blank if your address has no postal code. Do not enter a
                 made-up code.
               </small>
             )}
             {name === "line1" && (
-              <small className="form-help">
+              <small className="form-help" id={`${fieldId}-line1-help`}>
                 Include the building or villa, street, apartment and floor.
+              </small>
+            )}
+            {errors[name] && (
+              <small
+                className="address-field-error"
+                id={`${fieldId}-${name}-error`}
+              >
+                {errors[name]}
               </small>
             )}
           </label>

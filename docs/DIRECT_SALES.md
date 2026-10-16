@@ -23,6 +23,8 @@ Reservations for unpaid, unfulfilled orders expire after **24 hours**, matching 
 
 Network retries with the same request key return the same order. Changed prices, coupon terms, office details or delivery quotes require a new review. Confirming an order locks and checks stock again; another online or direct order cannot oversell the same unit. The same SKU can appear only once per order, with combined quantity (1–99 units per SKU, up to 50 distinct SKUs).
 
+If the save response is interrupted, use **Check order status**. The page keeps the original reviewed request and locks editing until it can confirm the outcome; refreshing a quote cannot accidentally create a second order. A temporary retry refusal such as a rate limit keeps that original request. Recovery is retained only while the page remains open. If it cannot resolve, check the existing Direct Sales orders before leaving or entering another order; do not assume a failed response means nothing was saved. A definite first-attempt validation or stale-quote refusal still allows correction and a fresh review.
+
 ## Visits and repeat business
 
 Open an office profile to edit contact details, see order history or record a visit. Choose an outcome, enter notes and optionally set the next follow-up. Staff-entered follow-up times and displayed visit times use **UAE time (UTC+4)**. Follow-ups are staff tasks, not automatic email/SMS notifications. Mark one complete after handling it.

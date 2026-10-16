@@ -7,7 +7,16 @@ import {
 } from "@/domains/direct-sales";
 import { z } from "zod";
 import { productInput } from "@/domains/catalogue";
-import { addressInput, checkoutInput } from "@/domains/commerce";
+import { inquiryInput } from "@/domains/inquiries";
+import {
+  catalogueImportInput,
+  catalogueImportCommitInput,
+} from "@/lib/catalogue-manifest";
+import {
+  addressInput,
+  checkoutInput,
+  returnRequestInput,
+} from "@/domains/commerce";
 import { productMediaInput } from "@/lib/product-media";
 import { locationLookupInput } from "@/domains/geocoding";
 import {
@@ -25,6 +34,22 @@ type OperationDoc = {
   summary: string;
 };
 export const apiOperations: OperationDoc[] = [
+  {
+    method: "post",
+    path: "/admin/catalogue-imports",
+    id: "previewCatalogueImport",
+    scope: "catalog:write",
+    summary:
+      "Preview up to 100 researched quote-only catalogue records. Identifies source/SKU/MPN conflicts, missing photographs and unresolved research. Saves a private 15-minute preview; creates no products.",
+  },
+  {
+    method: "post",
+    path: "/admin/catalogue-imports/{id}/commit",
+    id: "commitCatalogueImport",
+    scope: "catalog:write",
+    summary:
+      "Human staff session only. Rechecks permissions, exact manifest fingerprint and conflicts; creates additive quote-only drafts without prices or inventory. Identical retries preserve existing products. Upload real media and approve publication separately.",
+  },
   {
     method: "get",
     path: "/admin/contacts",
@@ -291,7 +316,7 @@ export const apiOperations: OperationDoc[] = [
     path: "/storefront/products",
     id: "listProducts",
     summary:
-      "Published catalogue; q, category, brand, ram, storage, min/max AED, availability, sort and page filters.",
+      "Published catalogue; q, category, brand, spec.<key>, legacy ram/storage, min/max AED, availability, sort and page filters. facets.specifications contains category-aware controls from actual public scalar attributes; all specification filters must match one configuration.",
   },
   {
     method: "get",
@@ -303,7 +328,8 @@ export const apiOperations: OperationDoc[] = [
     method: "get",
     path: "/storefront/search",
     id: "searchProducts",
-    summary: "Bounded catalogue search and facets.",
+    summary:
+      "Bounded catalogue search and category-aware facets. Use spec.<key>=<exact stored value>; product facts are overridden by SKU options, then SKU specifications. Facet choices retain eligible alternatives for empty-result recovery.",
   },
   ...["categories", "brands", "collections"].map((r) => ({
     method: "get" as const,
@@ -347,7 +373,8 @@ export const apiOperations: OperationDoc[] = [
     method: "post",
     path: "/storefront/inquiries",
     id: "createInquiry",
-    summary: "Save a contact inquiry; does not claim email delivery.",
+    summary:
+      "Save a contact or product quote inquiry. Product/SKU references are checked against current public visibility; no order or reservation is created.",
   },
   ...["profile", "addresses", "orders", "returns", "wishlist"].map((r) => ({
     method: "get" as const,
@@ -359,7 +386,10 @@ export const apiOperations: OperationDoc[] = [
     method: "post" as const,
     path: `/account/${r}`,
     id: `createAccount${r}`,
-    summary: `Customer-owned ${r}; session and Origin required.`,
+    summary:
+      r === "returns"
+        ? "Customer-owned return request; session and Origin required. Optional Idempotency-Key binds the exact payload to the current customer, replays the original result and rejects changed payloads with 409. Unkeyed clients retain non-idempotent behavior. Does not issue a refund."
+        : `Customer-owned ${r}; session and Origin required.`,
   })),
   {
     method: "patch",
@@ -514,13 +544,14 @@ export const apiOperations: OperationDoc[] = [
     path: "/admin/proposals/{id}/approve",
     id: "approveProposal",
     summary:
-      "Human session only. Current operation scope, versions and expiry rechecked.",
+      "Human session only. All required current scopes, versions and expiry rechecked. Returns an approval receipt, not the unrestricted target record.",
   },
   {
     method: "post",
     path: "/admin/proposals/{id}/reject",
     id: "rejectProposal",
-    summary: "Initiating human or Owner may reject.",
+    summary:
+      "Current initiating staff or Owner may reject a pending proposal. Serializes with approval and audits the decision; terminal proposals return 409. Success returns {rejected: true}.",
   },
   ...Object.entries({
     categories: "catalog:write",
@@ -567,7 +598,6 @@ export const apiOperations: OperationDoc[] = [
     "audit-events": "audit:read",
     settings: "integrations:manage",
     reports: "reports:read",
-    proposals: "ai:use",
   }).map(([r, scope]) => ({
     method: "get" as const,
     path: `/admin/${r}`,
@@ -575,6 +605,13 @@ export const apiOperations: OperationDoc[] = [
     scope,
     summary: "Permission-filtered list, 30 records per page.",
   })),
+  {
+    method: "get",
+    path: "/admin/proposals",
+    id: "list_proposals",
+    summary:
+      "Own proposals (Owner may review all), filtered by current operation permissions. AI access is not required.",
+  },
   {
     method: "post",
     path: "/admin/api-keys",
@@ -661,6 +698,9 @@ export const apiOperations: OperationDoc[] = [
   },
 ];
 const requestSchemas: Record<string, unknown> = {
+  createInquiry: z.toJSONSchema(inquiryInput),
+  previewCatalogueImport: z.toJSONSchema(catalogueImportInput),
+  commitCatalogueImport: z.toJSONSchema(catalogueImportCommitInput),
   createOpportunity: z.toJSONSchema(opportunityInput),
   updateOpportunity: z.toJSONSchema(opportunityUpdate),
   moveOpportunity: z.toJSONSchema(stageInput),
@@ -686,6 +726,7 @@ const requestSchemas: Record<string, unknown> = {
   },
   createOrder: z.toJSONSchema(checkoutInput),
   createAccountaddresses: z.toJSONSchema(addressInput),
+  createAccountreturns: z.toJSONSchema(returnRequestInput),
   setCartItem: {
     type: "object",
     required: ["skuId", "quantity"],
@@ -796,6 +837,15 @@ for (const o of apiOperations) {
       schema: { type: "string", minLength: 8, maxLength: 128 },
       description:
         "Reuse exactly for a retried checkout. A changed payload requires a new key.",
+    });
+  if (o.id === "createAccountreturns")
+    parameters.push({
+      name: "Idempotency-Key",
+      in: "header",
+      required: false,
+      schema: { type: "string", minLength: 8, maxLength: 128 },
+      description:
+        "Retain the same key and exact body after an uncertain response. A replay returns the original request with 201; a changed payload returns 409. Omitted keys retain legacy non-idempotent behavior.",
     });
   if (
     [
@@ -943,6 +993,7 @@ for (const o of apiOperations) {
       "issueApiKey",
       "revokeApiKey",
       "commitImport",
+      "commitCatalogueImport",
       "startAiRun",
       "updateSettings",
     ].includes(o.id);

@@ -41,9 +41,13 @@ Logs must exclude authorization headers, secrets, reset links and full customer 
 
 Deploy the same reviewed Git commit to web and worker. Apply backward-compatible migrations through web pre-deploy, verify readiness, then release worker. Never use destructive database resets or edit applied migrations as a rollback shortcut.
 
+The October proposal-key migration requires a coordinated transition: pause integration proposal submission and approval before migrating, then drain the older web/worker processes before resuming that traffic. The additive column alone does not enforce key revocation; older handlers can still submit unattributed proposals or approve without checking the originating key. See [the migration and compatibility notes](DATA_MODEL.md#proposal-key-provenance). The current release-preparation instruction holds all deployments and pending Railway patches for the user; this runbook is not permission to apply them.
+
 For an application regression, roll both processes back to a schema-compatible commit. For data corruption, stop affected writes, preserve evidence, restore into an isolated environment and verify before switching connections. Record the recovery point and any data-loss implications.
 
 After any product uses `store=false`, do not roll back to code that predates the store-visibility checks: older storefront code can expose active offline products even though the column remains in the database. Prefer a forward fix, or use a reviewed rollback that preserves the visibility gate across public discovery, media and online purchasing. Never drop the column or reset its values as a rollback shortcut.
+
+The same restriction applies to quote-only purchase protection and originating-key revocation checks. Retaining their schema while running older code does not retain those safeguards. Prefer a forward fix that preserves all three boundaries and the immutable order snapshots.
 
 Worker claims and inventory updates are transactional. Interrupted external actions can have uncertain outcomes: expired worker leases are marked for review instead of blindly replaying AI or other side effects. Inspect provider and audit records before re-queuing.
 

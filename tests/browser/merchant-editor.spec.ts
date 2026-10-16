@@ -32,12 +32,16 @@ test.afterAll(async () => {
     where: { title: { startsWith: key } },
     include: { assets: true, bannerMedia: true },
   });
+  const unsavedPreviewMedia = await db.media.findMany({
+    where: { alt: { startsWith: `${key} preview` } },
+  });
   const media = [
     ...products.flatMap((p) => p.media),
     ...sections.flatMap((s) => [
       ...s.assets,
       ...(s.bannerMedia ? [s.bannerMedia] : []),
     ]),
+    ...unsavedPreviewMedia,
   ];
   await db.homeSection.deleteMany({
     where: { id: { in: sections.map((s) => s.id) } },
@@ -316,12 +320,31 @@ test("isolated desktop and mobile HTML previews stay private until explicitly pu
 });
 test("full hero preview includes editable side banners without changing the storefront", async ({
   page,
+  request,
 }) => {
   await page.goto("/admin/home-sections/new");
   await page.getByLabel("Headline", { exact: true }).fill(`${key} hero`);
   await page
     .getByLabel("Eyebrow text", { exact: true })
     .fill("AN EDITABLE HERO");
+  // Uploaded local fixtures exercise legacy artwork without fake image fallbacks.
+  const heroUpload = page.locator(".banner-editor").filter({
+    has: page.getByRole("heading", { name: "Hero banner image", exact: true }),
+  });
+  await heroUpload
+    .getByLabel("Banner image", { exact: true })
+    .setInputFiles("public/brand/inforteks.png");
+  await heroUpload
+    .getByLabel("Image description", { exact: true })
+    .fill(`${key} preview hero image`);
+  await heroUpload
+    .getByRole("button", { name: "Upload image", exact: true })
+    .click();
+  await expect(heroUpload.getByRole("status")).toContainText(
+    "Image uploaded privately",
+  );
+  const heroPath = await heroUpload.locator(".banner-preview code").innerText();
+  expect((await request.get(heroPath)).status()).toBe(404);
   await page
     .locator("main summary")
     .filter({ hasText: /^Side banner 1/ })
@@ -329,6 +352,26 @@ test("full hero preview includes editable side banners without changing the stor
   await page
     .getByLabel("Side banner 1 headline", { exact: true })
     .fill("My side campaign");
+  const sideUpload = page.locator(".banner-editor").filter({
+    has: page.getByRole("heading", {
+      name: "Side banner 1 image",
+      exact: true,
+    }),
+  });
+  await sideUpload
+    .getByLabel("Side banner 1 image file", { exact: true })
+    .setInputFiles("public/brand/inforteks.png");
+  await sideUpload
+    .getByLabel("Side banner 1 image description", { exact: true })
+    .fill(`${key} preview side image`);
+  await sideUpload
+    .getByRole("button", { name: "Upload image", exact: true })
+    .click();
+  await expect(sideUpload.getByRole("status")).toContainText(
+    "Image uploaded privately",
+  );
+  const sidePath = await sideUpload.locator(".banner-preview code").innerText();
+  expect((await request.get(sidePath)).status()).toBe(404);
   await page
     .getByRole("button", { name: "Preview this section", exact: true })
     .click();
@@ -341,8 +384,23 @@ test("full hero preview includes editable side banners without changing the stor
   await expect(
     frame.getByRole("heading", { name: "My side campaign" }),
   ).toBeVisible();
-  await expect(frame.locator(".hero-grid")).toHaveCount(1);
+  await expect(frame.locator(".hero-composition.has-side-banners")).toHaveCount(
+    1,
+  );
+  await expect(frame.locator(".hero-legacy")).toHaveCount(1);
+  await expect(
+    frame.getByText("AN EDITABLE HERO", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    frame.getByRole("img", { name: `${key} preview hero image` }),
+  ).toHaveAttribute("src", heroPath);
+  await expect(
+    frame.getByRole("img", { name: `${key} preview side image` }),
+  ).toHaveAttribute("src", sidePath);
+  await expect(frame.locator(".real-side-banners .mini-hero")).toHaveCount(1);
   await expect(frame.locator(".editorial-banner")).toHaveCount(0);
+  expect((await request.get(heroPath)).status()).toBe(404);
+  expect((await request.get(sidePath)).status()).toBe(404);
   expect(await db.homeSection.count({ where: { title: `${key} hero` } })).toBe(
     0,
   );
@@ -425,4 +483,64 @@ test("merchant keeps a product offline, enables the store from inventory, then h
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+});
+
+test("sample starters save private drafts and curated sections preview without publishing", async ({
+  page,
+}) => {
+  await page.goto("/admin/products/new");
+  await page.getByText("Sample draft starters", { exact: true }).click();
+  await page
+    .getByRole("button", { name: /SAMPLE · Everyday work laptop/ })
+    .click();
+  await expect(page.getByLabel("Product name", { exact: true })).toHaveValue(
+    "SAMPLE · Everyday work laptop",
+  );
+  await expect(page.getByLabel("Show in online store")).not.toBeChecked();
+  await page.getByLabel("Product name", { exact: true }).fill(`${key}-sample`);
+  const category = await db.category.findFirstOrThrow({
+    where: { slug: "laptops" },
+  });
+  const brand = await db.brand.findFirstOrThrow();
+  await page.getByLabel("Category", { exact: true }).selectOption(category.id);
+  await page.getByLabel("Brand", { exact: true }).selectOption(brand.id);
+  await page.getByLabel("SKU code", { exact: true }).fill(`${key}-sample`);
+  await page.getByRole("button", { name: "Create product draft" }).click();
+  await expect(page).toHaveURL(/\/admin\/products\/(?!new)[^/]+$/);
+  const product = await db.product.findUniqueOrThrow({
+    where: { slug: `${key}-sample` },
+    include: { skus: true },
+  });
+  expect(product).toMatchObject({ status: "DRAFT", store: false, demo: true });
+  expect(product.skus[0]).toMatchObject({ price: null, onHand: 0 });
+  await page.goto("/admin/home-sections/new");
+  await page.getByLabel("Section type").selectOption("collection");
+  await page.getByLabel("Headline", { exact: true }).fill(`${key}-curated`);
+  await page.getByLabel("Product layout").selectOption("rail");
+  await page.getByLabel("Number of products").fill("3");
+  await page.getByLabel("Department selection").selectOption("laptops");
+  await page.getByRole("button", { name: "Preview this section" }).click();
+  const frame = page.frameLocator(
+    'iframe[title="Selected homepage section preview"]',
+  );
+  await expect(frame.locator(".product-rail .product-card")).toHaveCount(3);
+  await expect(
+    frame.getByRole("button", { name: "Preview only" }).first(),
+  ).toBeDisabled();
+  await page.getByLabel("Preview size").selectOption("390");
+  await expect(page.locator("iframe")).toHaveCSS("width", "390px");
+  expect(
+    await db.homeSection.count({ where: { title: `${key}-curated` } }),
+  ).toBe(0);
+  await page.getByRole("button", { name: "Save homepage section" }).click();
+  await expect(page.getByRole("status")).toContainText("saved");
+  const section = await db.homeSection.findFirstOrThrow({
+    where: { title: `${key}-curated` },
+  });
+  expect(section.visible).toBe(false);
+  expect(section.content).toMatchObject({
+    layout: "rail",
+    categorySlug: "laptops",
+    productLimit: 3,
+  });
 });

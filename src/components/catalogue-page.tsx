@@ -1,12 +1,18 @@
 import Link from "next/link";
-import { PackageSearch } from "lucide-react";
+import { PackageSearch, X } from "lucide-react";
 import { catalogue } from "@/domains/catalogue";
 import { ProductCard, Breadcrumbs } from "./store";
 import { FilterToggle } from "./store-client";
+import {
+  catalogueFacetLabel,
+  catalogueFacetSelections,
+  catalogueFacetValue,
+  isCatalogueFacetParameter,
+} from "@/lib/catalogue-facets";
 export async function CataloguePage({
   title,
   subtitle,
-  query,
+  query: inputQuery,
   base,
 }: {
   title: string;
@@ -14,56 +20,156 @@ export async function CataloguePage({
   query: Record<string, string>;
   base: string;
 }) {
-  const result = await catalogue(query);
+  const result = await catalogue(inputQuery);
+  const query = Object.fromEntries(
+    Object.entries(inputQuery).filter(
+      ([key, value]) =>
+        !["ram", "storage"].includes(key) &&
+        (!isCatalogueFacetParameter(key) || value !== ""),
+    ),
+  );
+  for (const facet of catalogueFacetSelections(inputQuery))
+    query[facet.parameter] = facet.value;
   const known = [
     "q",
+    "category",
+    "collection",
     "min",
     "max",
-    "ram",
-    "storage",
     "available",
     "brand",
     "sort",
     "featured",
+    "offers",
+    "limit",
   ];
+  const isKnown = (key: string) =>
+    known.includes(key) || isCatalogueFacetParameter(key);
+  const lockedBrand = base.startsWith("/brand/");
+  const refinements = [
+    ...Object.keys(query).filter(isCatalogueFacetParameter),
+    "min",
+    "max",
+    "available",
+    "featured",
+    ...(!lockedBrand ? ["brand"] : []),
+  ];
+  const activeFilters = Object.entries(query).filter(
+    ([key, value]) =>
+      refinements.includes(key) &&
+      value &&
+      (!["available", "featured"].includes(key) || value === "true"),
+  );
+  const hrefFor = (entries: [string, string][]) => {
+    const params = new URLSearchParams(entries);
+    return `${base}${params.size ? `?${params}` : ""}`;
+  };
+  const clearHref = hrefFor(
+    Object.entries(query).filter(
+      ([key, value]) => isKnown(key) && !refinements.includes(key) && value,
+    ),
+  );
+  const filterLabel = (key: string, value: string) => {
+    if (key === "brand")
+      return (
+        result.facets.brands.find((brand) => brand.slug === value)?.name ??
+        value
+      );
+    if (isCatalogueFacetParameter(key)) {
+      const facet = result.facets.specifications.find(
+        (facet) => facet.parameter === key,
+      );
+      return `${facet?.label ?? catalogueFacetLabel(key.slice(5))}: ${catalogueFacetValue(value, facet?.unit ?? null)}`;
+    }
+    if (key === "min") return `From AED ${value}`;
+    if (key === "max") return `Up to AED ${value}`;
+    if (key === "available") return "In stock only";
+    return "Featured products";
+  };
   const update = (k: string, v: string) => {
     const q = new URLSearchParams(
-      Object.entries(query).filter(([key]) => known.includes(key)),
+      Object.entries(query).filter(([key]) => isKnown(key)),
     );
-    q.set(k, v);
-    return `${base}?${q}`;
+    if (v) q.set(k, v);
+    else q.delete(k);
+    return hrefFor([...q.entries()].filter(([, value]) => value));
   };
+  const pageNumbers = [
+    ...new Set([
+      1,
+      ...Array.from({ length: 5 }, (_, i) => result.page - 2 + i),
+      result.pages,
+    ]),
+  ]
+    .filter((page) => page >= 1 && page <= result.pages)
+    .sort((a, b) => a - b);
   return (
-    <div className="page-container">
+    <div className="page-container catalogue-page">
       <Breadcrumbs items={[{ label: title }]} />
-      <div className="page-heading">
-        <div className="eyebrow">FIND YOUR NEXT UPGRADE</div>
-        <h1>{title}</h1>
-        <p>{subtitle}</p>
+      <div className="page-heading catalogue-heading">
+        <div>
+          <h1>{title}</h1>
+          <p>{subtitle}</p>
+        </div>
+        <Link className="catalogue-summary" href="/categories">
+          Browse all departments
+        </Link>
       </div>
       <div className="catalogue-layout">
         <FilterToggle>
-          <form action={base}>
-            <h3>Refine your search</h3>
+          <form action={base} className="catalogue-filter-form">
+            <div className="filter-heading">
+              <h2>Filters</h2>
+              {activeFilters.length > 0 && (
+                <Link className="text-button" href={clearHref}>
+                  Clear all
+                </Link>
+              )}
+            </div>
+            {query.category && (
+              <input type="hidden" name="category" value={query.category} />
+            )}
+            {query.collection && (
+              <input type="hidden" name="collection" value={query.collection} />
+            )}
             {query.q && <input type="hidden" name="q" value={query.q} />}
             {query.featured === "true" && (
               <input type="hidden" name="featured" value="true" />
             )}
-            <fieldset>
-              <legend>Brand</legend>
-              {result.facets.brands.map((b) => (
-                <label key={b.slug}>
+            {query.offers === "true" && (
+              <input type="hidden" name="offers" value="true" />
+            )}
+            {query.limit && (
+              <input type="hidden" name="limit" value={query.limit} />
+            )}
+            {lockedBrand ? (
+              <input type="hidden" name="brand" value={query.brand} />
+            ) : (
+              <fieldset>
+                <legend>Brand</legend>
+                <label>
                   <input
                     type="radio"
                     name="brand"
-                    value={b.slug}
-                    defaultChecked={query.brand === b.slug}
+                    value=""
+                    defaultChecked={!query.brand}
                   />
-                  {b.name}
-                  <small>{b.count}</small>
+                  <span className="filter-value-label">All brands</span>
                 </label>
-              ))}
-            </fieldset>
+                {result.facets.brands.map((b) => (
+                  <label key={b.slug}>
+                    <input
+                      type="radio"
+                      name="brand"
+                      value={b.slug}
+                      defaultChecked={query.brand === b.slug}
+                    />
+                    <span className="filter-value-label">{b.name}</span>
+                    <small>{b.count}</small>
+                  </label>
+                ))}
+              </fieldset>
+            )}
             <fieldset>
               <legend>Price range (AED)</legend>
               <div className="filter-price">
@@ -71,6 +177,8 @@ export async function CataloguePage({
                   type="number"
                   name="min"
                   min="0"
+                  max="1000000"
+                  step="0.01"
                   placeholder="Min"
                   defaultValue={query.min}
                   aria-label="Minimum price"
@@ -79,46 +187,53 @@ export async function CataloguePage({
                   type="number"
                   name="max"
                   min="0"
+                  max="1000000"
+                  step="0.01"
                   placeholder="Max"
                   defaultValue={query.max}
                   aria-label="Maximum price"
                 />
               </div>
             </fieldset>
-            {result.facets.ram.length > 0 && (
-              <fieldset>
-                <legend>Memory</legend>
+            {result.facets.specifications.map((facet) => (
+              <fieldset key={facet.parameter}>
+                <legend>{facet.label}</legend>
                 <select
-                  name="ram"
-                  defaultValue={query.ram ?? ""}
-                  aria-label="Memory"
+                  name={facet.parameter}
+                  defaultValue={query[facet.parameter] ?? ""}
+                  aria-label={facet.label}
                 >
-                  <option value="">All memory sizes</option>
-                  {result.facets.ram.map((v) => (
-                    <option key={v} value={v!}>
-                      {v} GB
+                  <option value="">All values</option>
+                  {query[facet.parameter] &&
+                    !facet.values.some(
+                      ({ value }) => value === query[facet.parameter],
+                    ) && (
+                      <option value={query[facet.parameter]}>
+                        {catalogueFacetValue(
+                          query[facet.parameter],
+                          facet.unit,
+                        )}
+                      </option>
+                    )}
+                  {facet.values.map(({ value }) => (
+                    <option key={value} value={value}>
+                      {catalogueFacetValue(value, facet.unit)}
                     </option>
                   ))}
                 </select>
               </fieldset>
-            )}
-            {result.facets.storage.length > 0 && (
-              <fieldset>
-                <legend>Storage</legend>
-                <select
-                  name="storage"
-                  defaultValue={query.storage ?? ""}
-                  aria-label="Storage"
-                >
-                  <option value="">All capacities</option>
-                  {result.facets.storage.map((v) => (
-                    <option key={v} value={v!}>
-                      {v} GB
-                    </option>
-                  ))}
-                </select>
-              </fieldset>
-            )}
+            ))}
+            {Object.entries(query)
+              .filter(
+                ([key]) =>
+                  isCatalogueFacetParameter(key) &&
+                  !result.facets.specifications.some(
+                    (facet) => facet.parameter === key,
+                  ),
+              )
+              .map(([key, value]) => (
+                <input key={key} type="hidden" name={key} value={value} />
+              ))}
             <fieldset>
               <legend>Availability</legend>
               <label>
@@ -136,31 +251,31 @@ export async function CataloguePage({
               name="sort"
               value={query.sort ?? "relevance"}
             />
-            <button className="button primary">Apply filters</button>
-            <Link className="button" href={base}>
-              Clear all
-            </Link>
+            <div className="filter-actions">
+              <button className="button primary">Apply filters</button>
+              <Link className="text-button" href={clearHref}>
+                Reset filters
+              </Link>
+            </div>
           </form>
         </FilterToggle>
-        <div>
+        <div className="catalogue-results">
           <div className="catalogue-toolbar">
-            <span>
+            <span className="catalogue-result-count">
               <b>{result.total}</b> products found
+              {result.pages > 1 && (
+                <small>
+                  Page {result.page} of {result.pages}
+                </small>
+              )}
             </span>
-            <form action={base}>
+            <form action={base} className="catalogue-sort">
               {Object.entries(query)
-                .filter(([k]) => known.includes(k) && k !== "sort")
+                .filter(([k]) => isKnown(k) && k !== "sort")
                 .map(([k, v]) => (
                   <input key={k} type="hidden" name={k} value={v} />
                 ))}
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  fontSize: 11,
-                }}
-              >
+              <label>
                 Sort by
                 <select
                   name="sort"
@@ -176,34 +291,28 @@ export async function CataloguePage({
               </label>
             </form>
           </div>
-          {Object.entries(query).some(
-            ([k, v]) =>
-              ["ram", "storage", "min", "max", "available", "brand"].includes(
-                k,
-              ) && v,
-          ) && (
-            <div className="active-filters">
-              {Object.entries(query)
-                .filter(
-                  ([k, v]) =>
-                    [
-                      "ram",
-                      "storage",
-                      "min",
-                      "max",
-                      "available",
-                      "brand",
-                    ].includes(k) && v,
-                )
-                .map(([k, v]) => (
-                  <Link key={k} href={update(k, "")} className="filter-chip">
-                    {k}: {v} ×
-                  </Link>
-                ))}
-              <Link href={base} className="text-button">
+          {activeFilters.length > 0 && (
+            <div className="active-filters" aria-label="Applied filters">
+              {activeFilters.map(([key, value]) => (
+                <Link
+                  key={key}
+                  href={update(key, "")}
+                  className="filter-chip"
+                  aria-label={`Remove ${filterLabel(key, value)} filter`}
+                >
+                  {filterLabel(key, value)} <X size={12} aria-hidden="true" />
+                </Link>
+              ))}
+              <Link href={clearHref} className="text-button">
                 Clear all
               </Link>
             </div>
+          )}
+          {result.products.some((product) => product.quoteOnly) && (
+            <p className="catalogue-notice">
+              Need pricing for a quote product? Open the item and send your
+              requirements to our team.
+            </p>
           )}
           {result.products.length ? (
             <div className="product-grid catalogue-products">
@@ -214,11 +323,11 @@ export async function CataloguePage({
           ) : (
             <div className="empty-state">
               <PackageSearch size={38} />
-              <h2>No matches just yet</h2>
+              <h2>No products found</h2>
               <p>
                 Try a broader search or clear a filter to explore more options.
               </p>
-              <Link className="button primary" href={base}>
+              <Link className="button primary" href={clearHref}>
                 Clear filters
               </Link>
               <Link className="text-button" href="/categories">
@@ -228,18 +337,36 @@ export async function CataloguePage({
           )}
           {result.pages > 1 && (
             <nav className="pagination" aria-label="Catalogue pages">
-              {Array.from(
-                { length: Math.min(result.pages, 15) },
-                (_, i) => i + 1,
-              ).map((p) => (
+              {result.page > 1 && (
                 <Link
-                  key={p}
-                  href={update("page", String(p))}
-                  aria-current={p === result.page ? "page" : undefined}
+                  href={update("page", String(result.page - 1))}
+                  aria-label="Previous page"
                 >
-                  {p}
+                  ←
                 </Link>
+              )}
+              {pageNumbers.map((page, index) => (
+                <span key={page} className="pagination-item">
+                  {index > 0 && page - pageNumbers[index - 1] > 1 && (
+                    <span aria-hidden="true">…</span>
+                  )}
+                  <Link
+                    href={update("page", String(page))}
+                    aria-label={`Page ${page}`}
+                    aria-current={page === result.page ? "page" : undefined}
+                  >
+                    {page}
+                  </Link>
+                </span>
               ))}
+              {result.page < result.pages && (
+                <Link
+                  href={update("page", String(result.page + 1))}
+                  aria-label="Next page"
+                >
+                  →
+                </Link>
+              )}
             </nav>
           )}
         </div>

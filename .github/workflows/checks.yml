@@ -68,4 +68,5 @@ jobs:
       - name: Production build without a live database
         env:
           DATABASE_URL: postgresql://build:build@127.0.0.1:1/no_database
+          DIRECT_DATABASE_URL: postgresql://build:build@127.0.0.1:1/no_database
         run: pnpm build

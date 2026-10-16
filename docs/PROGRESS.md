@@ -2,7 +2,16 @@
 
 This file distinguishes the supplied brief's broad target from the working implementation.
 
+## Quote catalogue preparation — 8 October 2026
+
+Implemented quote-only products, original banner artwork, refined responsive storefront, safe quote inquiries, private/source-aware researched manifest preview/import, real-photo checksum upload tooling and normal publication approvals. The 137-product stocklist manifest is researched but remains outside production with photo verification blockers; the wider Al Ershad discovery is partial. No production products, stock, accounts or other records were changed. [Launch readiness and remaining access requirements](CATALOGUE_LAUNCH.md) are explicit; source completion is not a completed catalogue launch.
+
 ## Implemented
+
+- Checkout has numbered delivery/payment/review sections, keyboard-accessible method cards, explicit unavailable card payments, mobile order-summary navigation, and focused inline address errors. Only supported enabled methods permit submission; selected methods survive total recalculation. Settings reflects actual runtime availability through a read-only payment readiness panel. No card adapter, credential entry, payment activation or automated refund execution is included.
+
+- Category-aware specification filters derive from existing product facts, SKU options and SKU specifications, with category labels/units and single-configuration matching. Desktop/mobile controls retain eligible alternatives for empty-result recovery; existing RAM/storage links remain supported.
+- Storefront redesign with database-driven grouped category navigation, responsive department panel, scoped search with explicit feedback, revised product cards and editable banner themes/product layouts. Curated section filters share the public/preview catalogue path. Three original sample starters save private drafts only; no production catalogue seed. See STOREFRONT_REDESIGN.md.
 
 - Per-product online-store visibility across all variants, with publishing-scoped approvals from Products or Inventory. Offline-only products remain available for Direct Sales; public discovery, product/media access, wishlists and online checkout enforce store eligibility. Existing stock and order snapshots are preserved.
 
@@ -16,7 +25,7 @@ This file distinguishes the supplied brief's broad target from the working imple
 
 - Delivery-country selection in the header, UAE emirates and permission-based country detection on the device; Saudi Arabia, Qatar and Oman explicitly coming soon, with UAE-only checkout validation.
 - Live same-department comparison for up to four SKU configurations, merged shared/variant specifications, refreshed prices, difference filtering and mobile access. Optional, bounded AI explanations require separate provider enablement.
-- Signed-in carts restore across devices; additions increment atomically, archived items can be removed, and checkout retries retain their idempotency key after network failure.
+- Signed-in carts restore across devices; additions increment atomically and unavailable items remain removable. Cart/quote reads have explicit retry controls; changed inputs and incomplete cart refreshes invalidate old totals. An uncertain checkout keeps its exact payload/key in the current page, including after a rate-limited retry, until the original order is resolved. This recovery does not persist across a full reload/tab closure.
 
 - Branded responsive storefront with original hero, department navigation, search suggestions, shared catalogue filters, pagination, variants, image zoom, wishlist and comparison.
 - Database-backed carts, server totals, coupon/shipping/tax calculation, guest checkout, idempotent stock reservations, protected order confirmation and customer order/return views.
@@ -37,7 +46,7 @@ This file distinguishes the supplied brief's broad target from the working imple
 - Full response/request schemas for every OpenAPI operation and broader integration contract coverage.
 - Dedicated shipping-zone administration, custom-grant editing, API key rotation UI, customer profile mutation workflows and date-filtered financial reporting.
 - Media removal, orphan cleanup and responsive image delivery optimization. Image reordering and main-image selection are implemented.
-- Arbitrary category-driven catalogue facets; translation and RTL would be a separately requested expansion (the current store is English only).
+- Merchant curation/normalization of category attributes and measured large-catalogue performance. Dynamic category-aware facets from existing public scalar facts are implemented; translation and RTL remain a separately requested expansion (the current store is English only).
 - Streaming assistant responses, attachment workflows, spending ledger and broader operation coverage.
 - Payment webhooks/reconciliation, executed refunds, courier automation, order email delivery and broader remote workflow testing.
 - Independent accessibility, security, load, retention/backup and production-operational reviews.

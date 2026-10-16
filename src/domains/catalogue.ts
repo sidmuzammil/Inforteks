@@ -6,6 +6,12 @@ import { invariant } from "@/lib/errors";
 import { audit, requireScope, type Actor } from "./identity";
 import { slugify } from "@/lib/utils";
 import { productMediaOrder } from "@/lib/product-media";
+import {
+  catalogueFacetLabel,
+  catalogueFacetLimit,
+  catalogueFacetSelections,
+  catalogueFacetValueLimit,
+} from "@/lib/catalogue-facets";
 
 const spec = z.record(
   z.string().regex(/^[a-zA-Z0-9_ ]{1,40}$/),
@@ -44,6 +50,10 @@ export const productInput = z
     categoryId: z.string().min(1, "Choose or create a category."),
     featured: z.boolean().default(false),
     store: z.boolean().default(true),
+    quoteOnly: z.boolean().default(false),
+    sampleTemplate: z
+      .enum(["work-laptop", "desk-monitor", "daily-headset"])
+      .optional(),
     seoTitle: z.string().max(180).optional(),
     seoDescription: z.string().max(300).optional(),
     model: z.string().max(100).optional(),
@@ -80,6 +90,7 @@ export function publicProduct(p: FullProduct, preview = false) {
     brand: p.brand,
     category: p.category,
     demo: p.demo,
+    quoteOnly: p.quoteOnly,
     media: p.media
       .filter((m) => preview || m.public)
       .map((m) => ({
@@ -91,29 +102,47 @@ export function publicProduct(p: FullProduct, preview = false) {
       })),
     reviews: p.reviews,
     skus: p.skus
-      .filter((s) => s.active && s.price !== null)
+      .filter((s) => s.active && (p.quoteOnly || s.price !== null))
       .map((s) => ({
         id: s.id,
         code: s.code,
         mpn: s.mpn,
         options: s.options,
         specs: s.specs,
-        price: s.price!,
-        compareAt: s.compareAt,
+        // A direct-sales price is not an online offer for quote-only products.
+        price: p.quoteOnly ? null : s.price,
+        compareAt: p.quoteOnly ? null : s.compareAt,
         condition: s.condition,
         warranty: s.warranty,
-        available: Math.max(0, s.onHand - s.reserved),
+        available: p.quoteOnly ? 0 : Math.max(0, s.onHand - s.reserved),
       })),
   };
 }
 export type PublicProduct = ReturnType<typeof publicProduct>;
+export function staffProductPreview(p: FullProduct, actor: Actor) {
+  requireScope(actor, "catalog:read");
+  const preview = publicProduct(p, true);
+  return {
+    ...preview,
+    skus: preview.skus.map((sku) => ({
+      ...sku,
+      price: actor.scopes.includes("pricing:read") ? sku.price : null,
+      compareAt: actor.scopes.includes("pricing:read") ? sku.compareAt : null,
+      available: actor.scopes.includes("inventory:read") ? sku.available : 0,
+    })),
+  };
+}
 export async function getProduct(slug: string, preview?: Actor) {
   if (preview) requireScope(preview, "catalog:read");
   const p = await db.product.findFirst({
     where: { slug, ...(preview ? {} : onlineProductWhere) },
     include: includeProduct,
   });
-  return p ? publicProduct(p, Boolean(preview)) : null;
+  return p
+    ? preview
+      ? staffProductPreview(p, preview)
+      : publicProduct(p)
+    : null;
 }
 export const searchInput = z.object({
   q: z.string().max(100).default(""),
@@ -135,18 +164,27 @@ export const searchInput = z.object({
 });
 export async function catalogue(input: Record<string, unknown> = {}) {
   const f = searchInput.parse(input);
+  const selectedFacets = catalogueFacetSelections(input);
+  const pricedOnly =
+    (input.min !== undefined && input.min !== "") ||
+    (input.max !== undefined && input.max !== "") ||
+    f.available === "true" ||
+    f.offers === "true";
   const conditions: Prisma.Sql[] = [
     Prisma.sql`p.status = 'PUBLISHED'`,
     Prisma.sql`p.store = true`,
     Prisma.sql`s.active = true`,
-    Prisma.sql`s.price IS NOT NULL`,
     Prisma.sql`c.visible = true`,
-    Prisma.sql`s.price BETWEEN ${Math.round(f.min * 100)} AND ${Math.round(f.max * 100)}`,
+    pricedOnly
+      ? Prisma.sql`p."quoteOnly" = false AND s.price BETWEEN ${Math.round(f.min * 100)} AND ${Math.round(f.max * 100)}`
+      : Prisma.sql`(p."quoteOnly" = true OR s.price BETWEEN ${Math.round(f.min * 100)} AND ${Math.round(f.max * 100)})`,
   ];
+  if (process.env.NODE_ENV === "production")
+    conditions.push(Prisma.sql`p.demo = false`);
   if (f.q) {
     const term = `%${f.q.replace(/[\\%_]/g, "\\$&")}%`;
     conditions.push(
-      Prisma.sql`(p.name ILIKE ${term} OR p.model ILIKE ${term} OR s.code ILIKE ${term} OR s.mpn ILIKE ${term} OR b.name ILIKE ${term} OR s.specs::text ILIKE ${term})`,
+      Prisma.sql`(p.name ILIKE ${term} OR p.model ILIKE ${term} OR s.code ILIKE ${term} OR s.mpn ILIKE ${term} OR b.name ILIKE ${term} OR p.specs::text ILIKE ${term} OR s.specs::text ILIKE ${term} OR s.options::text ILIKE ${term})`,
     );
   }
   if (f.category)
@@ -154,9 +192,6 @@ export async function catalogue(input: Record<string, unknown> = {}) {
       Prisma.sql`(c.slug = ${f.category} OR c."parentId" = (SELECT id FROM "Category" WHERE slug = ${f.category}))`,
     );
   if (f.brand) conditions.push(Prisma.sql`b.slug = ${f.brand}`);
-  if (f.ram) conditions.push(Prisma.sql`s.specs->>'ram' = ${f.ram}`);
-  if (f.storage)
-    conditions.push(Prisma.sql`s.specs->>'storage' = ${f.storage}`);
   if (f.available === "true")
     conditions.push(Prisma.sql`s."onHand" > s.reserved`);
   if (f.featured === "true") conditions.push(Prisma.sql`p.featured = true`);
@@ -165,18 +200,33 @@ export async function catalogue(input: Record<string, unknown> = {}) {
     conditions.push(
       Prisma.sql`EXISTS (SELECT 1 FROM "CollectionProduct" cp JOIN "Collection" co ON co.id = cp."collectionId" WHERE cp."productId" = p.id AND co.slug = ${f.collection})`,
     );
-  const from = Prisma.sql`FROM "Product" p JOIN "Sku" s ON s."productId" = p.id JOIN "Brand" b ON b.id = p."brandId" JOIN "Category" c ON c.id = p."categoryId" WHERE ${Prisma.join(conditions, " AND ")}`;
+  // Specifications shown on a configuration use the same precedence as comparison:
+  // product facts, then variant options, then the SKU's more specific facts.
+  const joins = Prisma.sql`FROM "Product" p JOIN "Sku" s ON s."productId" = p.id JOIN "Brand" b ON b.id = p."brandId" JOIN "Category" c ON c.id = p."categoryId"
+    CROSS JOIN LATERAL (SELECT
+      (CASE WHEN jsonb_typeof(p.specs) = 'object' THEN p.specs ELSE '{}'::jsonb END) ||
+      (CASE WHEN jsonb_typeof(s.options) = 'object' THEN s.options ELSE '{}'::jsonb END) ||
+      (CASE WHEN jsonb_typeof(s.specs) = 'object' THEN s.specs ELSE '{}'::jsonb END) AS attributes
+    ) facts`;
+  const baseConditions = Prisma.join(conditions, " AND ");
+  // Keep category/search-eligible alternatives available even when the selected
+  // combination has no matches. The match query still constrains one SKU.
+  for (const facet of selectedFacets)
+    conditions.push(Prisma.sql`(jsonb_typeof(facts.attributes -> ${facet.key}) IN ('string', 'number')
+      AND facts.attributes ->> ${facet.key} = ${facet.value}
+      AND NOT EXISTS (SELECT 1 FROM "Attribute" a WHERE a."categoryId" = c.id AND a.key = ${facet.key} AND a.filterable = false))`);
+  const from = Prisma.sql`${joins} WHERE ${Prisma.join(conditions, " AND ")}`;
   const sort =
     f.sort === "price-asc"
-      ? Prisma.sql`price ASC, id`
+      ? Prisma.sql`price ASC NULLS LAST, id`
       : f.sort === "price-desc"
-        ? Prisma.sql`price DESC, id`
+        ? Prisma.sql`price DESC NULLS LAST, id`
         : f.sort === "newest"
           ? Prisma.sql`created DESC, id`
           : Prisma.sql`exact DESC, featured DESC, id`;
   const [ids, count, brandFacets, specFacets] = await Promise.all([
     db.$queryRaw<{ id: string; matched: string[] }[]>(
-      Prisma.sql`SELECT p.id, array_agg(s.id ORDER BY s.price,s.id) AS matched, MIN(s.price) AS price, MAX(p."createdAt") AS created, BOOL_OR(p.featured) AS featured, BOOL_OR(lower(s.code) = lower(${f.q}) OR lower(COALESCE(p.model,'')) = lower(${f.q})) AS exact ${from} GROUP BY p.id ORDER BY ${sort} LIMIT ${f.limit} OFFSET ${(f.page - 1) * f.limit}`,
+      Prisma.sql`SELECT p.id, array_agg(s.id ORDER BY s.price,s.id) AS matched, MIN(CASE WHEN p."quoteOnly" THEN NULL ELSE s.price END) AS price, MAX(p."createdAt") AS created, BOOL_OR(p.featured) AS featured, BOOL_OR(lower(s.code) = lower(${f.q}) OR lower(COALESCE(p.model,'')) = lower(${f.q})) AS exact ${from} GROUP BY p.id ORDER BY ${sort} LIMIT ${f.limit} OFFSET ${(f.page - 1) * f.limit}`,
     ),
     db.$queryRaw<{ count: bigint }[]>(
       Prisma.sql`SELECT count(DISTINCT p.id) AS count ${from}`,
@@ -184,8 +234,36 @@ export async function catalogue(input: Record<string, unknown> = {}) {
     db.$queryRaw<{ name: string; slug: string; count: bigint }[]>(
       Prisma.sql`SELECT b.name,b.slug,count(DISTINCT p.id) AS count ${from} GROUP BY b.id ORDER BY b.name`,
     ),
-    db.$queryRaw<{ ram: string | null; storage: string | null }[]>(
-      Prisma.sql`SELECT DISTINCT s.specs->>'ram' AS ram,s.specs->>'storage' AS storage ${from} LIMIT 100`,
+    db.$queryRaw<
+      {
+        key: string;
+        label: string | null;
+        unit: string | null;
+        values: { value: string; count: number }[];
+      }[]
+    >(
+      Prisma.sql`WITH facet_values AS (
+        SELECT field.key, field.value #>> '{}' AS value, count(DISTINCT p.id)::int AS count,
+          CASE WHEN count(DISTINCT COALESCE(a.label, '')) = 1 THEN max(a.label) END AS label,
+          CASE WHEN count(DISTINCT COALESCE(a.unit, '')) = 1 THEN max(a.unit) END AS unit,
+          bool_or(a.id IS NOT NULL) AS configured
+        ${joins}
+        CROSS JOIN LATERAL jsonb_each(facts.attributes) field
+        LEFT JOIN "Attribute" a ON a."categoryId" = c.id AND a.key = field.key
+        WHERE ${baseConditions} AND COALESCE(a.filterable, true)
+          AND field.key ~ '^[a-zA-Z0-9_ ]{1,40}$' AND btrim(field.key) <> ''
+          AND lower(field.key) NOT IN ('dataset', '__proto__', 'constructor', 'prototype')
+          AND jsonb_typeof(field.value) IN ('string', 'number')
+          AND length(field.value #>> '{}') BETWEEN 1 AND 200 AND btrim(field.value #>> '{}') <> ''
+        GROUP BY field.key, field.value #>> '{}'
+      ) SELECT key,
+          CASE WHEN count(DISTINCT COALESCE(label, '')) = 1 THEN max(label) END AS label,
+          CASE WHEN count(DISTINCT COALESCE(unit, '')) = 1 THEN max(unit) END AS unit,
+          jsonb_agg(jsonb_build_object('value', value, 'count', count) ORDER BY value) AS values
+        FROM facet_values GROUP BY key HAVING count(*) <= ${catalogueFacetValueLimit}
+        ORDER BY key = ANY(${selectedFacets.map((facet) => facet.key)}::text[]) DESC,
+          bool_or(configured) DESC, sum(count) DESC, key
+        LIMIT ${catalogueFacetLimit}`,
     ),
   ]);
   const records = await db.product.findMany({
@@ -201,6 +279,14 @@ export async function catalogue(input: Record<string, unknown> = {}) {
     );
     return p;
   });
+  const specifications = specFacets.map((facet) => ({
+    ...facet,
+    parameter: `spec.${facet.key}`,
+    label: facet.label || catalogueFacetLabel(facet.key),
+    values: facet.values.sort((a, b) =>
+      a.value.localeCompare(b.value, "en", { numeric: true }),
+    ),
+  }));
   return {
     products,
     total: Number(count[0].count),
@@ -208,14 +294,22 @@ export async function catalogue(input: Record<string, unknown> = {}) {
     pages: Math.ceil(Number(count[0].count) / f.limit),
     facets: {
       brands: brandFacets.map((b) => ({ ...b, count: Number(b.count) })),
-      ram: [...new Set(specFacets.map((s) => s.ram).filter(Boolean))],
-      storage: [...new Set(specFacets.map((s) => s.storage).filter(Boolean))],
+      // Preserve the public response's original fields for existing API clients.
+      ram:
+        specifications
+          .find((facet) => facet.key === "ram")
+          ?.values.map(({ value }) => value) ?? [],
+      storage:
+        specifications
+          .find((facet) => facet.key === "storage")
+          ?.values.map(({ value }) => value) ?? [],
+      specifications,
     },
   };
 }
 export async function createProduct(actor: Actor, raw: unknown, tx?: Tx) {
   requireScope(actor, "catalog:write");
-  const data = productInput.parse(raw);
+  const { sampleTemplate, ...data } = productInput.parse(raw);
   if (data.skus.some((s) => s.price !== null || s.compareAt !== null))
     requireScope(actor, "pricing:write");
   invariant(
@@ -237,6 +331,9 @@ export async function createProduct(actor: Actor, raw: unknown, tx?: Tx) {
     const p = await conn.product.create({
       data: {
         ...data,
+        ...(sampleTemplate
+          ? { status: "DRAFT" as const, demo: true, store: false }
+          : {}),
         slug: data.slug ?? slugify(data.name),
         skus: { create: data.skus },
       },
@@ -245,6 +342,7 @@ export async function createProduct(actor: Actor, raw: unknown, tx?: Tx) {
       name: p.name,
       status: p.status,
       store: p.store,
+      quoteOnly: p.quoteOnly,
     });
     return p;
   };
@@ -261,7 +359,17 @@ export async function validatePublication(tx: Tx, id: string) {
   });
   invariant(p, 404, "Product not found.");
   invariant(
-    p.skus.some((s) => s.active) &&
+    process.env.NODE_ENV !== "production" || !p.demo,
+    422,
+    "Sample products must remain drafts in production. Create a verified merchant product before publishing.",
+  );
+  invariant(
+    p.skus.some((s) => s.active),
+    422,
+    "Add at least one active SKU before publishing.",
+  );
+  invariant(
+    p.quoteOnly ||
       p.skus
         .filter((s) => s.active)
         .every((s) => s.price !== null && s.price >= 0),

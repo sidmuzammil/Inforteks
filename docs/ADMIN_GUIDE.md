@@ -8,7 +8,13 @@ The app launcher and top menu open **Direct Sales** (office visits and orders ta
 
 Google sign-in, when configured, is only for customers. It cannot create, connect or sign into staff accounts. Existing email/password customers connect Google from Profile & security; staff continue using the account created by the Owner. See [Google activation](GOOGLE_SIGN_IN.md) for provider setup.
 
+## Storefront design and sample drafts
+
+See [storefront redesign](STOREFRONT_REDESIGN.md) for category navigation, search, banner themes, curated shopping sections and matching desktop/mobile previews. Product sections support department/collection selections, 1–12 products and grid/scrolling-row layouts. Products → Create product → Sample draft starters offers three illustrative concepts. Saving a starter creates only a private sample draft with `store=false`, no price and zero stock by default; nothing is seeded or published automatically.
+
 ## Catalogue workflow
+
+For researched supplier catalogues and unpriced products, see [quote catalogue launch](CATALOGUE_LAUNCH.md). **Request a quote** is independent of **Show in online store**: quote products can publish without prices, but require verified media and specifications. Quote inquiries appear in the existing Inquiries page and never reserve stock. Imports provides a reviewed, additive JSON workflow that creates only drafts and preserves existing products. Production hides demonstration records and rejects their publication.
 
 1. Open **Products → Create product**. Choose a brand/category or use **Create brand / Create category** directly in the editor, including on an empty store. Category attributes can define required product or SKU specifications.
 2. Enter the name, description, real specifications, model, search-engine copy and SKU details. Leave the URL slug blank to generate it from the name. **Feature on homepage** includes the published product in a featured-products section.
@@ -30,6 +36,8 @@ To fix an existing product's photos, open **Products → your product → Media*
 
 Orders expose their immutable purchased configuration, quantity, totals and status. Development simulator orders transfer no money and remain pending. Offline payment recording is an explicit staff action with a reason/reference; it is not a card provider integration.
 
+Settings shows a read-only Payment setup panel using the same enabled-method checks as checkout. It distinguishes offline collection, the local development simulator, unavailable card payments and unavailable automated refunds. Provider controls are disabled; this page does not collect credentials or change payment configuration. Quote inquiries and permission-protected Direct Sales payment recording retain their separate workflows. Card provider configuration is deferred at the merchant's request.
+
 Fulfil only the quantities actually dispatched and provide the carrier/tracking information available. Partial fulfilment is supported. Cancelling an unfulfilled order releases its reservations; cancellation after shipment is rejected. The worker expires unpaid, unfulfilled reservations after 24 hours.
 
 Customers can request returns against eligible fulfilled quantities. Staff review each request, then separately record receipt as damaged or restockable. Restocking requires inventory adjustment permission as well as return permission. A return does not automatically refund money. Refund requests are recorded for review; execution deliberately reports that a provider is not connected.
@@ -40,12 +48,14 @@ Categories, brands, attributes, collections, promotions, content pages and sched
 
 In **Homepage**, the section list follows page position. Open **Edit & preview** for the exact area you want:
 
-- **Hero & side banners:** headline, eyebrow, description, destination/button, background image and decorative footer text; show/hide the two side banners and edit their copy, images and destinations separately.
+- **Hero carousel & side banners:** add up to six slides. Search for and link a published Online Store product to use its actual photo and current price/quote status, or upload a real campaign photo. Edit each slide's headline, copy, destination, image description and colour; use Earlier/Later or Remove to arrange it. Automatic selection uses real published products when no custom slides or legacy hero upload are set. Rotation is optional and off by default. Existing uploaded hero images and the two side-banner settings remain editable. Side banners need an uploaded image; no illustrative fallback is inserted.
 - **Call to action banner:** editable headline, supporting copy, image, button and decorative text. The old hardcoded workspace CTA is now a normal section.
 - **Custom HTML banner:** paste HTML or insert the starter template. Use inline colours/spacing and `/media/…` paths from uploaded images. Scripts, forms, embeds, external URLs and unsafe CSS are stripped by the server. Preview shows the sanitized result.
 - **Featured products**, **Discounted products**, **New arrivals** and **Departments:** independent data selections with editable headings, destinations and button labels. Empty product/department sections stay hidden on the public homepage.
 
-Click **Preview this section** to see only that area in a desktop or mobile frame. Previewing does not save or publish; its links and shopping controls are disabled. After editing again, refresh the preview. Upload selected files before saving or previewing. **Save homepage section** saves the current visibility setting; new sections start hidden. Check **Visible on storefront** and save to publish. Optional start/end dates use Dubai time (UTC+4). Lower position numbers appear first. Conflicting edits from another tab require a reload rather than silently overwriting content.
+Click **Preview this section** to see only that area in a desktop or mobile frame using the same marketplace styling as the storefront. Previewing does not save or publish; its links and shopping controls are disabled, while carousel arrows and slide selectors work. After editing again, refresh the preview. Upload selected files before saving or previewing. **Save homepage section** saves the current visibility setting; new sections start hidden. Check **Visible on storefront** and save to publish. Optional start/end dates use Dubai time (UTC+4). Lower position numbers appear first. Conflicting edits from another tab require a reload rather than silently overwriting content.
+
+A product-linked slide is automatically excluded if its product later becomes private, draft, Direct-only or loses its published photo. To list imported quote products on the homepage, choose New arrivals or a Curated shopping section with the appropriate department; they need not be marked Featured. If every configured product shelf has no matches, a general catalogue shelf shows the newest eligible products. The All products route remains paginated and searchable. Importing drafts or deploying code alone does not publish products.
 
 Uploaded banner assets remain private until their attached section is visible and within its schedule, including images inside HTML and hero side banners. Turn off Visible to remove a section. Already-cached public image responses may remain visible for up to five minutes. File removal and general media-library cleanup are separate future work; product photo ordering is available in each product editor.
 
@@ -69,6 +79,8 @@ The Jobs screen shows queued, running, completed, failed and blocked work. Missi
 The exact registry is `src/domains/identity.ts`. Create individual staff accounts with strong initial passwords and revoke sessions when needed. In **Staff & access → Manage access**, the Owner can change a named colleague’s role or select **No staff access**. Saving clears custom grants and signs the colleague out on every device. The Owner cannot remove their own access or alter another Owner here. Public customer registrations cannot be promoted through this workflow; create a named staff account. Arbitrary custom-grant editing remains unavailable.
 
 Owners can create named scoped API clients, choose expiry and copy the one-time key. Store it in the integration's secret manager. Revoke compromised keys immediately. Current rotation uses issuance of a replacement client/key followed by revocation; a dedicated overlapping rotation workflow is future work.
+
+Revoking or expiring an integration key also prevents approval of its pending proposals. Each proposal stays tied to the exact original key: a replacement key does not revive it. Disabling the client or removing any required scope from the key or client also blocks approval. Failed approval changes no business record and leaves the proposal pending until its normal expiry; resubmit using an authorized key and review the fresh proposal. A completed approval is not undone by later revocation. Integration proposals created before key-provenance tracking must be resubmitted after the upgrade; existing staff proposals keep their normal permission, expiry and version checks.
 
 ## Account security and recovery
 

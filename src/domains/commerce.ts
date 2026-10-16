@@ -64,7 +64,11 @@ export function publicCart(cart: Awaited<ReturnType<typeof getCart>>) {
     ? {
         id: cart.id,
         items: cart.items.map((l) => {
-          const visible = isOnlineProduct(l.sku.product);
+          const visible =
+            l.sku.active &&
+            l.sku.price !== null &&
+            isOnlineProduct(l.sku.product) &&
+            !l.sku.product.quoteOnly;
           const media = visible ? l.sku.product.media[0] : undefined;
           return {
             id: l.id,
@@ -90,6 +94,18 @@ export async function ensureCart(token?: string, userId?: string) {
   if (current) {
     if (userId && !current.userId) {
       await db.$transaction(async (tx) => {
+        // The guest lookup happened before this transaction. Claim only an
+        // unowned cart, before merging any account's private saved items.
+        // A concurrent sign-in must never overwrite the winning owner.
+        const claimed = await tx.cart.updateMany({
+          where: { id: current.id, userId: null },
+          data: { userId },
+        });
+        invariant(
+          claimed.count === 1,
+          409,
+          "Your cart changed during sign-in. Reload your cart and try again.",
+        );
         const others = await tx.cart.findMany({
           where: { userId, id: { not: current.id } },
           include: { items: true },
@@ -118,7 +134,6 @@ export async function ensureCart(token?: string, userId?: string) {
         await tx.cart.deleteMany({
           where: { id: { in: others.map((c) => c.id) } },
         });
-        await tx.cart.update({ where: { id: current.id }, data: { userId } });
       });
     }
     const currentToken =
@@ -179,7 +194,11 @@ export async function setCartItem(cartId: string, raw: unknown) {
       include: { product: { include: { category: true } } },
     });
     invariant(
-      sku && sku.active && isOnlineProduct(sku.product) && sku.price !== null,
+      sku &&
+        sku.active &&
+        isOnlineProduct(sku.product) &&
+        !sku.product.quoteOnly &&
+        sku.price !== null,
       404,
       "This item is no longer available.",
     );
@@ -217,8 +236,8 @@ export async function quoteTx(
   couponCode?: string,
   channel: "ONLINE" | "DIRECT" = "ONLINE",
 ) {
-  // Serialize visibility changes with online checkout; a hidden product cannot
-  // be purchased from an old cart after the visibility change has committed.
+  // Serialize visibility/quote-mode changes with online checkout so an old
+  // cart cannot purchase after either restriction has committed.
   await tx.$queryRaw`SELECT p.id FROM "Product" p JOIN "Sku" s ON s."productId"=p.id JOIN "CartItem" ci ON ci."skuId"=s.id WHERE ci."cartId"=${cartId} ORDER BY p.id FOR SHARE OF p`;
   const cart = await tx.cart.findUnique({
     where: { id: cartId },
@@ -236,7 +255,8 @@ export async function quoteTx(
     invariant(
       sku.active &&
         sku.product.status === "PUBLISHED" &&
-        (channel === "DIRECT" || sku.product.store) &&
+        (channel === "DIRECT" ||
+          (sku.product.store && !sku.product.quoteOnly)) &&
         sku.product.category.visible &&
         sku.price !== null &&
         sku.onHand - sku.reserved >= quantity,
@@ -524,6 +544,7 @@ export async function ownedOrder(
         },
       ],
     },
+    omit: { guestTokenHash: true },
     include: {
       items: true,
       shipments: true,
@@ -535,16 +556,20 @@ export async function ownedOrder(
   invariant(order, 404, "Order not found or access has expired.");
   return order;
 }
-export async function requestReturn(userId: string, raw: unknown) {
-  const data = z
-    .object({
-      orderId: z.string(),
-      itemId: z.string(),
-      quantity: z.number().int().positive(),
-      reason: z.string().min(10).max(1000),
-    })
-    .strict()
-    .parse(raw);
+export const returnRequestInput = z
+  .object({
+    orderId: z.string(),
+    itemId: z.string(),
+    quantity: z.number().int().positive(),
+    reason: z.string().min(10).max(1000),
+  })
+  .strict();
+export async function requestReturn(
+  userId: string,
+  raw: unknown,
+  key?: string,
+) {
+  const data = returnRequestInput.parse(raw);
   return db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${data.orderId},2))`;
     const order = await tx.order.findFirst({
@@ -552,24 +577,31 @@ export async function requestReturn(userId: string, raw: unknown) {
       include: { items: true, returns: true },
     });
     invariant(order, 404, "Order not found.");
-    const item = order.items.find((i) => i.id === data.itemId);
-    const pending = order.returns
-      .filter((r) => !["REJECTED", "RECEIVED"].includes(r.status))
-      .flatMap((r) => r.items as { itemId: string; quantity: number }[])
-      .filter((i) => i.itemId === data.itemId)
-      .reduce((a, i) => a + i.quantity, 0);
-    invariant(
-      item && data.quantity <= item.fulfilled - item.returned - pending,
-      422,
-      "Quantity exceeds the remaining returnable items.",
-    );
-    return tx.returnRequest.create({
-      data: {
-        orderId: order.id,
-        reason: data.reason,
-        items: [{ itemId: data.itemId, quantity: data.quantity }],
-      },
-    });
+    const create = async () => {
+      const item = order.items.find((i) => i.id === data.itemId);
+      const pending = order.returns
+        .filter((r) => !["REJECTED", "RECEIVED"].includes(r.status))
+        .flatMap((r) => r.items as { itemId: string; quantity: number }[])
+        .filter((i) => i.itemId === data.itemId)
+        .reduce((a, i) => a + i.quantity, 0);
+      invariant(
+        item && data.quantity <= item.fulfilled - item.returned - pending,
+        422,
+        "Quantity exceeds the remaining returnable items.",
+      );
+      return tx.returnRequest.create({
+        data: {
+          orderId: order.id,
+          reason: data.reason,
+          items: [{ itemId: data.itemId, quantity: data.quantity }],
+        },
+      });
+    };
+    // Legacy callers may omit a key; any supplied key must be valid. Ownership
+    // is checked above even for a replay, before returning its saved result.
+    return key === undefined
+      ? create()
+      : idempotent(tx, userId, "return.request", key, data, create);
   });
 }
 export async function fulfil(
@@ -592,6 +624,10 @@ export async function fulfil(
     409,
     "Order cannot be fulfilled.",
   );
+  // Different orders can share SKUs while their shipment lines use opposite
+  // orders. Match checkout/cancellation lock ordering before any stock write,
+  // keeping the reviewed shipment payload in its original order.
+  await tx.$queryRaw`SELECT s.id FROM "Sku" s JOIN "OrderItem" oi ON oi."skuId"=s.id WHERE oi."orderId"=${orderId} ORDER BY s.id FOR UPDATE OF s`;
   for (const l of data.items) {
     const item = order.items.find((i) => i.id === l.itemId);
     invariant(

@@ -1,4 +1,5 @@
 import { onlineProductWhere } from "@/lib/product-visibility";
+import { createInquiry } from "@/domains/inquiries";
 import { publicCart } from "@/domains/commerce";
 import { listContacts, getContact } from "@/domains/contacts";
 import {
@@ -60,7 +61,7 @@ import {
   permissions,
   roles,
 } from "@/domains/identity";
-import { propose, approve } from "@/domains/approvals";
+import { propose, approve, reject } from "@/domains/approvals";
 import {
   adminList,
   saveResource,
@@ -74,6 +75,10 @@ import {
 } from "@/domains/administration";
 import { storeImage } from "@/domains/storage";
 import { updateProductMedia } from "@/domains/product-media";
+import {
+  previewCatalogueImport,
+  commitCatalogueImport,
+} from "@/domains/catalogue-import";
 import { startAiRun, providerStatus } from "@/domains/ai";
 import { reviewReturn } from "@/domains/returns";
 import { profileInput } from "@/lib/account-input";
@@ -235,24 +240,7 @@ async function dispatch(
         `inquiry:${req.headers.get("x-forwarded-for") ?? "shared"}`,
         10,
       );
-      const d = z
-        .object({
-          name: z.string().min(2).max(100),
-          email: z.email().max(200),
-          subject: z.string().min(2).max(150),
-          message: z.string().min(10).max(5000),
-        })
-        .strict()
-        .parse(await body());
-      const row = await db.inquiry.create({ data: d });
-      return ok(
-        {
-          id: row.id,
-          message:
-            "Your inquiry has been saved. Email delivery is not configured.",
-        },
-        201,
-      );
+      return ok(await createInquiry(await body()), 201);
     }
   }
   if (area === "account") {
@@ -317,12 +305,26 @@ async function dispatch(
           }),
         );
       invariant(method === "POST", 405, "Method not allowed.");
-      return ok(await requestReturn(userId, await body()), 201);
+      return ok(
+        await requestReturn(
+          userId,
+          await body(),
+          req.headers.get("idempotency-key") ?? undefined,
+        ),
+        201,
+      );
     }
     if (resource === "wishlist") {
       if (method === "GET") {
         const items = await db.wishlistItem.findMany({
-          where: { userId, sku: { product: onlineProductWhere } },
+          where: {
+            userId,
+            sku: {
+              active: true,
+              product: onlineProductWhere,
+              OR: [{ product: { quoteOnly: true } }, { price: { not: null } }],
+            },
+          },
           include: {
             sku: { include: { product: { include: includeProduct } } },
           },
@@ -348,6 +350,7 @@ async function dispatch(
               id: skuId,
               active: true,
               product: onlineProductWhere,
+              OR: [{ product: { quoteOnly: true } }, { price: { not: null } }],
             },
           }),
           404,
@@ -565,6 +568,9 @@ async function dispatch(
               ? s.reserved
               : undefined,
             price: actor.scopes.includes("pricing:read") ? s.price : undefined,
+            compareAt: actor.scopes.includes("pricing:read")
+              ? s.compareAt
+              : undefined,
           })),
         });
       }
@@ -606,20 +612,7 @@ async function dispatch(
     }
     if (resource === "proposals" && method === "POST") {
       if (id && action === "approve") return ok(await approve(actor, id));
-      if (id && action === "reject") {
-        invariant(actor.human, 403, "Human review required.");
-        const p = await db.proposal.findUnique({ where: { id } });
-        invariant(
-          p && (p.actorId === actor.id || actor.role === "OWNER"),
-          404,
-          "Proposal not found.",
-        );
-        await db.proposal.updateMany({
-          where: { id, status: "PENDING" },
-          data: { status: "REJECTED", approverId: actor.id },
-        });
-        return ok({ rejected: true });
-      }
+      if (id && action === "reject") return ok(await reject(actor, id));
       const d = z
         .object({
           operation: z.string(),
@@ -688,6 +681,13 @@ async function dispatch(
         return ok({ revoked: true });
       }
       return ok(await createStaff(actor, await body()), 201);
+    }
+    if (resource === "catalogue-imports" && method === "POST") {
+      if (!id)
+        return ok(await previewCatalogueImport(actor, await body()), 201);
+      if (action === "commit")
+        return ok(await commitCatalogueImport(actor, id, await body()), 201);
+      throw new AppError(404, "Endpoint not found.");
     }
     if (resource === "imports" && method === "POST")
       return ok(

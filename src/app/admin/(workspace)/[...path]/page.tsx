@@ -11,7 +11,13 @@ import { notFound, redirect } from "next/navigation";
 import { Plus, ArrowUpRight, FileText, ShieldCheck } from "lucide-react";
 import { staffPageActor } from "@/lib/session";
 import { db } from "@/lib/db";
-import { modules, adminList, dashboard } from "@/domains/administration";
+import {
+  modules,
+  adminList,
+  dashboard,
+  requireModuleAccess,
+} from "@/domains/administration";
+import { canReadProposal } from "@/domains/approvals";
 import {
   roles,
   staffRoleLabels,
@@ -19,7 +25,7 @@ import {
   type Permission,
 } from "@/domains/identity";
 import { providerStatus } from "@/domains/ai";
-import { includeProduct, publicProduct } from "@/domains/catalogue";
+import { includeProduct, staffProductPreview } from "@/domains/catalogue";
 import { AppError } from "@/lib/errors";
 import { json, money, date } from "@/lib/utils";
 import {
@@ -35,6 +41,9 @@ import { MutationForm, type Field, PrintButton } from "@/components/forms";
 import { Gallery } from "@/components/store-client";
 import { apiOperations, openapi } from "@/lib/openapi";
 import { HomeSectionEditor } from "@/components/home-section-editor";
+import { CatalogueImport } from "@/components/catalogue-import";
+import { AdminPaymentReadiness } from "@/components/admin-payment-readiness";
+import { paymentMethods } from "@/domains/commerce";
 
 const writeScope = (resource: string): Permission =>
   ["categories", "brands", "attributes", "collections"].includes(resource)
@@ -151,7 +160,7 @@ export default async function AdminPage({
         actor.scopes.includes("direct_sales:read")
       )
     )
-      requireScope(actor, mod.scope as Permission);
+      requireModuleAccess(actor, resource);
     if (resource === "products" && id) {
       const [categories, brands] = await Promise.all([
         db.category.findMany({ orderBy: { name: "asc" } }),
@@ -179,7 +188,7 @@ export default async function AdminPage({
       });
       if (!p) notFound();
       if (action === "preview") {
-        const safe = publicProduct(p, true);
+        const safe = staffProductPreview(p, actor);
         return (
           <>
             <Heading
@@ -203,7 +212,15 @@ export default async function AdminPage({
                   {safe.skus.map((s) => (
                     <div key={s.id}>
                       <span>{s.code}</span>
-                      <b>{money(s.price)}</b>
+                      <b>
+                        {!actor.scopes.includes("pricing:read")
+                          ? "Price restricted"
+                          : safe.quoteOnly
+                            ? "Request a quote"
+                            : s.price === null
+                              ? "Price not set"
+                              : money(s.price)}
+                      </b>
                     </div>
                   ))}
                 </div>
@@ -251,7 +268,7 @@ export default async function AdminPage({
     }
     if (resource === "proposals" && id) {
       const p = await db.proposal.findUnique({ where: { id } });
-      if (!p || (p.actorId !== actor.id && actor.role !== "OWNER")) notFound();
+      if (!p || !canReadProposal(actor, p)) notFound();
       const orderProposal = [
         "order.fulfil",
         "order.cancel",
@@ -353,11 +370,13 @@ export default async function AdminPage({
                 <ActionButton
                   endpoint={`admin/proposals/${id}/approve`}
                   label="Approve & apply change"
+                  refreshOnError
                 />
                 <ActionButton
                   endpoint={`admin/proposals/${id}/reject`}
                   label="Reject"
                   danger
+                  refreshOnError
                 />
               </div>
             )}
@@ -458,6 +477,7 @@ export default async function AdminPage({
                   method="PATCH"
                   payload={{ status: "APPROVED" }}
                   label="Approve request"
+                  refreshOnError
                 />
                 <ActionButton
                   endpoint={`admin/returns/${id}`}
@@ -465,6 +485,7 @@ export default async function AdminPage({
                   payload={{ status: "REJECTED" }}
                   label="Reject request"
                   danger
+                  refreshOnError
                 />
               </div>
             )}
@@ -615,8 +636,8 @@ export default async function AdminPage({
             style={{ marginTop: 24 }}
           >
             {actor.scopes.includes("fulfillments:write") &&
-              o.status !== "CANCELLED" &&
-              o.fulfillmentStatus !== "FULFILLED" && (
+              ["PLACED", "PROCESSING"].includes(o.status) &&
+              o.items.some((i) => i.fulfilled < i.quantity) && (
                 <div className="panel">
                   <h2 style={{ marginBottom: 18 }}>Prepare shipment</h2>
                   <OrderFulfilment
@@ -632,7 +653,8 @@ export default async function AdminPage({
                 </div>
               )}
             {actor.scopes.includes("orders:cancel") &&
-              !["CANCELLED", "COMPLETED"].includes(o.status) && (
+              !["CANCELLED", "COMPLETED", "EXPIRED"].includes(o.status) &&
+              o.items.every((i) => i.fulfilled === 0) && (
                 <div className="panel">
                   <h2 style={{ marginBottom: 18 }}>Cancel order</h2>
                   <ProposalForm
@@ -649,7 +671,8 @@ export default async function AdminPage({
               )}
             {actor.scopes.includes("payments:record") &&
               o.paymentMethod === "OFFLINE" &&
-              o.paymentStatus === "PENDING" && (
+              o.paymentStatus === "PENDING" &&
+              ["PLACED", "PROCESSING", "COMPLETED"].includes(o.status) && (
                 <div className="panel">
                   <h2 style={{ marginBottom: 18 }}>Record verified payment</h2>
                   <ProposalForm
@@ -745,6 +768,7 @@ export default async function AdminPage({
             title="Make Inforteks yours."
             description="Store identity, tax configuration and integration readiness."
           />
+          <AdminPaymentReadiness methods={paymentMethods()} />
           <div className="integration-grid">
             {[
               {
@@ -754,14 +778,6 @@ export default async function AdminPage({
                     ? "Configured"
                     : "Not connected",
                 note: "OpenAI and Anthropic adapters. Models and keys stay on the server.",
-              },
-              {
-                name: "Payments",
-                status:
-                  process.env.OFFLINE_PAYMENTS_ENABLED === "true"
-                    ? "Offline enabled"
-                    : "Live provider not connected",
-                note: "The development simulator is rejected in production.",
               },
               {
                 name: "Storage",
@@ -870,6 +886,7 @@ export default async function AdminPage({
             title="Bring your catalogue together."
             description="Validate first. Review the outcome. Commit intentionally."
           />
+          <CatalogueImport />
           <div className="panel">
             <ImportForm />
           </div>
@@ -1096,6 +1113,14 @@ export default async function AdminPage({
           <div className="panel admin-editor">
             {resource === "home-sections" ? (
               <HomeSectionEditor
+                categories={await db.category.findMany({
+                  select: { name: true, slug: true },
+                  orderBy: { position: "asc" },
+                })}
+                collections={await db.collection.findMany({
+                  select: { name: true, slug: true },
+                  orderBy: { name: "asc" },
+                })}
                 key={String(existing?.id ?? "new")}
                 values={json(existing) ?? {}}
               />
@@ -1263,6 +1288,12 @@ export default async function AdminPage({
       query.q ?? "",
     )) as Record<string, unknown>[];
     const rows = Array.isArray(records) ? records : [];
+    const productSearch = resource === "products" && Boolean(query.q);
+    const pageHref = (page: number) =>
+      `?${new URLSearchParams({
+        ...(query.q ? { q: query.q } : {}),
+        page: String(page),
+      })}`;
     const columns: Record<string, string[]> = {
       products: ["name", "status", "store", "category", "updatedAt"],
       categories: ["name", "slug", "visible", "position"],
@@ -1455,20 +1486,28 @@ export default async function AdminPage({
           ) : (
             <div className="empty-state">
               <FileText size={30} />
-              <h3>A fresh start.</h3>
+              <h3>
+                {productSearch ? "No matching products." : "A fresh start."}
+              </h3>
               <p>
-                No records yet. New activity will appear here as your store
-                grows.
+                {productSearch
+                  ? "Try a different product name or clear the search to see all products."
+                  : "No records yet. New activity will appear here as your store grows."}
               </p>
+              {productSearch && (
+                <Link href="/admin/products" className="button">
+                  Clear search
+                </Link>
+              )}
             </div>
           )}
           <nav className="pagination" aria-label="Admin pages">
             {Number(query.page ?? 1) > 1 && (
-              <Link href={`?page=${Number(query.page) - 1}`}>Previous</Link>
+              <Link href={pageHref(Number(query.page) - 1)}>Previous</Link>
             )}
             <span className="form-help">Page {query.page ?? 1}</span>
             {rows.length === 30 && (
-              <Link href={`?page=${Number(query.page ?? 1) + 1}`}>Next</Link>
+              <Link href={pageHref(Number(query.page ?? 1) + 1)}>Next</Link>
             )}
           </nav>
         </div>
