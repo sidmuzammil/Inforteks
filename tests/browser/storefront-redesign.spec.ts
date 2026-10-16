@@ -35,6 +35,8 @@ test("search has scoped results, empty feedback, dismissal and no stale selectio
 test("every rendered shopping shelf card remains reachable at desktop and mobile widths", async ({
   page,
 }) => {
+  // The homepage renders a shelf per department, so this walks many cards.
+  test.slow();
   for (const width of [1440, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 950 });
     await page.goto("/");

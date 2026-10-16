@@ -142,7 +142,7 @@ export default async function Home() {
               title: category.name,
               subtitle: `${selection.total} ${selection.total === 1 ? "product" : "products"}`,
               href: `/category/${category.slug}`,
-              buttonLabel: `View all ${category.name}`,
+              buttonLabel: "View all",
               bannerMediaId: null,
               position: 0,
               visible: true,
